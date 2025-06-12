@@ -342,6 +342,61 @@ const ResourcePlanner = () => {
         </div>
       </div>
 
+      {/* Date Headers */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="flex items-stretch">
+          <div className="w-72 flex-shrink-0"></div>
+          <div className={`flex-1 ${
+            selectedView === 'year' ? 'grid grid-cols-12 gap-2' :
+            selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+            selectedView === 'month' ? 'grid grid-cols-5 gap-3' : 
+            'grid grid-cols-9 gap-2'
+          }`}>
+            {selectedView === 'year' ? (
+              Array.from({ length: 12 }, (_, i) => (
+                <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                  i === 11 ? 'bg-blue-500 text-white font-semibold' : 'text-gray-700 font-medium bg-white border border-gray-200'
+                }`}>
+                  <div className="uppercase tracking-wide">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</div>
+                  <div className="text-xs font-bold">{i + 1}</div>
+                  {i === 11 && <div className="text-xs">NOW</div>}
+                </div>
+              ))
+            ) : selectedView === 'quarter' ? (
+              ['Oct', 'Nov', 'Dec'].map((month, i) => (
+                <div key={i} className={`text-center py-1 px-2 rounded border ${
+                  i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <div className="text-sm font-semibold">{month}</div>
+                  <div className="text-xs opacity-75">{i + 10}</div>
+                  {i === 2 && <div className="text-xs font-medium">NOW</div>}
+                </div>
+              ))
+            ) : selectedView === 'month' ? (
+              ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'].map((week, i) => (
+                <div key={i} className={`text-center py-1 px-2 rounded border ${
+                  i === 1 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <div className="text-sm font-semibold">{week}</div>
+                  <div className="text-xs opacity-75">Dec {i * 7 + 1}-{(i + 1) * 7}</div>
+                  {i === 1 && <div className="text-xs font-medium">NOW</div>}
+                </div>
+              ))
+            ) : (
+              ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, i) => (
+                <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                  i === 0 ? 'bg-blue-500 text-white font-semibold' :
+                  i === 2 || i === 3 ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
+                }`}>
+                  <div className="uppercase tracking-wide">{day}</div>
+                  <div className="text-sm font-bold">{12 + i}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="p-4">
         {Object.entries(filteredDepartmentGroups).map(([department, members]) => (
           <div key={department} className="mb-8">
@@ -447,6 +502,39 @@ const ResourcePlanner = () => {
                                 </span>
                               </div>
                             </div>
+                          </div>
+                          
+                          <div className={`flex-1 ${
+                            selectedView === 'year' ? 'grid grid-cols-12 gap-2' :
+                            selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                            selectedView === 'month' ? 'grid grid-cols-5 gap-3' : 
+                            'grid grid-cols-9 gap-2'
+                          }`}>
+                            {selectedView === 'year' ? 
+                              Array.from({ length: 12 }, (_, dateIdx) => (
+                                <div key={dateIdx} className={`h-6 rounded ${
+                                  dateIdx >= 6 ? `${task.color} opacity-60` : 'bg-gray-100'
+                                } ${dateIdx === 11 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                              )) :
+                              selectedView === 'quarter' ? 
+                              Array.from({ length: 3 }, (_, dateIdx) => (
+                                <div key={dateIdx} className={`h-6 rounded ${
+                                  `${task.color} opacity-70`
+                                } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                              )) :
+                              selectedView === 'month' ? 
+                              Array.from({ length: 5 }, (_, dateIdx) => (
+                                <div key={dateIdx} className={`h-6 rounded ${
+                                  dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
+                                } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                              )) :
+                              task.pattern.map((isActive, dateIdx) => (
+                                <div key={dateIdx} className={`h-6 rounded ${
+                                  dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
+                                  isActive ? `${task.color} opacity-80` : 'bg-gray-100'
+                                }`}></div>
+                              ))
+                            }
                           </div>
                         </div>
                       );
