@@ -189,6 +189,44 @@ const ResourcePlanner = () => {
     // Here you would update the team member's tasks in state/database
   };
 
+  // Project structure for assignment dropdown
+  const projectStructure = {
+    'AI Platform': {
+      'Core Architecture': ['System Design & Planning', 'Technical Documentation', 'Code Review'],
+      'ML Algorithms': ['Model Development', 'Algorithm Optimization', 'Performance Testing'],
+      'Data Pipeline': ['ETL Development', 'Data Validation', 'Pipeline Monitoring']
+    },
+    'BIORADAR': {
+      'Clinical Studies': ['Protocol Development', 'Data Collection', 'Analysis'],
+      'Backend Infrastructure': ['API Development', 'Database Design', 'Security Implementation'],
+      'Long-term Research Analysis': ['Literature Review', 'Methodology Design', 'Statistical Analysis']
+    },
+    'ENERGIZE': {
+      'Mobile App': ['Frontend Development', 'UI/UX Design', 'Testing'],
+      'Backend Services': ['API Integration', 'Data Management', 'Performance Optimization']
+    },
+    'H20forALL': {
+      'ML Models': ['Data Preprocessing', 'Model Training', 'Evaluation'],
+      'Web Platform': ['Frontend Development', 'Backend Integration', 'Deployment']
+    },
+    'FoodSafeR': {
+      'API Maintenance': ['Bug Fixes & Updates', 'Performance Improvements', 'Documentation'],
+      'Mobile Integration': ['API Integration', 'Testing', 'Deployment']
+    },
+    'Legacy System Migration': {
+      'Database Migration': ['Schema Analysis', 'Data Migration Scripts', 'Testing & Validation'],
+      'Application Modernization': ['Code Refactoring', 'Technology Upgrade', 'Integration Testing']
+    },
+    'Process Automation': {
+      'Workflow Optimization': ['Current State Analysis', 'Process Redesign', 'Implementation'],
+      'System Integration': ['API Development', 'Data Flow Design', 'Testing']
+    },
+    'Infrastructure': {
+      'System Integration': ['Architecture Planning', 'Implementation', 'Testing'],
+      'DevOps': ['CI/CD Setup', 'Monitoring', 'Deployment Automation']
+    }
+  };
+
   // Enhanced team members with long-term tasks
   const teamMembers = [
     {
@@ -628,6 +666,8 @@ const ResourcePlanner = () => {
                   project: formData.get('project'),
                   activity: formData.get('activity'),
                   task: formData.get('task'),
+                  isOrphan: formData.get('isOrphan') === 'on',
+                  orphanTitle: formData.get('orphanTitle'),
                   estimatedHours: parseInt(formData.get('estimatedHours')),
                   startDate: formData.get('startDate'),
                   endDate: formData.get('endDate'),
@@ -637,42 +677,118 @@ const ResourcePlanner = () => {
                 submitTaskAssignment(taskData);
               }}>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                      <option value="">Select Project</option>
-                      <option value="AI Platform">AI Platform</option>
-                      <option value="BIORADAR">BIORADAR</option>
-                      <option value="ENERGIZE">ENERGIZE</option>
-                      <option value="H20forALL">H20forALL</option>
-                      <option value="FoodSafeR">FoodSafeR</option>
-                      <option value="Legacy System Migration">Legacy System Migration</option>
-                      <option value="Process Automation">Process Automation</option>
-                      <option value="Infrastructure">Infrastructure</option>
-                    </select>
+                  {/* Orphan Task Toggle */}
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      id="isOrphan" 
+                      name="isOrphan"
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        const linkedFields = document.querySelectorAll('.linked-field');
+                        const orphanField = document.querySelector('.orphan-field');
+                        
+                        linkedFields.forEach(field => {
+                          field.style.display = isChecked ? 'none' : 'block';
+                          field.querySelectorAll('select, input').forEach(input => {
+                            input.required = !isChecked;
+                          });
+                        });
+                        
+                        if (orphanField) {
+                          orphanField.style.display = isChecked ? 'block' : 'none';
+                          orphanField.querySelector('input').required = isChecked;
+                        }
+                      }}
+                    />
+                    <label htmlFor="isOrphan" className="text-sm font-medium text-gray-700">
+                      Create orphan task (not linked to existing project structure)
+                    </label>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Activity</label>
+                  {/* Orphan Task Title */}
+                  <div className="orphan-field" style={{ display: 'none' }}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
                     <input 
                       type="text" 
-                      name="activity"
-                      required 
-                      placeholder="e.g., Frontend Development, Data Analysis, Testing..."
+                      name="orphanTitle"
+                      placeholder="e.g., Ad-hoc research, Emergency fix..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Linked Project Structure */}
+                  <div className="linked-field">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                    <select 
+                      name="project" 
+                      required 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      onChange={(e) => {
+                        const project = e.target.value;
+                        const activitySelect = document.querySelector('select[name="activity"]');
+                        const taskSelect = document.querySelector('select[name="task"]');
+                        
+                        // Clear and populate activity dropdown
+                        activitySelect.innerHTML = '<option value="">Select Activity</option>';
+                        taskSelect.innerHTML = '<option value="">Select Task</option>';
+                        
+                        if (project && projectStructure[project]) {
+                          Object.keys(projectStructure[project]).forEach(activity => {
+                            const option = document.createElement('option');
+                            option.value = activity;
+                            option.textContent = activity;
+                            activitySelect.appendChild(option);
+                          });
+                        }
+                      }}
+                    >
+                      <option value="">Select Project</option>
+                      {Object.keys(projectStructure).map(project => (
+                        <option key={project} value={project}>{project}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="linked-field">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Activity</label>
+                    <select 
+                      name="activity" 
+                      required 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      onChange={(e) => {
+                        const project = document.querySelector('select[name="project"]').value;
+                        const activity = e.target.value;
+                        const taskSelect = document.querySelector('select[name="task"]');
+                        
+                        // Clear and populate task dropdown
+                        taskSelect.innerHTML = '<option value="">Select Task</option>';
+                        
+                        if (project && activity && projectStructure[project][activity]) {
+                          projectStructure[project][activity].forEach(task => {
+                            const option = document.createElement('option');
+                            option.value = task;
+                            option.textContent = task;
+                            taskSelect.appendChild(option);
+                          });
+                        }
+                      }}
+                    >
+                      <option value="">Select Activity</option>
+                    </select>
+                  </div>
+
+                  <div className="linked-field grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
-                      <input 
-                        type="text" 
+                      <select 
                         name="task"
                         required 
-                        placeholder="e.g., Create login form, Write unit tests..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
+                      >
+                        <option value="">Select Task</option>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
