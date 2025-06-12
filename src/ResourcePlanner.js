@@ -202,7 +202,8 @@ const ResourcePlanner = () => {
       tasks: [
         {
           project: 'AI Platform',
-          task: 'Core Architecture',
+          activity: 'Core Architecture',
+          task: 'System Design & Planning',
           color: 'bg-purple-600',
           estimatedHours: 200,
           actualHours: 85,
@@ -211,6 +212,7 @@ const ResourcePlanner = () => {
           endWeek: 24, // 32 weeks total (8 months)
           pattern: [true, true, false, false, true, true, false, true, true],
           isLongTerm: true,
+          totalActivityHours: 300,
           totalProjectHours: 500,
           projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
           // Velocity tracking data
@@ -234,7 +236,8 @@ const ResourcePlanner = () => {
         },
         {
           project: 'FoodSafeR',
-          task: 'API Maintenance',
+          activity: 'API Maintenance',
+          task: 'Bug Fixes & Updates',
           color: 'bg-blue-500',
           estimatedHours: 24,
           actualHours: 18,
@@ -257,7 +260,8 @@ const ResourcePlanner = () => {
       tasks: [
         {
           project: 'AI Platform',
-          task: 'ML Algorithms',
+          activity: 'ML Algorithms',
+          task: 'Model Development',
           color: 'bg-purple-600',
           estimatedHours: 200,
           actualHours: 120,
@@ -266,6 +270,7 @@ const ResourcePlanner = () => {
           endWeek: 24, // 32 weeks total
           pattern: [true, true, false, false, true, true, true, true, true],
           isLongTerm: true,
+          totalActivityHours: 250,
           totalProjectHours: 500,
           projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
           // Velocity tracking for Sarah
@@ -289,7 +294,8 @@ const ResourcePlanner = () => {
         },
         {
           project: 'ENERGIZE',
-          task: 'Mobile App',
+          activity: 'Mobile App',
+          task: 'Frontend Development',
           color: 'bg-teal-500',
           estimatedHours: 50,
           actualHours: 28,
@@ -312,7 +318,8 @@ const ResourcePlanner = () => {
       tasks: [
         {
           project: 'AI Platform',
-          task: 'Data Pipeline',
+          activity: 'Data Pipeline',
+          task: 'ETL Development',
           color: 'bg-purple-600',
           estimatedHours: 100,
           actualHours: 45,
@@ -321,6 +328,7 @@ const ResourcePlanner = () => {
           endWeek: 16, // 20 weeks total
           pattern: [true, true, false, false, true, true, true, true, false],
           isLongTerm: true,
+          totalActivityHours: 150,
           totalProjectHours: 500,
           projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
           // Velocity tracking for Dr. Raj
@@ -618,6 +626,7 @@ const ResourcePlanner = () => {
                 const formData = new FormData(e.target);
                 const taskData = {
                   project: formData.get('project'),
+                  activity: formData.get('activity'),
                   task: formData.get('task'),
                   estimatedHours: parseInt(formData.get('estimatedHours')),
                   startDate: formData.get('startDate'),
@@ -628,20 +637,42 @@ const ResourcePlanner = () => {
                 submitTaskAssignment(taskData);
               }}>
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                      <option value="">Select Project</option>
+                      <option value="AI Platform">AI Platform</option>
+                      <option value="BIORADAR">BIORADAR</option>
+                      <option value="ENERGIZE">ENERGIZE</option>
+                      <option value="H20forALL">H20forALL</option>
+                      <option value="FoodSafeR">FoodSafeR</option>
+                      <option value="Legacy System Migration">Legacy System Migration</option>
+                      <option value="Process Automation">Process Automation</option>
+                      <option value="Infrastructure">Infrastructure</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Activity</label>
+                    <input 
+                      type="text" 
+                      name="activity"
+                      required 
+                      placeholder="e.g., Frontend Development, Data Analysis, Testing..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                      <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                        <option value="">Select Project</option>
-                        <option value="AI Platform">AI Platform</option>
-                        <option value="BIORADAR">BIORADAR</option>
-                        <option value="ENERGIZE">ENERGIZE</option>
-                        <option value="H20forALL">H20forALL</option>
-                        <option value="FoodSafeR">FoodSafeR</option>
-                        <option value="Legacy System Migration">Legacy System Migration</option>
-                        <option value="Process Automation">Process Automation</option>
-                        <option value="Infrastructure">Infrastructure</option>
-                      </select>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+                      <input 
+                        type="text" 
+                        name="task"
+                        required 
+                        placeholder="e.g., Create login form, Write unit tests..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
@@ -655,22 +686,11 @@ const ResourcePlanner = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
-                    <input 
-                      type="text" 
-                      name="task"
-                      required 
-                      placeholder="e.g., Frontend Development, Data Analysis..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    />
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <textarea 
                       name="description"
                       rows="3"
-                      placeholder="Task details and requirements..."
+                      placeholder="Detailed task requirements and acceptance criteria..."
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                     ></textarea>
                   </div>
@@ -873,7 +893,11 @@ const ResourcePlanner = () => {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-gray-600 mb-1">{task.task}</div>
+                                <div className="text-xs text-gray-600 mb-1">
+                                  <span className="font-medium">{task.activity}</span>
+                                  <span className="text-gray-400 mx-1">→</span>
+                                  <span>{task.task}</span>
+                                </div>
                                 
                                 {/* Enhanced progress display for long-term tasks */}
                                 {task.isLongTerm ? (
@@ -881,8 +905,12 @@ const ResourcePlanner = () => {
                                     <div className="flex items-center space-x-2 text-xs text-gray-500">
                                       <span className="font-medium">{task.actualHours}h / {task.estimatedHours}h personal</span>
                                       <span>•</span>
+                                      <span className="text-orange-600">
+                                        {task.totalActivityHours}h activity
+                                      </span>
+                                      <span>•</span>
                                       <span className="text-purple-600">
-                                        {task.totalProjectHours}h total project
+                                        {task.totalProjectHours}h project
                                       </span>
                                     </div>
                                     
@@ -1137,7 +1165,11 @@ const ResourcePlanner = () => {
                   <div className={`w-4 h-4 rounded-full ${selectedTask.color}`}></div>
                   <div>
                     <h2 className="text-lg font-semibold">{selectedTask.project}</h2>
-                    <p className="text-gray-600">{selectedTask.task}</p>
+                    <p className="text-gray-600">
+                      <span className="font-medium">{selectedTask.activity}</span>
+                      <span className="text-gray-400 mx-2">→</span>
+                      <span>{selectedTask.task}</span>
+                    </p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
