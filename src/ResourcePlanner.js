@@ -7,6 +7,8 @@ const ResourcePlanner = () => {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedView, setSelectedView] = useState('week');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
+  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState(null);
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
@@ -171,6 +173,20 @@ const ResourcePlanner = () => {
     if (ratio >= 0.9) return '✅'; // On track
     if (ratio >= 0.7) return '⚠️'; // At risk
     return '🚨'; // Behind
+  };
+
+  // Task assignment functions
+  const handleAssignTask = (member) => {
+    setSelectedMemberForAssignment(member);
+    setShowAssignTaskModal(true);
+  };
+
+  const submitTaskAssignment = (taskData) => {
+    // In a real app, this would make an API call
+    console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
+    setShowAssignTaskModal(false);
+    setSelectedMemberForAssignment(null);
+    // Here you would update the team member's tasks in state/database
   };
 
   // Enhanced team members with long-term tasks
@@ -586,6 +602,152 @@ const ResourcePlanner = () => {
                 {selectedDepartment !== 'all' && (
                   <span className="text-blue-600 font-medium"> in {selectedDepartment}</span>
                 )}
+
+      {/* Task Assignment Modal */}
+      {showAssignTaskModal && selectedMemberForAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAssignTaskModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full m-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Assign Task to {selectedMemberForAssignment.name}</h2>
+                <button onClick={() => setShowAssignTaskModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const taskData = {
+                  project: formData.get('project'),
+                  task: formData.get('task'),
+                  estimatedHours: parseInt(formData.get('estimatedHours')),
+                  startDate: formData.get('startDate'),
+                  endDate: formData.get('endDate'),
+                  priority: formData.get('priority'),
+                  description: formData.get('description')
+                };
+                submitTaskAssignment(taskData);
+              }}>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                      <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <option value="">Select Project</option>
+                        <option value="AI Platform">AI Platform</option>
+                        <option value="BIORADAR">BIORADAR</option>
+                        <option value="ENERGIZE">ENERGIZE</option>
+                        <option value="H20forALL">H20forALL</option>
+                        <option value="FoodSafeR">FoodSafeR</option>
+                        <option value="Legacy System Migration">Legacy System Migration</option>
+                        <option value="Process Automation">Process Automation</option>
+                        <option value="Infrastructure">Infrastructure</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                      <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
+                    <input 
+                      type="text" 
+                      name="task"
+                      required 
+                      placeholder="e.g., Frontend Development, Data Analysis..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea 
+                      name="description"
+                      rows="3"
+                      placeholder="Task details and requirements..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    ></textarea>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Hours</label>
+                      <input 
+                        type="number" 
+                        name="estimatedHours"
+                        required 
+                        min="1"
+                        placeholder="40"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <input 
+                        type="date" 
+                        name="startDate"
+                        required 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <input 
+                        type="date" 
+                        name="endDate"
+                        required 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Capacity Check */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Current Capacity</div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Current allocation: {selectedMemberForAssignment.scheduled}h / {selectedMemberForAssignment.capacity}h</span>
+                      <span className={`font-medium ${
+                        selectedMemberForAssignment.utilization > 100 ? 'text-red-600' :
+                        selectedMemberForAssignment.utilization > 85 ? 'text-orange-600' : 'text-green-600'
+                      }`}>
+                        {selectedMemberForAssignment.utilization}% utilized
+                      </span>
+                    </div>
+                    {selectedMemberForAssignment.utilization > 85 && (
+                      <div className="text-xs text-orange-600 mt-1 flex items-center">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        This person is already highly utilized. Consider workload balance.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAssignTaskModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    Assign Task
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
               </span>
             </div>
           </div>
@@ -677,9 +839,17 @@ const ResourcePlanner = () => {
                       <div className="text-xs text-gray-500">{member.scheduled}h / {member.capacity}h</div>
                     </div>
                   </div>
-                  <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
-                    {member.utilization}%
-                    {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleAssignTask(member)}
+                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                    >
+                      + Assign Task
+                    </button>
+                    <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
+                      {member.utilization}%
+                      {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                    </div>
                   </div>
                 </div>
 
