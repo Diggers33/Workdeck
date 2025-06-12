@@ -6,6 +6,7 @@ const ResourcePlanner = () => {
   const [selectedTask, setSelectedTask] = useState(null);
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedView, setSelectedView] = useState('week');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
@@ -512,6 +513,17 @@ const ResourcePlanner = () => {
     return acc;
   }, {});
 
+  // Get available departments for the selector
+  const availableDepartments = Object.keys(departmentGroups);
+  
+  // Filter departments based on selection
+  const filteredDepartmentGroups = selectedDepartment === 'all' 
+    ? departmentGroups 
+    : { [selectedDepartment]: departmentGroups[selectedDepartment] };
+
+  // Calculate total filtered team members
+  const filteredTeamCount = Object.values(filteredDepartmentGroups).flat().length;
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
@@ -555,10 +567,26 @@ const ResourcePlanner = () => {
               <option value="quarter">Quarter View</option>
               <option value="year">Year View</option>
             </select>
+
+            <select 
+              value={selectedDepartment} 
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
+            >
+              <option value="all">All Departments</option>
+              {availableDepartments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
             
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <Users className="w-4 h-4" />
-              <span>{teamMembers.length} team members</span>
+              <span>
+                {filteredTeamCount} team member{filteredTeamCount !== 1 ? 's' : ''}
+                {selectedDepartment !== 'all' && (
+                  <span className="text-blue-600 font-medium"> in {selectedDepartment}</span>
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -630,7 +658,7 @@ const ResourcePlanner = () => {
 
       {/* Content */}
       <div className="p-4">
-        {Object.entries(departmentGroups).map(([department, members]) => (
+        {Object.entries(filteredDepartmentGroups).map(([department, members]) => (
           <div key={department} className="mb-8">
             <div className="mb-4 p-3 bg-gray-800 text-white rounded">
               <h3 className="font-semibold">{department}</h3>
@@ -800,14 +828,24 @@ const ResourcePlanner = () => {
                       );
                     })}
                     
-                    {/* Daily Workload - SIMPLIFIED */}
+                    {/* Workload summary - ADAPTIVE LABEL */}
                     <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
                       <div style={{ width: '280px' }} className="flex-shrink-0">
                         <div className="flex items-center space-x-2">
                           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                           <div>
-                            <div className="text-sm font-medium text-blue-900">Daily Workload</div>
-                            <div className="text-xs text-blue-700">Hours scheduled per day</div>
+                            <div className="text-sm font-medium text-blue-900">
+                              {selectedView === 'year' ? 'Monthly Workload' :
+                               selectedView === 'quarter' ? 'Monthly Workload' :
+                               selectedView === 'month' ? 'Weekly Workload' :
+                               'Daily Workload'}
+                            </div>
+                            <div className="text-xs text-blue-700">
+                              {selectedView === 'year' ? 'Hours scheduled per month' :
+                               selectedView === 'quarter' ? 'Hours scheduled per month' :
+                               selectedView === 'month' ? 'Hours scheduled per week' :
+                               'Hours scheduled per day'}
+                            </div>
                           </div>
                         </div>
                       </div>
