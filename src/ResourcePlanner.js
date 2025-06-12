@@ -122,6 +122,56 @@ const ResourcePlanner = () => {
 
   const isTaskActive = (task, weekOffset) => weekOffset >= task.startWeek && weekOffset <= task.endWeek;
 
+  // Velocity tracking functions
+  const calculateVelocity = (task) => {
+    if (!task.velocityHistory || task.velocityHistory.length < 2) return null;
+    
+    const recentWeeks = task.velocityHistory.slice(-4); // Last 4 weeks
+    const avgWeeklyHours = recentWeeks.reduce((sum, week) => sum + week.hoursLogged, 0) / recentWeeks.length;
+    
+    return {
+      currentVelocity: avgWeeklyHours,
+      targetVelocity: task.targetHoursPerWeek || 0,
+      velocityTrend: avgWeeklyHours >= task.targetHoursPerWeek ? 'ahead' : 'behind',
+      projectedCompletion: calculateProjectedCompletion(task, avgWeeklyHours)
+    };
+  };
+
+  const calculateProjectedCompletion = (task, currentVelocity) => {
+    const remainingHours = Math.max(0, task.estimatedHours - task.actualHours);
+    if (currentVelocity <= 0) return 'Never at current pace';
+    
+    const weeksRemaining = Math.ceil(remainingHours / currentVelocity);
+    const projectedWeek = currentWeekOffset + weeksRemaining;
+    
+    if (projectedWeek <= task.endWeek) {
+      return `Week ${projectedWeek} (On time)`;
+    } else {
+      const weeksLate = projectedWeek - task.endWeek;
+      return `Week ${projectedWeek} (${weeksLate} weeks late)`;
+    }
+  };
+
+  const getVelocityStatusColor = (velocity) => {
+    if (!velocity) return 'text-gray-500';
+    
+    const ratio = velocity.currentVelocity / velocity.targetVelocity;
+    if (ratio >= 1.1) return 'text-green-600'; // 10% ahead
+    if (ratio >= 0.9) return 'text-blue-600';  // Within 10%
+    if (ratio >= 0.7) return 'text-orange-600'; // 30% behind
+    return 'text-red-600'; // More than 30% behind
+  };
+
+  const getVelocityIcon = (velocity) => {
+    if (!velocity) return '📊';
+    
+    const ratio = velocity.currentVelocity / velocity.targetVelocity;
+    if (ratio >= 1.1) return '🚀'; // Ahead
+    if (ratio >= 0.9) return '✅'; // On track
+    if (ratio >= 0.7) return '⚠️'; // At risk
+    return '🚨'; // Behind
+  };
+
   // Enhanced team members with long-term tasks
   const teamMembers = [
     {
@@ -145,7 +195,25 @@ const ResourcePlanner = () => {
           pattern: [true, true, false, false, true, true, false, true, true],
           isLongTerm: true,
           totalProjectHours: 500,
-          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel']
+          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
+          // Velocity tracking data
+          targetHoursPerWeek: 6.25, // 200 hours / 32 weeks
+          velocityHistory: [
+            { week: -8, hoursLogged: 8 },
+            { week: -7, hoursLogged: 7 },
+            { week: -6, hoursLogged: 5 },
+            { week: -5, hoursLogged: 9 },
+            { week: -4, hoursLogged: 6 },
+            { week: -3, hoursLogged: 8 },
+            { week: -2, hoursLogged: 7 },
+            { week: -1, hoursLogged: 6 },
+            { week: 0, hoursLogged: 8 }
+          ],
+          milestones: [
+            { name: 'Architecture Design', targetDate: '2025-02-01', status: 'completed', targetHours: 60 },
+            { name: 'Core Implementation', targetDate: '2025-04-01', status: 'in-progress', targetHours: 120 },
+            { name: 'Testing & Optimization', targetDate: '2025-06-01', status: 'planned', targetHours: 20 }
+          ]
         },
         {
           project: 'FoodSafeR',
@@ -182,7 +250,25 @@ const ResourcePlanner = () => {
           pattern: [true, true, false, false, true, true, true, true, true],
           isLongTerm: true,
           totalProjectHours: 500,
-          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel']
+          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
+          // Velocity tracking for Sarah
+          targetHoursPerWeek: 6.25,
+          velocityHistory: [
+            { week: -8, hoursLogged: 10 },
+            { week: -7, hoursLogged: 12 },
+            { week: -6, hoursLogged: 8 },
+            { week: -5, hoursLogged: 11 },
+            { week: -4, hoursLogged: 9 },
+            { week: -3, hoursLogged: 13 },
+            { week: -2, hoursLogged: 11 },
+            { week: -1, hoursLogged: 14 },
+            { week: 0, hoursLogged: 12 }
+          ],
+          milestones: [
+            { name: 'ML Model Design', targetDate: '2025-01-15', status: 'completed', targetHours: 40 },
+            { name: 'Algorithm Implementation', targetDate: '2025-03-15', status: 'in-progress', targetHours: 100 },
+            { name: 'Model Training & Tuning', targetDate: '2025-05-15', status: 'planned', targetHours: 60 }
+          ]
         },
         {
           project: 'ENERGIZE',
@@ -219,7 +305,21 @@ const ResourcePlanner = () => {
           pattern: [true, true, false, false, true, true, true, true, false],
           isLongTerm: true,
           totalProjectHours: 500,
-          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel']
+          projectTeam: ['Alejandro Rosales', 'Sarah Kim', 'Dr. Raj Patel'],
+          // Velocity tracking for Dr. Raj
+          targetHoursPerWeek: 5, // 100 hours / 20 weeks
+          velocityHistory: [
+            { week: -4, hoursLogged: 6 },
+            { week: -3, hoursLogged: 4 },
+            { week: -2, hoursLogged: 7 },
+            { week: -1, hoursLogged: 5 },
+            { week: 0, hoursLogged: 3 }
+          ],
+          milestones: [
+            { name: 'Data Architecture', targetDate: '2025-01-01', status: 'completed', targetHours: 25 },
+            { name: 'Pipeline Development', targetDate: '2025-03-01', status: 'in-progress', targetHours: 50 },
+            { name: 'Integration & Testing', targetDate: '2025-05-01', status: 'planned', targetHours: 25 }
+          ]
         },
         {
           project: 'H20forALL',
@@ -255,6 +355,37 @@ const ResourcePlanner = () => {
           endWeek: 2,
           pattern: [false, true, false, false, true, false, true, false, false],
           isLongTerm: false
+        },
+        // Add a long-term research project that's behind schedule
+        {
+          project: 'BIORADAR',
+          task: 'Long-term Research Analysis',
+          color: 'bg-emerald-600',
+          estimatedHours: 120,
+          actualHours: 25,
+          status: 'in-progress',
+          startWeek: -6,
+          endWeek: 18, // 24 weeks total
+          pattern: [false, true, false, false, true, false, true, false, false],
+          isLongTerm: true,
+          totalProjectHours: 200,
+          projectTeam: ['Dr. Elena Rodriguez', 'Marcus Chen'],
+          // Behind schedule velocity
+          targetHoursPerWeek: 5, // 120 hours / 24 weeks
+          velocityHistory: [
+            { week: -6, hoursLogged: 4 },
+            { week: -5, hoursLogged: 2 },
+            { week: -4, hoursLogged: 3 },
+            { week: -3, hoursLogged: 1 },
+            { week: -2, hoursLogged: 2 },
+            { week: -1, hoursLogged: 3 },
+            { week: 0, hoursLogged: 2 }
+          ],
+          milestones: [
+            { name: 'Literature Review', targetDate: '2024-12-15', status: 'completed', targetHours: 30 },
+            { name: 'Data Collection', targetDate: '2025-02-15', status: 'in-progress', targetHours: 50 },
+            { name: 'Analysis & Report', targetDate: '2025-05-15', status: 'planned', targetHours: 40 }
+          ]
         }
       ]
     },
@@ -278,6 +409,41 @@ const ResourcePlanner = () => {
           endWeek: 2,
           pattern: [true, true, false, false, true, true, true, false, true],
           isLongTerm: false
+        },
+        // Add a struggling long-term project
+        {
+          project: 'Legacy System Migration',
+          task: 'Database Migration',
+          color: 'bg-red-600',
+          estimatedHours: 160,
+          actualHours: 35,
+          status: 'in-progress',
+          startWeek: -10,
+          endWeek: 14, // 24 weeks total
+          pattern: [true, false, false, false, true, false, true, false, false],
+          isLongTerm: true,
+          totalProjectHours: 300,
+          projectTeam: ['Marcus Chen', 'Carlos Zamora'],
+          // Severely behind schedule
+          targetHoursPerWeek: 6.67, // 160 hours / 24 weeks
+          velocityHistory: [
+            { week: -10, hoursLogged: 8 },
+            { week: -9, hoursLogged: 5 },
+            { week: -8, hoursLogged: 3 },
+            { week: -7, hoursLogged: 2 },
+            { week: -6, hoursLogged: 4 },
+            { week: -5, hoursLogged: 1 },
+            { week: -4, hoursLogged: 2 },
+            { week: -3, hoursLogged: 3 },
+            { week: -2, hoursLogged: 2 },
+            { week: -1, hoursLogged: 1 },
+            { week: 0, hoursLogged: 4 }
+          ],
+          milestones: [
+            { name: 'Schema Analysis', targetDate: '2024-11-01', status: 'completed', targetHours: 40 },
+            { name: 'Data Migration Scripts', targetDate: '2025-01-15', status: 'in-progress', targetHours: 80 },
+            { name: 'Testing & Validation', targetDate: '2025-04-01', status: 'planned', targetHours: 40 }
+          ]
         }
       ]
     },
@@ -301,6 +467,39 @@ const ResourcePlanner = () => {
           endWeek: 1,
           pattern: [false, true, false, false, false, false, true, false, false],
           isLongTerm: false
+        },
+        // Add a long-term project that's at risk
+        {
+          project: 'Process Automation',
+          task: 'Workflow Optimization',
+          color: 'bg-yellow-600',
+          estimatedHours: 80,
+          actualHours: 30,
+          status: 'in-progress',
+          startWeek: -8,
+          endWeek: 12, // 20 weeks total
+          pattern: [false, true, false, false, false, false, true, false, false],
+          isLongTerm: true,
+          totalProjectHours: 150,
+          projectTeam: ['Carlos Zamora', 'Dr. Elena Rodriguez'],
+          // At risk - slightly behind
+          targetHoursPerWeek: 4, // 80 hours / 20 weeks
+          velocityHistory: [
+            { week: -8, hoursLogged: 5 },
+            { week: -7, hoursLogged: 4 },
+            { week: -6, hoursLogged: 3 },
+            { week: -5, hoursLogged: 2 },
+            { week: -4, hoursLogged: 4 },
+            { week: -3, hoursLogged: 3 },
+            { week: -2, hoursLogged: 2 },
+            { week: -1, hoursLogged: 3 },
+            { week: 0, hoursLogged: 3 }
+          ],
+          milestones: [
+            { name: 'Current State Analysis', targetDate: '2024-11-15', status: 'completed', targetHours: 20 },
+            { name: 'Process Redesign', targetDate: '2025-02-01', status: 'in-progress', targetHours: 40 },
+            { name: 'Implementation', targetDate: '2025-04-15', status: 'planned', targetHours: 20 }
+          ]
         }
       ]
     }
@@ -488,6 +687,39 @@ const ResourcePlanner = () => {
                                         {task.totalProjectHours}h total project
                                       </span>
                                     </div>
+                                    
+                                    {/* Velocity tracking display */}
+                                    {(() => {
+                                      const velocity = calculateVelocity(task);
+                                      return velocity ? (
+                                        <div className="flex items-center space-x-2 text-xs">
+                                          <span className="text-gray-500">Velocity:</span>
+                                          <span className={`font-medium ${getVelocityStatusColor(velocity)}`}>
+                                            {getVelocityIcon(velocity)} {velocity.currentVelocity.toFixed(1)}h/week
+                                          </span>
+                                          <span className="text-gray-400">
+                                            (target: {velocity.targetVelocity}h/week)
+                                          </span>
+                                        </div>
+                                      ) : null;
+                                    })()}
+                                    
+                                    {/* Projected completion */}
+                                    {(() => {
+                                      const velocity = calculateVelocity(task);
+                                      return velocity ? (
+                                        <div className="flex items-center space-x-2 text-xs">
+                                          <span className="text-gray-500">ETC:</span>
+                                          <span className={`font-medium ${
+                                            velocity.projectedCompletion.includes('late') ? 'text-red-600' : 
+                                            velocity.projectedCompletion.includes('On time') ? 'text-green-600' : 'text-gray-600'
+                                          }`}>
+                                            {velocity.projectedCompletion}
+                                          </span>
+                                        </div>
+                                      ) : null;
+                                    })()}
+                                    
                                     <div className="flex items-center space-x-2 text-xs">
                                       <span className="text-gray-500">Team:</span>
                                       <span className="text-gray-600">{task.projectTeam.join(', ')}</span>
@@ -690,7 +922,7 @@ const ResourcePlanner = () => {
       {/* Task Detail Modal */}
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedTask(null)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full m-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -703,7 +935,7 @@ const ResourcePlanner = () => {
                 <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Assigned to</label>
                   <p className="text-gray-900">{selectedTask.memberName}</p>
@@ -723,6 +955,85 @@ const ResourcePlanner = () => {
                     <div className="text-lg font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
                   </div>
                 </div>
+
+                {/* Velocity information for long-term tasks */}
+                {selectedTask.isLongTerm && (() => {
+                  const velocity = calculateVelocity(selectedTask);
+                  return velocity ? (
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-semibold text-purple-900 mb-3">📊 Velocity Tracking</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-purple-700">Current Velocity</div>
+                          <div className={`text-lg font-bold ${getVelocityStatusColor(velocity)}`}>
+                            {getVelocityIcon(velocity)} {velocity.currentVelocity.toFixed(1)}h/week
+                          </div>
+                          <div className="text-xs text-purple-600">Target: {velocity.targetVelocity}h/week</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-purple-700">Projected Completion</div>
+                          <div className={`text-sm font-medium ${
+                            velocity.projectedCompletion.includes('late') ? 'text-red-600' : 
+                            velocity.projectedCompletion.includes('On time') ? 'text-green-600' : 'text-gray-600'
+                          }`}>
+                            {velocity.projectedCompletion}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Recent velocity history */}
+                      <div className="mt-4">
+                        <div className="text-xs text-purple-700 mb-2">Recent Velocity (Last 4 weeks)</div>
+                        <div className="flex space-x-1">
+                          {selectedTask.velocityHistory?.slice(-4).map((week, idx) => (
+                            <div key={idx} className="flex-1">
+                              <div className="bg-purple-200 rounded-t h-12 flex items-end">
+                                <div 
+                                  className={`w-full rounded-t ${
+                                    week.hoursLogged >= selectedTask.targetHoursPerWeek ? 'bg-green-400' : 
+                                    week.hoursLogged >= selectedTask.targetHoursPerWeek * 0.8 ? 'bg-yellow-400' : 'bg-red-400'
+                                  }`}
+                                  style={{ 
+                                    height: `${Math.min((week.hoursLogged / Math.max(selectedTask.targetHoursPerWeek, 10)) * 100, 100)}%` 
+                                  }}
+                                ></div>
+                              </div>
+                              <div className="text-xs text-center text-purple-600 mt-1">
+                                W{week.week >= 0 ? '+' : ''}{week.week}
+                              </div>
+                              <div className="text-xs text-center font-medium text-purple-800">
+                                {week.hoursLogged}h
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Milestones for long-term tasks */}
+                {selectedTask.milestones && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">🎯 Milestones</h3>
+                    <div className="space-y-2">
+                      {selectedTask.milestones.map((milestone, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className={`w-2 h-2 rounded-full ${
+                              milestone.status === 'completed' ? 'bg-green-500' :
+                              milestone.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-300'
+                            }`}></span>
+                            <span className="text-sm text-gray-700">{milestone.name}</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {milestone.targetDate} • {milestone.targetHours}h
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${getTaskStatusColor(selectedTask.status)}`}>
