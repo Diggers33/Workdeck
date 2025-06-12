@@ -648,242 +648,6 @@ const ResourcePlanner = () => {
                 {selectedDepartment !== 'all' && (
                   <span className="text-blue-600 font-medium"> in {selectedDepartment}</span>
                 )}
-
-      {/* Task Assignment Modal */}
-      {showAssignTaskModal && selectedMemberForAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAssignTaskModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full m-4" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Assign Task to {selectedMemberForAssignment.name}</h2>
-                <button onClick={() => setShowAssignTaskModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-              </div>
-
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const taskData = {
-                  project: formData.get('project'),
-                  activity: formData.get('activity'),
-                  task: formData.get('task'),
-                  isOrphan: formData.get('isOrphan') === 'on',
-                  orphanTitle: formData.get('orphanTitle'),
-                  estimatedHours: parseInt(formData.get('estimatedHours')),
-                  startDate: formData.get('startDate'),
-                  endDate: formData.get('endDate'),
-                  priority: formData.get('priority'),
-                  description: formData.get('description')
-                };
-                submitTaskAssignment(taskData);
-              }}>
-                <div className="space-y-4">
-                  {/* Orphan Task Toggle */}
-                  <div className="flex items-center space-x-2">
-                    <input 
-                      type="checkbox" 
-                      id="isOrphan" 
-                      name="isOrphan"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
-                      onChange={(e) => {
-                        const isChecked = e.target.checked;
-                        const linkedFields = document.querySelectorAll('.linked-field');
-                        const orphanField = document.querySelector('.orphan-field');
-                        
-                        linkedFields.forEach(field => {
-                          field.style.display = isChecked ? 'none' : 'block';
-                          field.querySelectorAll('select, input').forEach(input => {
-                            input.required = !isChecked;
-                          });
-                        });
-                        
-                        if (orphanField) {
-                          orphanField.style.display = isChecked ? 'block' : 'none';
-                          orphanField.querySelector('input').required = isChecked;
-                        }
-                      }}
-                    />
-                    <label htmlFor="isOrphan" className="text-sm font-medium text-gray-700">
-                      Create orphan task (not linked to existing project structure)
-                    </label>
-                  </div>
-
-                  {/* Orphan Task Title */}
-                  <div className="orphan-field" style={{ display: 'none' }}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
-                    <input 
-                      type="text" 
-                      name="orphanTitle"
-                      placeholder="e.g., Ad-hoc research, Emergency fix..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    />
-                  </div>
-
-                  {/* Linked Project Structure */}
-                  <div className="linked-field">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                    <select 
-                      name="project" 
-                      required 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      onChange={(e) => {
-                        const project = e.target.value;
-                        const activitySelect = document.querySelector('select[name="activity"]');
-                        const taskSelect = document.querySelector('select[name="task"]');
-                        
-                        // Clear and populate activity dropdown
-                        activitySelect.innerHTML = '<option value="">Select Activity</option>';
-                        taskSelect.innerHTML = '<option value="">Select Task</option>';
-                        
-                        if (project && projectStructure[project]) {
-                          Object.keys(projectStructure[project]).forEach(activity => {
-                            const option = document.createElement('option');
-                            option.value = activity;
-                            option.textContent = activity;
-                            activitySelect.appendChild(option);
-                          });
-                        }
-                      }}
-                    >
-                      <option value="">Select Project</option>
-                      {Object.keys(projectStructure).map(project => (
-                        <option key={project} value={project}>{project}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="linked-field">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Activity</label>
-                    <select 
-                      name="activity" 
-                      required 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      onChange={(e) => {
-                        const project = document.querySelector('select[name="project"]').value;
-                        const activity = e.target.value;
-                        const taskSelect = document.querySelector('select[name="task"]');
-                        
-                        // Clear and populate task dropdown
-                        taskSelect.innerHTML = '<option value="">Select Task</option>';
-                        
-                        if (project && activity && projectStructure[project][activity]) {
-                          projectStructure[project][activity].forEach(task => {
-                            const option = document.createElement('option');
-                            option.value = task;
-                            option.textContent = task;
-                            taskSelect.appendChild(option);
-                          });
-                        }
-                      }}
-                    >
-                      <option value="">Select Activity</option>
-                    </select>
-                  </div>
-
-                  <div className="linked-field grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
-                      <select 
-                        name="task"
-                        required 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      >
-                        <option value="">Select Task</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                      <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea 
-                      name="description"
-                      rows="3"
-                      placeholder="Detailed task requirements and acceptance criteria..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                    ></textarea>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Hours</label>
-                      <input 
-                        type="number" 
-                        name="estimatedHours"
-                        required 
-                        min="1"
-                        placeholder="40"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                      <input 
-                        type="date" 
-                        name="startDate"
-                        required 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                      <input 
-                        type="date" 
-                        name="endDate"
-                        required 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Capacity Check */}
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Current Capacity</div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Current allocation: {selectedMemberForAssignment.scheduled}h / {selectedMemberForAssignment.capacity}h</span>
-                      <span className={`font-medium ${
-                        selectedMemberForAssignment.utilization > 100 ? 'text-red-600' :
-                        selectedMemberForAssignment.utilization > 85 ? 'text-orange-600' : 'text-green-600'
-                      }`}>
-                        {selectedMemberForAssignment.utilization}% utilized
-                      </span>
-                    </div>
-                    {selectedMemberForAssignment.utilization > 85 && (
-                      <div className="text-xs text-orange-600 mt-1 flex items-center">
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        This person is already highly utilized. Consider workload balance.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setShowAssignTaskModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-                  >
-                    Assign Task
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
               </span>
             </div>
           </div>
@@ -1271,44 +1035,44 @@ const ResourcePlanner = () => {
         ))}
       </div>
 
-      {/* Task Detail Modal */}
+      {/* Task Detail Modal - FIXED COMPACT VERSION */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedTask(null)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full m-4" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-4 h-4 rounded-full ${selectedTask.color}`}></div>
-                  <div>
-                    <h2 className="text-lg font-semibold">{selectedTask.project}</h2>
-                    <p className="text-gray-600">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTask(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start space-x-2 flex-1 min-w-0">
+                  <div className={`w-3 h-3 rounded-full ${selectedTask.color} mt-1 flex-shrink-0`}></div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-semibold truncate">{selectedTask.project}</h2>
+                    <p className="text-gray-600 text-xs">
                       <span className="font-medium">{selectedTask.activity}</span>
-                      <span className="text-gray-400 mx-2">→</span>
+                      <span className="text-gray-400 mx-1">→</span>
                       <span>{selectedTask.task}</span>
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0">✕</button>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Assigned to</label>
-                  <p className="text-gray-900">{selectedTask.memberName}</p>
+              <div className="space-y-3">
+                <div className="text-xs">
+                  <span className="text-gray-500">Assigned to:</span>
+                  <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-blue-50 p-3 rounded">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-blue-50 p-2 rounded text-center">
                     <div className="text-xs text-blue-700">Estimated</div>
-                    <div className="text-lg font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
+                    <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
                   </div>
-                  <div className="bg-green-50 p-3 rounded">
+                  <div className="bg-green-50 p-2 rounded text-center">
                     <div className="text-xs text-green-700">Actual</div>
-                    <div className="text-lg font-bold text-green-900">{selectedTask.actualHours}h</div>
+                    <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
                   </div>
-                  <div className="bg-orange-50 p-3 rounded">
+                  <div className="bg-orange-50 p-2 rounded text-center">
                     <div className="text-xs text-orange-700">Remaining</div>
-                    <div className="text-lg font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
+                    <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
                   </div>
                 </div>
 
@@ -1316,52 +1080,22 @@ const ResourcePlanner = () => {
                 {selectedTask.isLongTerm && (() => {
                   const velocity = calculateVelocity(selectedTask);
                   return velocity ? (
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <h3 className="text-sm font-semibold text-purple-900 mb-3">📊 Velocity Tracking</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-xs text-purple-700">Current Velocity</div>
-                          <div className={`text-lg font-bold ${getVelocityStatusColor(velocity)}`}>
+                    <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                      <div className="text-xs font-medium text-purple-900 mb-2">📊 Velocity Tracking</div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-purple-700">Current Velocity:</span>
+                          <span className={`font-medium ${getVelocityStatusColor(velocity)}`}>
                             {getVelocityIcon(velocity)} {velocity.currentVelocity.toFixed(1)}h/week
-                          </div>
-                          <div className="text-xs text-purple-600">Target: {velocity.targetVelocity}h/week</div>
+                          </span>
                         </div>
-                        <div>
-                          <div className="text-xs text-purple-700">Projected Completion</div>
-                          <div className={`text-sm font-medium ${
-                            velocity.projectedCompletion.includes('late') ? 'text-red-600' : 
-                            velocity.projectedCompletion.includes('On time') ? 'text-green-600' : 'text-gray-600'
-                          }`}>
-                            {velocity.projectedCompletion}
-                          </div>
+                        <div className="flex justify-between">
+                          <span className="text-purple-700">Target:</span>
+                          <span className="text-purple-900">{velocity.targetVelocity}h/week</span>
                         </div>
-                      </div>
-                      
-                      {/* Recent velocity history */}
-                      <div className="mt-4">
-                        <div className="text-xs text-purple-700 mb-2">Recent Velocity (Last 4 weeks)</div>
-                        <div className="flex space-x-1">
-                          {selectedTask.velocityHistory?.slice(-4).map((week, idx) => (
-                            <div key={idx} className="flex-1">
-                              <div className="bg-purple-200 rounded-t h-12 flex items-end">
-                                <div 
-                                  className={`w-full rounded-t ${
-                                    week.hoursLogged >= selectedTask.targetHoursPerWeek ? 'bg-green-400' : 
-                                    week.hoursLogged >= selectedTask.targetHoursPerWeek * 0.8 ? 'bg-yellow-400' : 'bg-red-400'
-                                  }`}
-                                  style={{ 
-                                    height: `${Math.min((week.hoursLogged / Math.max(selectedTask.targetHoursPerWeek, 10)) * 100, 100)}%` 
-                                  }}
-                                ></div>
-                              </div>
-                              <div className="text-xs text-center text-purple-600 mt-1">
-                                W{week.week >= 0 ? '+' : ''}{week.week}
-                              </div>
-                              <div className="text-xs text-center font-medium text-purple-800">
-                                {week.hoursLogged}h
-                              </div>
-                            </div>
-                          ))}
+                        <div className="flex justify-between">
+                          <span className="text-purple-700">Projected:</span>
+                          <span className="text-purple-900">{velocity.projectedCompletion}</span>
                         </div>
                       </div>
                     </div>
@@ -1370,43 +1104,22 @@ const ResourcePlanner = () => {
 
                 {/* Milestones for long-term tasks */}
                 {selectedTask.milestones && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">🎯 Milestones</h3>
-                    <div className="space-y-2">
+                  <div className="bg-gray-50 p-3 rounded">
+                    <div className="text-xs font-medium text-gray-900 mb-2">🎯 Milestones</div>
+                    <div className="space-y-1">
                       {selectedTask.milestones.map((milestone, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <span className={`w-2 h-2 rounded-full ${
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center space-x-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${
                               milestone.status === 'completed' ? 'bg-green-500' :
                               milestone.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-300'
                             }`}></span>
-                            <span className="text-sm text-gray-700">{milestone.name}</span>
+                            <span className="text-gray-700">{milestone.name}</span>
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-gray-500">
                             {milestone.targetDate} • {milestone.targetHours}h
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-
-                <div>
-                  <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full border ${getTaskStatusColor(selectedTask.status)}`}>
-                    {selectedTask.status.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button onClick={() => setSelectedTask(null)} className="px-4 py-2 border rounded hover:bg-gray-50">Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ResourcePlanner;
