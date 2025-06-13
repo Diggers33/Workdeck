@@ -191,6 +191,17 @@ const ResourcePlanner = () => {
     setShowAssignTaskModal(true);
   };
 
+  const handleEditTask = (task, member) => {
+    setSelectedTask({...task, memberName: member.name, isEditing: true});
+  };
+
+  const updateTaskIntensity = (taskId, memberId, newIntensity, newPattern) => {
+    // In a real app, this would update the database
+    console.log('Updating task intensity:', { taskId, memberId, newIntensity, newPattern });
+    // Here you would update the team member's task in state
+    setSelectedTask(null);
+  };
+
   const submitTaskAssignment = (taskData) => {
     console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
     setShowAssignTaskModal(false);
