@@ -62,10 +62,19 @@ const ResourcePlanner = () => {
       // For daily view: sum up actual hours from all active tasks on this day
       return member.tasks.reduce((totalHours, task) => {
         if (isTaskActive(task, currentWeekOffset) && task.pattern && task.pattern[dateIdx]) {
-          // Calculate daily hours for this task based on weekly target
-          const dailyHours = task.targetHoursPerWeek ? task.targetHoursPerWeek / 5 : 
-                            task.estimatedHours / Math.max(1, (task.endWeek - task.startWeek + 1) * 5);
-          return totalHours + dailyHours;
+          // For long-term tasks, use planned intensity rather than spreading thin
+          if (task.isLongTerm) {
+            // Use targetHoursPerWeek if available, otherwise calculate realistic intensity
+            const weeklyHours = task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4); // Cap at 20h/week, min 4 weeks
+            const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length; // Exclude weekends
+            return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
+          } else {
+            // For short-term tasks, distribute more evenly
+            const totalWeeks = Math.max(1, task.endWeek - task.startWeek + 1);
+            const weeklyHours = task.estimatedHours / totalWeeks;
+            const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length;
+            return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
+          }
         }
         return totalHours;
       }, 0);
@@ -73,7 +82,14 @@ const ResourcePlanner = () => {
       // For weekly view: sum up all task hours for the week
       return member.tasks.reduce((totalHours, task) => {
         if (isTaskActive(task, currentWeekOffset)) {
-          return totalHours + (task.targetHoursPerWeek || 0);
+          if (task.isLongTerm) {
+            // Use planned weekly intensity for long-term tasks
+            return totalHours + (task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4));
+          } else {
+            // For short tasks, calculate weekly allocation
+            const totalWeeks = Math.max(1, task.endWeek - task.startWeek + 1);
+            return totalHours + (task.estimatedHours / totalWeeks);
+          }
         }
         return totalHours;
       }, 0);
@@ -81,8 +97,16 @@ const ResourcePlanner = () => {
       // For monthly view: sum up all task hours for the month (4.33 weeks average)
       return member.tasks.reduce((totalHours, task) => {
         if (isTaskActive(task, currentWeekOffset)) {
-          const weeklyHours = task.targetHoursPerWeek || 0;
-          return totalHours + (weeklyHours * 4.33); // Average weeks per month
+          if (task.isLongTerm) {
+            // Use planned weekly intensity * weeks per month
+            const weeklyHours = task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4);
+            return totalHours + (weeklyHours * 4.33);
+          } else {
+            // For short tasks, calculate monthly allocation
+            const totalWeeks = Math.max(1, task.endWeek - task.startWeek + 1);
+            const weeklyHours = task.estimatedHours / totalWeeks;
+            return totalHours + (weeklyHours * Math.min(4.33, totalWeeks));
+          }
         }
         return totalHours;
       }, 0);
@@ -214,6 +238,45 @@ const ResourcePlanner = () => {
             { name: 'Architecture Design', targetDate: '2025-02-01', status: 'completed', targetHours: 60 },
             { name: 'Core Implementation', targetDate: '2025-04-01', status: 'in-progress', targetHours: 120 },
             { name: 'Testing & Optimization', targetDate: '2025-06-01', status: 'planned', targetHours: 20 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 4,
+      name: 'Dr. Elena Rodriguez',
+      avatar: '👩‍🔬',
+      department: 'Research',
+      capacity: 40,
+      scheduled: 28,
+      utilization: 70,
+      tasks: [
+        {
+          project: 'Long-term Research',
+          activity: 'Data Analysis',
+          task: 'Clinical Study Analysis',
+          color: 'bg-emerald-600',
+          estimatedHours: 100, // 100 hours over 6 months
+          actualHours: 25,
+          status: 'in-progress',
+          startWeek: -8,
+          endWeek: 18, // 26 weeks total (6 months)
+          pattern: [false, true, false, false, true, false, true, false, false], // 3 days per week
+          isLongTerm: true,
+          totalActivityHours: 150,
+          totalProjectHours: 200,
+          projectTeam: ['Dr. Elena Rodriguez'],
+          targetHoursPerWeek: 4, // Planned intensity: 4 hours/week when working
+          velocityHistory: [
+            { week: -8, hoursLogged: 3 },
+            { week: -7, hoursLogged: 4 },
+            { week: -6, hoursLogged: 2 },
+            { week: -5, hoursLogged: 5 },
+            { week: -4, hoursLogged: 3 },
+            { week: -3, hoursLogged: 4 },
+            { week: -2, hoursLogged: 4 },
+            { week: -1, hoursLogged: 3 },
+            { week: 0, hoursLogged: 4 }
           ]
         }
       ]
