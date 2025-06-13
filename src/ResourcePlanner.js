@@ -56,6 +56,40 @@ const ResourcePlanner = () => {
     return hoursMap[memberName] || 4;
   };
 
+  // New realistic calculation method
+  const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
+    if (viewType === 'day') {
+      // For daily view: sum up actual hours from all active tasks on this day
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset) && task.pattern && task.pattern[dateIdx]) {
+          // Calculate daily hours for this task based on weekly target
+          const dailyHours = task.targetHoursPerWeek ? task.targetHoursPerWeek / 5 : 
+                            task.estimatedHours / Math.max(1, (task.endWeek - task.startWeek + 1) * 5);
+          return totalHours + dailyHours;
+        }
+        return totalHours;
+      }, 0);
+    } else if (viewType === 'week') {
+      // For weekly view: sum up all task hours for the week
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset)) {
+          return totalHours + (task.targetHoursPerWeek || 0);
+        }
+        return totalHours;
+      }, 0);
+    } else if (viewType === 'month') {
+      // For monthly view: sum up all task hours for the month (4.33 weeks average)
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset)) {
+          const weeklyHours = task.targetHoursPerWeek || 0;
+          return totalHours + (weeklyHours * 4.33); // Average weeks per month
+        }
+        return totalHours;
+      }, 0);
+    }
+    return 0;
+  };
+
   const getDateRangeLabel = () => {
     if (selectedView === 'year') {
       return '2025';
@@ -570,10 +604,7 @@ const ResourcePlanner = () => {
                       }`}>
                         {selectedView === 'year' ?
                           Array.from({ length: 12 }, (_, dateIdx) => {
-                            const hasWork = member.tasks.some(task => 
-                              isTaskActive(task, currentWeekOffset) && dateIdx >= 6
-                            );
-                            const monthlyHours = hasWork ? getDailyHours(member.name, true) * 22 : 0;
+                            const monthlyHours = calculateDailyHours(member, dateIdx, 'month');
                             
                             return (
                               <div key={dateIdx} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
@@ -588,10 +619,7 @@ const ResourcePlanner = () => {
                           }) :
                           selectedView === 'quarter' ?
                           Array.from({ length: 3 }, (_, dateIdx) => {
-                            const hasWork = member.tasks.some(task => 
-                              isTaskActive(task, currentWeekOffset)
-                            );
-                            const monthlyHours = hasWork ? getDailyHours(member.name, true) * 22 : 0;
+                            const monthlyHours = calculateDailyHours(member, dateIdx, 'month');
                             
                             return (
                               <div key={dateIdx} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
@@ -606,10 +634,7 @@ const ResourcePlanner = () => {
                           }) :
                           selectedView === 'month' ?
                           Array.from({ length: 5 }, (_, dateIdx) => {
-                            const hasWork = member.tasks.some(task => 
-                              isTaskActive(task, currentWeekOffset)
-                            );
-                            const weeklyHours = hasWork ? getDailyHours(member.name, true) * 5 : 0;
+                            const weeklyHours = calculateDailyHours(member, dateIdx, 'week');
                             
                             return (
                               <div key={dateIdx} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
@@ -618,7 +643,7 @@ const ResourcePlanner = () => {
                                 weeklyHours > 30 ? 'bg-orange-500 text-white' :
                                 'bg-green-500 text-white'
                               } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}>
-                                {weeklyHours === 0 ? '—' : `${weeklyHours}h`}
+                                {weeklyHours === 0 ? '—' : `${Math.round(weeklyHours)}h`}
                               </div>
                             );
                           }) :
@@ -631,19 +656,16 @@ const ResourcePlanner = () => {
                               );
                             }
                             
-                            const hasWork = member.tasks.some(task => 
-                              isTaskActive(task, currentWeekOffset) && task.pattern[dateIdx]
-                            );
-                            const hours = getDailyHours(member.name, hasWork);
+                            const dailyHours = calculateDailyHours(member, dateIdx, 'day');
                             
                             return (
                               <div key={dateIdx} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
-                                hours === 0 ? 'bg-gray-100 text-gray-400' :
-                                hours > 8 ? 'bg-red-500 text-white' :
-                                hours > 6 ? 'bg-orange-500 text-white' :
+                                dailyHours === 0 ? 'bg-gray-100 text-gray-400' :
+                                dailyHours > 8 ? 'bg-red-500 text-white' :
+                                dailyHours > 6 ? 'bg-orange-500 text-white' :
                                 'bg-green-500 text-white'
-                              }`}>
-                                {hours === 0 ? '—' : `${hours}h`}
+                              } ${dateIdx === 0 ? 'ring-1 ring-blue-400' : ''}`}>
+                                {dailyHours === 0 ? '—' : `${Math.round(dailyHours * 10) / 10}h`}
                               </div>
                             );
                           })
