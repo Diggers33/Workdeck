@@ -7,8 +7,6 @@ const ResourcePlanner = () => {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedView, setSelectedView] = useState('week');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
-  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState(null);
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
@@ -30,38 +28,111 @@ const ResourcePlanner = () => {
     return 'text-green-600 bg-green-50 border-green-200';
   };
 
+  const isTaskActive = (task, weekOffset) => {
+    if (!task.startWeek && !task.endWeek) return true;
+    const startWeek = task.startWeek || -Infinity;
+    const endWeek = task.endWeek || Infinity;
+    return weekOffset >= startWeek && weekOffset <= endWeek;
+  };
+
+  const getCurrentPhaseFromDates = (task, currentWeek) => {
+    if (!task.intensityPhases) return null;
+    return task.intensityPhases.find(phase => {
+      return currentWeek >= phase.startWeek && currentWeek <= phase.endWeek;
+    });
+  };
+
+  const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
+    if (viewType === 'day') {
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset) && task.pattern && task.pattern[dateIdx]) {
+          if (task.intensityPhases) {
+            const currentPhase = getCurrentPhaseFromDates(task, currentWeekOffset);
+            if (currentPhase) {
+              const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length;
+              return totalHours + (currentPhase.hoursPerWeek / Math.max(1, activeDaysPerWeek));
+            }
+          }
+          
+          if (task.isLongTerm) {
+            const weeklyHours = task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4);
+            const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length;
+            return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
+          }
+        }
+        return totalHours;
+      }, 0);
+    } else if (viewType === 'week') {
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset)) {
+          if (task.intensityPhases) {
+            const currentPhase = getCurrentPhaseFromDates(task, currentWeekOffset);
+            if (currentPhase) {
+              return totalHours + currentPhase.hoursPerWeek;
+            }
+          }
+          
+          if (task.isLongTerm) {
+            return totalHours + (task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4));
+          }
+        }
+        return totalHours;
+      }, 0);
+    } else if (viewType === 'month') {
+      return member.tasks.reduce((totalHours, task) => {
+        if (isTaskActive(task, currentWeekOffset)) {
+          if (task.intensityPhases) {
+            const currentPhase = getCurrentPhaseFromDates(task, currentWeekOffset);
+            if (currentPhase) {
+              return totalHours + (currentPhase.hoursPerWeek * 4.33);
+            }
+          }
+          
+          if (task.isLongTerm) {
+            const weeklyHours = task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4);
+            return totalHours + (weeklyHours * 4.33);
+          }
+        }
+        return totalHours;
+      }, 0);
+    }
+    return 0;
+  };
+
+  const getWorkloadColor = (hours, viewType) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    
+    if (viewType === 'year' || viewType === 'quarter') {
+      if (hours > 160) return 'bg-red-500 text-white';
+      if (hours > 120) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else if (viewType === 'month') {
+      if (hours > 40) return 'bg-red-500 text-white';
+      if (hours > 30) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else {
+      if (hours > 8) return 'bg-red-500 text-white';
+      if (hours > 6) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    }
+  };
+
+  const getPeriodsForView = () => {
+    switch (selectedView) {
+      case 'year': return 12;
+      case 'quarter': return 3;
+      case 'month': return 4;
+      default: return 9;
+    }
+  };
+
   const getDateRangeLabel = () => {
     if (selectedView === 'year') return '2025';
     if (selectedView === 'quarter') return 'Q4 2025 (Oct-Dec)';
     if (selectedView === 'month') return 'December 2025';
     
-    const base = 12;
-    const start = base + (currentWeekOffset * 7);
-    const end = start + 8;
-    
     if (currentWeekOffset === 0) return 'Dec 12-20, 2025';
-    return `Dec ${start}-${end}, 2025`;
-  };
-
-  // Task management functions
-  const handleAssignTask = (member) => {
-    setSelectedMemberForAssignment(member);
-    setShowAssignTaskModal(true);
-  };
-
-  const handleEditTask = (task, member) => {
-    setSelectedTask({...task, memberName: member.name, isEditing: true});
-  };
-
-  const updateTaskIntensity = (taskId, memberId, newIntensity, newPattern) => {
-    console.log('Updating task intensity:', { taskId, memberId, newIntensity, newPattern });
-    setSelectedTask(null);
-  };
-
-  const submitTaskAssignment = (taskData) => {
-    console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
-    setShowAssignTaskModal(false);
-    setSelectedMemberForAssignment(null);
+    return `Dec 12-20, 2025 (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
   };
 
   const teamMembers = [
@@ -81,10 +152,20 @@ const ResourcePlanner = () => {
           color: 'bg-purple-600',
           estimatedHours: 200,
           actualHours: 85,
+          totalActivityHours: 300,
+          totalProjectHours: 500,
+          velocity: 7.3,
           status: 'in-progress',
+          startWeek: -8,
+          endWeek: 24,
           pattern: [true, true, false, false, true, true, false, true, true],
           isLongTerm: true,
-          targetHoursPerWeek: 6.25
+          targetHoursPerWeek: 6.25,
+          intensityPhases: [
+            { name: 'Planning Phase', hoursPerWeek: 8, startWeek: -8, endWeek: -4 },
+            { name: 'Implementation', hoursPerWeek: 6, startWeek: -3, endWeek: 12 },
+            { name: 'Testing', hoursPerWeek: 4, startWeek: 13, endWeek: 24 }
+          ]
         }
       ]
     },
@@ -104,10 +185,20 @@ const ResourcePlanner = () => {
           color: 'bg-purple-600',
           estimatedHours: 200,
           actualHours: 120,
+          totalActivityHours: 250,
+          totalProjectHours: 500,
+          velocity: 8.2,
           status: 'in-progress',
+          startWeek: -8,
+          endWeek: 24,
           pattern: [true, true, false, false, true, true, true, true, true],
           isLongTerm: true,
-          targetHoursPerWeek: 6.25
+          targetHoursPerWeek: 6.25,
+          intensityPhases: [
+            { name: 'Research Phase', hoursPerWeek: 12, startWeek: -8, endWeek: -2 },
+            { name: 'Development', hoursPerWeek: 10, startWeek: -1, endWeek: 16 },
+            { name: 'Optimization', hoursPerWeek: 5, startWeek: 17, endWeek: 24 }
+          ]
         }
       ]
     },
@@ -127,10 +218,20 @@ const ResourcePlanner = () => {
           color: 'bg-purple-600',
           estimatedHours: 100,
           actualHours: 45,
+          totalActivityHours: 150,
+          totalProjectHours: 500,
+          velocity: 6.8,
           status: 'in-progress',
+          startWeek: -4,
+          endWeek: 16,
           pattern: [true, true, false, false, true, true, true, true, false],
           isLongTerm: true,
-          targetHoursPerWeek: 5
+          targetHoursPerWeek: 5,
+          intensityPhases: [
+            { name: 'Setup Phase', hoursPerWeek: 8, startWeek: -4, endWeek: 0 },
+            { name: 'Core Development', hoursPerWeek: 6, startWeek: 1, endWeek: 12 },
+            { name: 'Maintenance', hoursPerWeek: 3, startWeek: 13, endWeek: 16 }
+          ]
         }
       ]
     }
@@ -202,16 +303,53 @@ const ResourcePlanner = () => {
       <div className="bg-white border-b border-gray-200 px-4 py-2">
         <div className="flex items-stretch">
           <div className="w-72 flex-shrink-0"></div>
-          <div className="flex-1 grid grid-cols-9 gap-2">
-            {['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, i) => (
-              <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
-                i === 0 ? 'bg-blue-500 text-white font-semibold' :
-                i === 2 || i === 3 ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
-              }`}>
-                <div className="uppercase tracking-wide">{day}</div>
-                <div className="text-sm font-bold">{12 + i}</div>
-              </div>
-            ))}
+          <div className={`flex-1 ${
+            selectedView === 'year' ? 'grid grid-cols-12 gap-2' :
+            selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+            selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+            'grid grid-cols-9 gap-2'
+          }`}>
+            {selectedView === 'year' ? (
+              Array.from({ length: 12 }, (_, i) => (
+                <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                  i === 11 ? 'bg-blue-500 text-white font-semibold' : 'text-gray-700 font-medium bg-white border border-gray-200'
+                }`}>
+                  <div className="uppercase tracking-wide">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</div>
+                  <div className="text-xs font-bold">{i + 1}</div>
+                  {i === 11 && <div className="text-xs">NOW</div>}
+                </div>
+              ))
+            ) : selectedView === 'quarter' ? (
+              ['Oct', 'Nov', 'Dec'].map((month, i) => (
+                <div key={i} className={`text-center py-2 px-2 rounded border ${
+                  i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <div className="text-sm font-semibold">{month}</div>
+                  <div className="text-xs opacity-75">{i + 10}</div>
+                  {i === 2 && <div className="text-xs font-medium">NOW</div>}
+                </div>
+              ))
+            ) : selectedView === 'month' ? (
+              ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((week, i) => (
+                <div key={i} className={`text-center py-2 px-2 rounded border ${
+                  i === 1 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <div className="text-sm font-semibold">{week}</div>
+                  <div className="text-xs opacity-75">Dec {i * 7 + 1}-{(i + 1) * 7}</div>
+                  {i === 1 && <div className="text-xs font-medium">NOW</div>}
+                </div>
+              ))
+            ) : (
+              ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, i) => (
+                <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                  i === 0 ? 'bg-blue-500 text-white font-semibold' :
+                  i === 2 || i === 3 ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
+                }`}>
+                  <div className="uppercase tracking-wide">{day}</div>
+                  <div className="text-sm font-bold">{12 + i}</div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -237,11 +375,6 @@ const ResourcePlanner = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handleAssignTask(member)}
-                    className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100">
-                    + Assign Task
-                  </button>
                   <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
                     {member.utilization}%
                     {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
@@ -265,25 +398,23 @@ const ResourcePlanner = () => {
                                   Long-term
                                 </span>
                               )}
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditTask(task, member);
-                                }}
-                                className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
-                                ⚙️ Edit
-                              </button>
                             </div>
                             <div className="text-xs text-gray-600 mb-1">
                               <span className="font-medium">{task.activity}</span>
                               <span className="text-gray-400 mx-1">→</span>
                               <span>{task.task}</span>
                             </div>
-                            <div className="text-xs text-gray-500 mb-1">
-                              {task.actualHours}h / {task.estimatedHours}h • {getRemainingHours(task)}h left
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                              <span className="font-medium">{task.actualHours}h / {task.estimatedHours}h personal</span>
+                              <span>•</span>
+                              <span className="text-orange-600">{task.totalActivityHours}h activity</span>
+                              <span>•</span>
+                              <span className="text-purple-600">{task.totalProjectHours}h project</span>
                             </div>
-                            <div className="text-xs text-gray-500 mb-1">
-                              Target: {task.targetHoursPerWeek}h/week
+                            <div className="flex items-center space-x-2 text-xs mb-1">
+                              <span className="text-gray-500">Velocity:</span>
+                              <span className="font-medium text-green-600">🚀 {task.velocity}h/week</span>
+                              <span className="text-gray-400">(target: {task.targetHoursPerWeek}h/week)</span>
                             </div>
                             <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
                               {task.status}
@@ -292,13 +423,37 @@ const ResourcePlanner = () => {
                         </div>
                       </div>
                       
-                      <div className="flex-1 grid grid-cols-9 gap-2">
-                        {task.pattern.map((isActive, dateIdx) => (
-                          <div key={dateIdx} className={`h-6 rounded ${
-                            dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
-                            isActive ? `${task.color} opacity-80` : 'bg-gray-100'
-                          }`}></div>
-                        ))}
+                      <div className={`flex-1 ${
+                        selectedView === 'year' ? 'grid grid-cols-12 gap-2' :
+                        selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                        selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                        'grid grid-cols-9 gap-2'
+                      }`}>
+                        {selectedView === 'year' ? 
+                          Array.from({ length: 12 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx >= 6 ? `${task.color} opacity-60` : 'bg-gray-100'
+                            } ${dateIdx === 11 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          selectedView === 'quarter' ? 
+                          Array.from({ length: 3 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              `${task.color} opacity-70`
+                            } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          selectedView === 'month' ? 
+                          Array.from({ length: 4 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
+                            } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          task.pattern.map((isActive, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
+                              isActive ? `${task.color} opacity-80` : 'bg-gray-100'
+                            }`}></div>
+                          ))
+                        }
                       </div>
                     </div>
                   ))}
@@ -309,33 +464,58 @@ const ResourcePlanner = () => {
                       <div className="flex items-center space-x-2">
                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                         <div>
-                          <div className="text-sm font-medium text-blue-900">Daily Workload</div>
-                          <div className="text-xs text-blue-700">Hours scheduled per day</div>
+                          <div className="text-sm font-medium text-blue-900">
+                            {selectedView === 'year' ? 'Monthly Workload' :
+                             selectedView === 'quarter' ? 'Monthly Workload' :
+                             selectedView === 'month' ? 'Weekly Workload' :
+                             'Daily Workload'}
+                          </div>
+                          <div className="text-xs text-blue-700">
+                            {selectedView === 'year' ? 'Hours scheduled per month' :
+                             selectedView === 'quarter' ? 'Hours scheduled per month' :
+                             selectedView === 'month' ? 'Hours scheduled per week' :
+                             'Hours scheduled per day'}
+                          </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex-1 grid grid-cols-9 gap-2">
-                      {Array.from({ length: 9 }, (_, dateIdx) => {
-                        if (dateIdx === 2 || dateIdx === 3) {
+                    <div className={`flex-1 ${
+                      selectedView === 'year' ? 'grid grid-cols-12 gap-2' :
+                      selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                      selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                      'grid grid-cols-9 gap-2'
+                    }`}>
+                      {Array.from({ length: getPeriodsForView() }, (_, periodIndex) => {
+                        if (selectedView === 'week' && (periodIndex === 2 || periodIndex === 3)) {
                           return (
-                            <div key={dateIdx} className="h-6 rounded bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-semibold">
+                            <div key={periodIndex} className="h-6 rounded bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-semibold">
                               —
                             </div>
                           );
                         }
                         
-                        const hours = member.tasks.some(task => task.pattern[dateIdx]) ? 
-                          Math.round(member.tasks[0].targetHoursPerWeek / 5 * 10) / 10 : 0;
+                        let hours = 0;
+                        if (selectedView === 'year' || selectedView === 'quarter') {
+                          hours = calculateDailyHours(member, periodIndex, 'month');
+                        } else if (selectedView === 'month') {
+                          hours = calculateDailyHours(member, periodIndex, 'week');
+                        } else {
+                          hours = calculateDailyHours(member, periodIndex, 'day');
+                        }
+                        
+                        const isCurrentPeriod = (
+                          (selectedView === 'week' && periodIndex === 0) ||
+                          (selectedView === 'month' && periodIndex === 1) ||
+                          (selectedView === 'quarter' && periodIndex === 2) ||
+                          (selectedView === 'year' && periodIndex === 11)
+                        );
                         
                         return (
-                          <div key={dateIdx} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
-                            hours === 0 ? 'bg-gray-100 text-gray-400' :
-                            hours > 8 ? 'bg-red-500 text-white' :
-                            hours > 6 ? 'bg-orange-500 text-white' :
-                            'bg-green-500 text-white'
-                          } ${dateIdx === 0 ? 'ring-1 ring-blue-400' : ''}`}>
-                            {hours === 0 ? '—' : `${hours}h`}
+                          <div key={periodIndex} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                            getWorkloadColor(hours, selectedView)
+                          } ${isCurrentPeriod ? 'ring-1 ring-blue-400' : ''}`}>
+                            {hours === 0 ? '—' : `${Math.round(hours * 10) / 10}h`}
                           </div>
                         );
                       })}
@@ -348,7 +528,7 @@ const ResourcePlanner = () => {
         </div>
       </div>
 
-      {/* Enhanced Task Detail Modal */}
+      {/* Task Detail Modal */}
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTask(null)}>
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -368,237 +548,50 @@ const ResourcePlanner = () => {
                 <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
               </div>
 
-              {selectedTask.isEditing ? (
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.target);
-                  const newIntensity = parseFloat(formData.get('weeklyHours'));
-                  updateTaskIntensity(selectedTask.id, selectedTask.memberId, newIntensity, []);
-                }}>
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                      <h3 className="text-sm font-semibold text-blue-900 mb-2">⚙️ Configure Task Intensity</h3>
-                      <p className="text-xs text-blue-700">Adjust how much time {selectedTask.memberName} spends on this task</p>
-                    </div>
+              <div className="space-y-3">
+                <div className="text-xs">
+                  <span className="text-gray-500">Assigned to:</span>
+                  <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
+                </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-blue-50 p-2 rounded text-center">
-                        <div className="text-xs text-blue-700">Total Budget</div>
-                        <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
-                      </div>
-                      <div className="bg-green-50 p-2 rounded text-center">
-                        <div className="text-xs text-green-700">Completed</div>
-                        <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
-                      </div>
-                      <div className="bg-orange-50 p-2 rounded text-center">
-                        <div className="text-xs text-orange-700">Remaining</div>
-                        <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Weekly Time Allocation</label>
-                      <div className="flex items-center space-x-2">
-                        <input 
-                          type="number" 
-                          name="weeklyHours"
-                          step="0.5"
-                          min="0.5"
-                          max="40"
-                          defaultValue={selectedTask.targetHoursPerWeek || 4}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        />
-                        <span className="text-sm text-gray-600">hours per week</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        At current pace: ~{Math.ceil(getRemainingHours(selectedTask) / (selectedTask.targetHoursPerWeek || 4))} weeks to complete
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Work Schedule</label>
-                      <div className="grid grid-cols-7 gap-1">
-                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
-                          <label key={day} className="flex flex-col items-center p-1 text-xs">
-                            <input 
-                              type="checkbox" 
-                              name="workDays"
-                              value={day.toLowerCase()}
-                              defaultChecked={selectedTask.pattern && selectedTask.pattern[idx]}
-                              className="h-3 w-3 text-blue-600 border-gray-300 rounded"
-                            />
-                            <span className="mt-1">{day}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-                      <div className="text-xs font-medium text-yellow-900 mb-1">💡 Example Scenarios</div>
-                      <div className="text-xs text-yellow-800 space-y-1">
-                        <div>• High intensity (32h/week) for 3 specific months</div>
-                        <div>• Maintenance mode (8h/week) for remaining time</div>
-                        <div>• Custom work patterns (Mon/Wed/Fri only)</div>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-blue-50 p-2 rounded text-center">
+                    <div className="text-xs text-blue-700">Estimated</div>
+                    <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
                   </div>
-
-                  <div className="flex justify-end space-x-3 mt-6">
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedTask({...selectedTask, isEditing: false})}
-                      className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Update Intensity
-                    </button>
+                  <div className="bg-green-50 p-2 rounded text-center">
+                    <div className="text-xs text-green-700">Actual</div>
+                    <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
                   </div>
-                </form>
-              ) : (
-                <>
-                  <div className="space-y-3">
-                    <div className="text-xs">
-                      <span className="text-gray-500">Assigned to:</span>
-                      <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-blue-50 p-2 rounded text-center">
-                        <div className="text-xs text-blue-700">Estimated</div>
-                        <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
-                      </div>
-                      <div className="bg-green-50 p-2 rounded text-center">
-                        <div className="text-xs text-green-700">Actual</div>
-                        <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
-                      </div>
-                      <div className="bg-orange-50 p-2 rounded text-center">
-                        <div className="text-xs text-orange-700">Remaining</div>
-                        <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 p-3 rounded border border-green-200">
-                      <div className="text-xs font-medium text-green-900 mb-1">🎯 Current Intensity</div>
-                      <div className="text-xs text-green-800">
-                        {selectedTask.targetHoursPerWeek}h per week • Long-term project
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
-                        {selectedTask.status.toUpperCase()}
-                      </span>
-                    </div>
+                  <div className="bg-orange-50 p-2 rounded text-center">
+                    <div className="text-xs text-orange-700">Remaining</div>
+                    <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
                   </div>
+                </div>
 
-                  <div className="flex justify-between mt-4">
-                    {selectedTask.isLongTerm && (
-                      <button 
-                        onClick={() => setSelectedTask({...selectedTask, isEditing: true})}
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        ⚙️ Configure Intensity
-                      </button>
-                    )}
-                    <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 ml-auto">
-                      Close
-                    </button>
+                {selectedTask.intensityPhases && (
+                  <div className="bg-green-50 p-3 rounded border border-green-200">
+                    <div className="text-xs font-medium text-green-900 mb-1">🎯 Intensity Phases</div>
+                    {selectedTask.intensityPhases.map((phase, idx) => (
+                      <div key={idx} className="text-xs text-green-800">
+                        • {phase.name}: {phase.hoursPerWeek}h/week (weeks {phase.startWeek} to {phase.endWeek})
+                      </div>
+                    ))}
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                )}
 
-      {/* Task Assignment Modal */}
-      {showAssignTaskModal && selectedMemberForAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAssignTaskModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Assign Task to {selectedMemberForAssignment.name}</h2>
-                <button onClick={() => setShowAssignTaskModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                <div>
+                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
+                    {selectedTask.status.toUpperCase()}
+                  </span>
+                </div>
               </div>
 
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const taskData = {
-                  project: formData.get('project'),
-                  estimatedHours: parseInt(formData.get('estimatedHours')),
-                  priority: formData.get('priority')
-                };
-                submitTaskAssignment(taskData);
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                      <option value="">Select Project</option>
-                      <option value="AI Platform">AI Platform</option>
-                      <option value="BIORADAR">BIORADAR</option>
-                      <option value="ENERGIZE">ENERGIZE</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
-                      <input 
-                        type="number" 
-                        name="estimatedHours"
-                        required 
-                        min="1"
-                        placeholder="40"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                      <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="low">Low</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Current Capacity</div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Current: {selectedMemberForAssignment.scheduled}h / {selectedMemberForAssignment.capacity}h</span>
-                      <span className={`font-medium ${
-                        selectedMemberForAssignment.utilization > 100 ? 'text-red-600' :
-                        selectedMemberForAssignment.utilization > 85 ? 'text-orange-600' : 'text-green-600'
-                      }`}>
-                        {selectedMemberForAssignment.utilization}% utilized
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setShowAssignTaskModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-                  >
-                    Assign Task
-                  </button>
-                </div>
-              </form>
+              <div className="flex justify-end mt-4">
+                <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
