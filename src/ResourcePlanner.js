@@ -1327,9 +1327,9 @@ const ResourcePlanner = () => {
                   </div>
                 </div>
 
-                {showTaskDetails && (
+                {(showTaskDetails || true) && (
                   <div className="ml-4 space-y-1">
-                    {member.tasks.map((task, idx) => (
+                    {showTaskDetails && member.tasks.map((task, idx) => (
                       <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
                            onClick={() => setSelectedTask({...task, memberName: member.name})}>
                         <div className="w-72 flex-shrink-0">
@@ -1407,23 +1407,23 @@ const ResourcePlanner = () => {
                       </div>
                     ))}
                     
-                    {/* Workload Summary */}
+                    {/* Workload Summary - Always visible */}
                     <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
                       <div className="w-72 flex-shrink-0">
                         <div className="flex items-center space-x-2">
                           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                           <div>
                             <div className="text-sm font-medium text-blue-900">
-                              {selectedView === 'year' ? 'Monthly Workload' :
-                               selectedView === 'quarter' ? 'Monthly Workload' :
-                               selectedView === 'month' ? 'Weekly Workload' :
-                               'Daily Workload'}
+                              {selectedView === 'year' ? 'Annual Workload' :
+                               selectedView === 'quarter' ? 'Quarterly Workload' :
+                               selectedView === 'month' ? 'Monthly Workload' :
+                               'Weekly Workload'}
                             </div>
                             <div className="text-xs text-blue-700">
-                              {selectedView === 'year' ? 'Hours scheduled per month' :
-                               selectedView === 'quarter' ? 'Hours scheduled per month' :
-                               selectedView === 'month' ? 'Hours scheduled per week' :
-                               'Hours scheduled per day'}
+                              {selectedView === 'year' ? 'Total hours for the year' :
+                               selectedView === 'quarter' ? 'Hours per month in quarter' :
+                               selectedView === 'month' ? 'Hours per week in month' :
+                               'Hours per day this week'}
                             </div>
                           </div>
                         </div>
