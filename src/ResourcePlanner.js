@@ -15,11 +15,11 @@ const ResourcePlanner = () => {
   const [selectedMemberForTemplate, setSelectedMemberForTemplate] = useState(null);
   const [spreadsheetView, setSpreadsheetView] = useState('month'); // 'week', 'month', 'quarter', 'year'
   
-  // Sample spreadsheet data (hours per week for each month)
+  // Sample spreadsheet data (hours per week for each month) - Updated for 40h work week
   const [spreadsheetData, setSpreadsheetData] = useState({
-    1: { 0: 8, 1: 8, 2: 0, 3: 0, 4: 0, 5: 6, 6: 6, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-    2: { 0: 10, 1: 10, 2: 10, 3: 0, 4: 0, 5: 0, 6: 12, 7: 12, 8: 0, 9: 0, 10: 0, 11: 0 },
-    3: { 0: 6, 1: 6, 2: 6, 3: 6, 4: 0, 5: 0, 6: 0, 7: 0, 8: 8, 9: 8, 10: 0, 11: 0 }
+    1: { 0: 20, 1: 20, 2: 0, 3: 0, 4: 0, 5: 15, 6: 15, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+    2: { 0: 25, 1: 25, 2: 25, 3: 0, 4: 0, 5: 0, 6: 30, 7: 30, 8: 0, 9: 0, 10: 0, 11: 0 },
+    3: { 0: 15, 1: 15, 2: 15, 3: 15, 4: 0, 5: 0, 6: 0, 7: 0, 8: 20, 9: 20, 10: 0, 11: 0 }
   });
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
@@ -221,11 +221,38 @@ const ResourcePlanner = () => {
 
   const getCellColor = (hours) => {
     if (hours === 0) return 'bg-gray-100 text-gray-400';
-    if (hours <= 4) return 'bg-blue-100 text-blue-800';
-    if (hours <= 8) return 'bg-green-100 text-green-800';
-    if (hours <= 15) return 'bg-yellow-100 text-yellow-800';
-    if (hours <= 25) return 'bg-orange-100 text-orange-800';
-    return 'bg-red-100 text-red-800';
+    
+    if (spreadsheetView === 'week') {
+      // Weekly hours: 0-40h per week
+      if (hours <= 10) return 'bg-blue-100 text-blue-800';      // Light: 1-10h/week
+      if (hours <= 20) return 'bg-green-100 text-green-800';    // Moderate: 11-20h/week  
+      if (hours <= 30) return 'bg-yellow-100 text-yellow-800';  // Heavy: 21-30h/week
+      if (hours <= 40) return 'bg-orange-100 text-orange-800';  // Full-time: 31-40h/week
+      return 'bg-red-100 text-red-800';                         // Overload: 40h+/week
+    } else if (spreadsheetView === 'month') {
+      // Monthly total hours: 0-173h (40h/week × 4.33 weeks)
+      if (hours <= 43) return 'bg-blue-100 text-blue-800';      // ~10h/week
+      if (hours <= 87) return 'bg-green-100 text-green-800';    // ~20h/week
+      if (hours <= 130) return 'bg-yellow-100 text-yellow-800'; // ~30h/week
+      if (hours <= 173) return 'bg-orange-100 text-orange-800'; // ~40h/week
+      return 'bg-red-100 text-red-800';                         // Over full-time
+    } else if (spreadsheetView === 'quarter') {
+      // Quarterly total hours: 0-520h (40h/week × 13 weeks)
+      if (hours <= 130) return 'bg-blue-100 text-blue-800';     // Light quarterly load
+      if (hours <= 260) return 'bg-green-100 text-green-800';   // Moderate quarterly load
+      if (hours <= 390) return 'bg-yellow-100 text-yellow-800'; // Heavy quarterly load
+      if (hours <= 520) return 'bg-orange-100 text-orange-800'; // Full quarterly load
+      return 'bg-red-100 text-red-800';                         // Overload
+    } else if (spreadsheetView === 'year') {
+      // Annual total hours: 0-2080h (40h/week × 52 weeks)
+      if (hours <= 520) return 'bg-blue-100 text-blue-800';     // Light annual load
+      if (hours <= 1040) return 'bg-green-100 text-green-800';  // Moderate annual load
+      if (hours <= 1560) return 'bg-yellow-100 text-yellow-800'; // Heavy annual load
+      if (hours <= 2080) return 'bg-orange-100 text-orange-800'; // Full annual load
+      return 'bg-red-100 text-red-800';                         // Overload
+    }
+    
+    return 'bg-gray-100 text-gray-400';
   };
 
   const getMonthlyTotal = (month) => {
@@ -243,31 +270,31 @@ const ResourcePlanner = () => {
     {
       name: "2-Month Sprint + 3-Month Break + 2-Month Sprint",
       description: "Work intensively, then break, then final push",
-      pattern: [10, 10, 0, 0, 0, 8, 8, 0, 0, 0, 0, 0],
+      pattern: [25, 25, 0, 0, 0, 20, 20, 0, 0, 0, 0, 0],
       icon: "🚀"
     },
     {
       name: "Seasonal Work (Summer Focus)",
       description: "Light work, then summer intensive, then light",
-      pattern: [4, 4, 4, 4, 4, 12, 12, 12, 4, 4, 4, 4],
+      pattern: [10, 10, 10, 10, 10, 30, 30, 30, 10, 10, 10, 10],
       icon: "☀️"
     },
     {
       name: "Academic Schedule",
       description: "Term work with holiday breaks",
-      pattern: [8, 8, 8, 8, 0, 0, 0, 8, 8, 8, 8, 0],
+      pattern: [20, 20, 20, 20, 0, 0, 0, 20, 20, 20, 20, 0],
       icon: "🎓"
     },
     {
       name: "Quarterly Sprints",
       description: "3-month sprints with 1-month breaks",
-      pattern: [8, 8, 8, 0, 8, 8, 8, 0, 8, 8, 8, 0],
+      pattern: [20, 20, 20, 0, 20, 20, 20, 0, 20, 20, 20, 0],
       icon: "📅"
     },
     {
       name: "Steady Consistent Work",
       description: "Same hours every month",
-      pattern: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+      pattern: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20],
       icon: "⚡"
     }
   ];
@@ -330,20 +357,32 @@ const ResourcePlanner = () => {
     
     switch (spreadsheetView) {
       case 'week':
-        // For weekly view, convert monthly data to weekly (approximate)
+        // For weekly view, show the weekly rate for that specific week
         const monthIndex = Math.floor(index / 4.33); // ~4.33 weeks per month
-        return memberData[monthIndex] || 0;
+        return memberData[monthIndex] || 0; // Same weekly rate throughout the month
+        
       case 'month':
-        return memberData[index] || 0;
+        // Month view shows TOTAL hours for the entire month (weekly rate × 4.33 weeks)
+        const weeklyHours = memberData[index] || 0;
+        return Math.round(weeklyHours * 4.33);
+        
       case 'quarter':
-        // Sum 3 months for each quarter
+        // Quarter view shows TOTAL hours across 3 months
         const quarterMonths = [
           [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
         ];
-        return quarterMonths[index]?.reduce((sum, monthIdx) => sum + (memberData[monthIdx] || 0), 0) || 0;
+        const monthsInQuarter = quarterMonths[index] || [];
+        return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
+          const weeklyHours = memberData[monthIdx] || 0;
+          return sum + (weeklyHours * 4.33); // Convert weekly to monthly total (4.33 weeks/month)
+        }, 0));
+        
       case 'year':
-        // Sum all months
-        return Object.values(memberData).reduce((sum, hours) => sum + hours, 0);
+        // Year view shows TOTAL hours for entire year
+        return Math.round(Object.values(memberData).reduce((sum, weeklyHours) => {
+          return sum + (weeklyHours * 4.33); // Convert each month's weekly hours to monthly total
+        }, 0));
+        
       default:
         return memberData[index] || 0;
     }
@@ -375,11 +414,11 @@ const ResourcePlanner = () => {
       case 'week':
         return 'hours per week';
       case 'month':
-        return 'hours per week (sustained throughout month)';
+        return 'total hours for entire month';
       case 'quarter':
-        return 'total hours across quarter';
+        return 'total hours for entire quarter';
       case 'year':
-        return 'total hours for year';
+        return 'total hours for entire year';
       default:
         return 'hours per week';
     }
@@ -709,23 +748,48 @@ const ResourcePlanner = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-blue-100 rounded"></div>
-                    <span>1-4h</span>
+                    <span>{
+                      spreadsheetView === 'year' ? '1-520h' : 
+                      spreadsheetView === 'quarter' ? '1-130h' : 
+                      spreadsheetView === 'month' ? '1-43h' :
+                      '1-10h'
+                    }</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-green-100 rounded"></div>
-                    <span>5-8h</span>
+                    <span>{
+                      spreadsheetView === 'year' ? '521-1040h' : 
+                      spreadsheetView === 'quarter' ? '131-260h' : 
+                      spreadsheetView === 'month' ? '44-87h' :
+                      '11-20h'
+                    }</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-yellow-100 rounded"></div>
-                    <span>9-15h</span>
+                    <span>{
+                      spreadsheetView === 'year' ? '1041-1560h' : 
+                      spreadsheetView === 'quarter' ? '261-390h' : 
+                      spreadsheetView === 'month' ? '88-130h' :
+                      '21-30h'
+                    }</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-orange-100 rounded"></div>
-                    <span>16-25h</span>
+                    <span>{
+                      spreadsheetView === 'year' ? '1561-2080h' : 
+                      spreadsheetView === 'quarter' ? '391-520h' : 
+                      spreadsheetView === 'month' ? '131-173h' :
+                      '31-40h'
+                    }</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-red-100 rounded"></div>
-                    <span>25+h</span>
+                    <span>{
+                      spreadsheetView === 'year' ? '2080h+' : 
+                      spreadsheetView === 'quarter' ? '520h+' : 
+                      spreadsheetView === 'month' ? '173h+' :
+                      '40h+'
+                    }</span>
                   </div>
                 </div>
               </div>
@@ -877,7 +941,7 @@ const ResourcePlanner = () => {
                               <input
                                 type="number"
                                 min="0"
-                                max={spreadsheetView === 'year' ? '2000' : spreadsheetView === 'quarter' ? '500' : '40'}
+                                max={spreadsheetView === 'year' ? '2500' : spreadsheetView === 'quarter' ? '600' : '45'}
                                 step="0.5"
                                 value={hours}
                                 onChange={(e) => handleCellEdit(member.id, columnIdx, e.target.value)}
@@ -898,7 +962,7 @@ const ResourcePlanner = () => {
                                 onClick={() => setEditingCell({ memberId: member.id, column: columnIdx })}
                                 className={`w-full px-2 py-2 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded ${getCellColor(hours)}`}
                               >
-                                {hours > 0 ? `${hours}h` : '—'}
+                                {hours > 0 ? `${Math.round(hours)}h` : '—'}
                               </div>
                             )}
                           </td>
@@ -923,7 +987,7 @@ const ResourcePlanner = () => {
                     {getSpreadsheetColumns().map((column, columnIdx) => (
                       <td key={columnIdx} className="px-3 py-3 text-center border-r">
                         <div className="text-sm font-semibold text-gray-900">
-                          {getColumnTotal(columnIdx)}h
+                          {Math.round(getColumnTotal(columnIdx))}h
                         </div>
                         <div className="text-xs text-gray-500">
                           {teamMembers.length} people
