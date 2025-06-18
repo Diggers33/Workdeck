@@ -7,6 +7,19 @@ const ResourcePlanner = () => {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedView, setSelectedView] = useState('week');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
+  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState(null);
+  const [showSpreadsheetView, setShowSpreadsheetView] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
+  const [showPhaseTemplates, setShowPhaseTemplates] = useState(false);
+  const [selectedMemberForTemplate, setSelectedMemberForTemplate] = useState(null);
+  
+  // Sample spreadsheet data
+  const [spreadsheetData, setSpreadsheetData] = useState({
+    1: { 0: 8, 1: 8, 2: 0, 3: 0, 4: 0, 5: 6, 6: 6, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+    2: { 0: 10, 1: 10, 2: 10, 3: 0, 4: 0, 5: 0, 6: 12, 7: 12, 8: 0, 9: 0, 10: 0, 11: 0 },
+    3: { 0: 6, 1: 6, 2: 6, 3: 6, 4: 0, 5: 0, 6: 0, 7: 0, 8: 8, 9: 8, 10: 0, 11: 0 }
+  });
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
@@ -16,6 +29,8 @@ const ResourcePlanner = () => {
     switch (status) {
       case 'completed': return 'text-green-700 bg-green-100 border-green-200';
       case 'in-progress': return 'text-blue-700 bg-blue-100 border-blue-200';
+      case 'over-budget': return 'text-red-700 bg-red-100 border-red-200';
+      case 'planned': return 'text-gray-600 bg-gray-100 border-gray-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
@@ -25,6 +40,7 @@ const ResourcePlanner = () => {
   const getUtilizationColor = (utilization) => {
     if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
     if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
     return 'text-green-600 bg-green-50 border-green-200';
   };
 
@@ -40,6 +56,37 @@ const ResourcePlanner = () => {
     return task.intensityPhases.find(phase => {
       return currentWeek >= phase.startWeek && currentWeek <= phase.endWeek;
     });
+  };
+
+  const calculateVelocity = (task) => {
+    if (!task.velocityHistory || task.velocityHistory.length < 2) return null;
+    
+    const recentWeeks = task.velocityHistory.slice(-4);
+    const avgWeeklyHours = recentWeeks.reduce((sum, week) => sum + week.hoursLogged, 0) / recentWeeks.length;
+    
+    return {
+      currentVelocity: avgWeeklyHours,
+      targetVelocity: task.targetHoursPerWeek || 0,
+      velocityTrend: avgWeeklyHours >= task.targetHoursPerWeek ? 'ahead' : 'behind'
+    };
+  };
+
+  const getVelocityStatusColor = (velocity) => {
+    if (!velocity) return 'text-gray-500';
+    const ratio = velocity.currentVelocity / velocity.targetVelocity;
+    if (ratio >= 1.1) return 'text-green-600';
+    if (ratio >= 0.9) return 'text-blue-600';
+    if (ratio >= 0.7) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getVelocityIcon = (velocity) => {
+    if (!velocity) return '📊';
+    const ratio = velocity.currentVelocity / velocity.targetVelocity;
+    if (ratio >= 1.1) return '🚀';
+    if (ratio >= 0.9) return '✅';
+    if (ratio >= 0.7) return '⚠️';
+    return '🚨';
   };
 
   const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
@@ -135,6 +182,131 @@ const ResourcePlanner = () => {
     return `Dec 12-20, 2025 (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
   };
 
+  const handleAssignTask = (member) => {
+    setSelectedMemberForAssignment(member);
+    setShowAssignTaskModal(true);
+  };
+
+  const handleEditTask = (task, member) => {
+    setSelectedTask({...task, memberName: member.name, isEditing: true});
+  };
+
+  const updateTaskIntensity = (taskId, memberId, newIntensity, newPattern) => {
+    console.log('Updating task intensity:', { taskId, memberId, newIntensity, newPattern });
+    setSelectedTask(null);
+  };
+
+  const submitTaskAssignment = (taskData) => {
+    console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
+    setShowAssignTaskModal(false);
+    setSelectedMemberForAssignment(null);
+  };
+
+  // Spreadsheet functions
+  const handleCellEdit = (memberId, month, value) => {
+    const numValue = parseFloat(value) || 0;
+    setSpreadsheetData(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        [month]: Math.max(0, Math.min(40, numValue))
+      }
+    }));
+  };
+
+  const getCellColor = (hours) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    if (hours <= 4) return 'bg-blue-100 text-blue-800';
+    if (hours <= 8) return 'bg-green-100 text-green-800';
+    if (hours <= 15) return 'bg-yellow-100 text-yellow-800';
+    if (hours <= 25) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const getMonthlyTotal = (month) => {
+    return teamMembers.reduce((total, member) => {
+      return total + (spreadsheetData[member.id]?.[month] || 0);
+    }, 0);
+  };
+
+  const getMemberTotal = (memberId) => {
+    const memberData = spreadsheetData[memberId] || {};
+    return Object.values(memberData).reduce((sum, hours) => sum + hours, 0);
+  };
+
+  const phaseTemplates = [
+    {
+      name: "2-Month Sprint + 3-Month Break + 2-Month Sprint",
+      description: "Work intensively, then break, then final push",
+      pattern: [10, 10, 0, 0, 0, 8, 8, 0, 0, 0, 0, 0],
+      icon: "🚀"
+    },
+    {
+      name: "Seasonal Work (Summer Focus)",
+      description: "Light work, then summer intensive, then light",
+      pattern: [4, 4, 4, 4, 4, 12, 12, 12, 4, 4, 4, 4],
+      icon: "☀️"
+    },
+    {
+      name: "Academic Schedule",
+      description: "Term work with holiday breaks",
+      pattern: [8, 8, 8, 8, 0, 0, 0, 8, 8, 8, 8, 0],
+      icon: "🎓"
+    },
+    {
+      name: "Quarterly Sprints",
+      description: "3-month sprints with 1-month breaks",
+      pattern: [8, 8, 8, 0, 8, 8, 8, 0, 8, 8, 8, 0],
+      icon: "📅"
+    },
+    {
+      name: "Steady Consistent Work",
+      description: "Same hours every month",
+      pattern: [8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+      icon: "⚡"
+    }
+  ];
+
+  const applyTemplate = (memberId, template) => {
+    setSpreadsheetData(prev => ({
+      ...prev,
+      [memberId]: {
+        ...prev[memberId],
+        ...template.pattern.reduce((acc, hours, month) => {
+          acc[month] = hours;
+          return acc;
+        }, {})
+      }
+    }));
+    setShowPhaseTemplates(false);
+    setSelectedMemberForTemplate(null);
+  };
+
+  const clearMemberSchedule = (memberId) => {
+    setSpreadsheetData(prev => ({
+      ...prev,
+      [memberId]: Array.from({ length: 12 }, () => 0).reduce((acc, _, month) => {
+        acc[month] = 0;
+        return acc;
+      }, {})
+    }));
+  };
+
+  const detectPattern = (memberId) => {
+    const memberData = spreadsheetData[memberId] || {};
+    const pattern = Object.values(memberData);
+    
+    const workMonths = pattern.filter(h => h > 0).length;
+    const breakMonths = pattern.filter(h => h === 0).length;
+    
+    if (workMonths <= 4 && breakMonths >= 6) return "Sprint-based with long breaks";
+    if (workMonths >= 10) return "Consistent year-round work";
+    if (workMonths >= 6 && workMonths <= 9) return "Seasonal work pattern";
+    return "Custom pattern";
+  };
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   const teamMembers = [
     {
       id: 1,
@@ -146,6 +318,7 @@ const ResourcePlanner = () => {
       utilization: 80,
       tasks: [
         {
+          id: 1,
           project: 'AI Platform',
           activity: 'Core Architecture',
           task: 'System Design & Planning',
@@ -165,6 +338,22 @@ const ResourcePlanner = () => {
             { name: 'Planning Phase', hoursPerWeek: 8, startWeek: -8, endWeek: -4 },
             { name: 'Implementation', hoursPerWeek: 6, startWeek: -3, endWeek: 12 },
             { name: 'Testing', hoursPerWeek: 4, startWeek: 13, endWeek: 24 }
+          ],
+          velocityHistory: [
+            { week: -8, hoursLogged: 8 },
+            { week: -7, hoursLogged: 7 },
+            { week: -6, hoursLogged: 5 },
+            { week: -5, hoursLogged: 9 },
+            { week: -4, hoursLogged: 6 },
+            { week: -3, hoursLogged: 8 },
+            { week: -2, hoursLogged: 7 },
+            { week: -1, hoursLogged: 6 },
+            { week: 0, hoursLogged: 8 }
+          ],
+          milestones: [
+            { name: 'Architecture Design', targetDate: '2025-02-01', status: 'completed', targetHours: 60 },
+            { name: 'Core Implementation', targetDate: '2025-04-01', status: 'in-progress', targetHours: 120 },
+            { name: 'Testing & Optimization', targetDate: '2025-06-01', status: 'planned', targetHours: 20 }
           ]
         }
       ]
@@ -179,6 +368,7 @@ const ResourcePlanner = () => {
       utilization: 115,
       tasks: [
         {
+          id: 2,
           project: 'AI Platform',
           activity: 'ML Algorithms',
           task: 'Model Development',
@@ -198,6 +388,17 @@ const ResourcePlanner = () => {
             { name: 'Research Phase', hoursPerWeek: 12, startWeek: -8, endWeek: -2 },
             { name: 'Development', hoursPerWeek: 10, startWeek: -1, endWeek: 16 },
             { name: 'Optimization', hoursPerWeek: 5, startWeek: 17, endWeek: 24 }
+          ],
+          velocityHistory: [
+            { week: -8, hoursLogged: 10 },
+            { week: -7, hoursLogged: 12 },
+            { week: -6, hoursLogged: 8 },
+            { week: -5, hoursLogged: 11 },
+            { week: -4, hoursLogged: 9 },
+            { week: -3, hoursLogged: 13 },
+            { week: -2, hoursLogged: 11 },
+            { week: -1, hoursLogged: 14 },
+            { week: 0, hoursLogged: 12 }
           ]
         }
       ]
@@ -212,6 +413,7 @@ const ResourcePlanner = () => {
       utilization: 95,
       tasks: [
         {
+          id: 3,
           project: 'AI Platform',
           activity: 'Data Pipeline',
           task: 'ETL Development',
@@ -231,6 +433,13 @@ const ResourcePlanner = () => {
             { name: 'Setup Phase', hoursPerWeek: 8, startWeek: -4, endWeek: 0 },
             { name: 'Core Development', hoursPerWeek: 6, startWeek: 1, endWeek: 12 },
             { name: 'Maintenance', hoursPerWeek: 3, startWeek: 13, endWeek: 16 }
+          ],
+          velocityHistory: [
+            { week: -4, hoursLogged: 6 },
+            { week: -3, hoursLogged: 4 },
+            { week: -2, hoursLogged: 7 },
+            { week: -1, hoursLogged: 5 },
+            { week: 0, hoursLogged: 3 }
           ]
         }
       ]
@@ -268,6 +477,17 @@ const ResourcePlanner = () => {
               className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               {showTaskDetails ? 'Hide Tasks' : 'Show Tasks'}
+            </button>
+
+            <button 
+              onClick={() => setShowSpreadsheetView(!showSpreadsheetView)} 
+              className={`px-3 py-1.5 text-sm font-medium border rounded-md ${
+                showSpreadsheetView 
+                  ? 'bg-blue-600 text-white border-blue-600' 
+                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              📊 {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
             </button>
 
             <select 
@@ -356,7 +576,281 @@ const ResourcePlanner = () => {
 
       {/* Content */}
       <div className="p-4">
-        <div className="mb-8">
+        {showSpreadsheetView ? (
+          /* Spreadsheet View */
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">12-Month Resource Planning</h2>
+                  <p className="text-sm text-gray-600">Click cells to edit hours per week. Use templates for quick setup.</p>
+                </div>
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-100 rounded"></div>
+                    <span>0h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-100 rounded"></div>
+                    <span>1-4h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-100 rounded"></div>
+                    <span>5-8h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-yellow-100 rounded"></div>
+                    <span>9-15h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-orange-100 rounded"></div>
+                    <span>16-25h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-red-100 rounded"></div>
+                    <span>25+h</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Bar */}
+              <div className="flex items-center justify-between p-3 bg-white rounded border">
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-gray-700">Quick Actions:</span>
+                  <button 
+                    onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    🚀 Apply Template
+                  </button>
+                  <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                    📋 Export to Excel
+                  </button>
+                  <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
+                    📁 Save as Template
+                  </button>
+                </div>
+                <div className="text-xs text-gray-500">
+                  💡 Select a team member row, then apply templates for instant scheduling
+                </div>
+              </div>
+
+              {/* Phase Templates Panel */}
+              {showPhaseTemplates && (
+                <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-blue-900">📚 Phase Templates</h3>
+                    <button 
+                      onClick={() => setShowPhaseTemplates(false)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Choose a template to instantly apply a work pattern. You can then fine-tune individual months.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {phaseTemplates.map((template, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded border hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-2 mb-2">
+                          <span className="text-lg">{template.icon}</span>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                            <div className="text-xs text-gray-600">{template.description}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Mini timeline preview */}
+                        <div className="flex space-x-1 mb-2">
+                          {template.pattern.map((hours, month) => (
+                            <div 
+                              key={month} 
+                              className={`h-2 w-full rounded ${getCellColor(hours).split(' ')[0]}`}
+                              title={`${months[month]}: ${hours}h/week`}
+                            ></div>
+                          ))}
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-500">
+                            {template.pattern.reduce((sum, h) => sum + h, 0)}h total
+                          </div>
+                          <div className="space-x-1">
+                            {teamMembers.map(member => (
+                              <button
+                                key={member.id}
+                                onClick={() => applyTemplate(member.id, template)}
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                title={`Apply to ${member.name}`}
+                              >
+                                {member.name.split(' ')[0]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                      Team Member
+                    </th>
+                    {months.map((month, idx) => (
+                      <th key={idx} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                        <div>{month}</div>
+                        <div className="text-xs text-gray-400 font-normal">2025</div>
+                      </th>
+                    ))}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {teamMembers.map((member) => (
+                    <tr key={member.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 border-r bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm">
+                              {member.avatar}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                              <div className="text-xs text-gray-500">{member.department}</div>
+                              <div className="text-xs text-blue-600">{detectPattern(member.id)}</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col space-y-1">
+                            <button 
+                              onClick={() => {
+                                setSelectedMemberForTemplate(member.id);
+                                setShowPhaseTemplates(true);
+                              }}
+                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                              title="Apply template to this member"
+                            >
+                              🚀 Template
+                            </button>
+                            <button 
+                              onClick={() => clearMemberSchedule(member.id)}
+                              className="px-2 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+                              title="Clear all months"
+                            >
+                              🗑️ Clear
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                      {months.map((month, monthIdx) => {
+                        const hours = spreadsheetData[member.id]?.[monthIdx] || 0;
+                        const isEditing = editingCell?.memberId === member.id && editingCell?.month === monthIdx;
+                        return (
+                          <td key={monthIdx} className="px-1 py-1 border-r">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                max="40"
+                                step="0.5"
+                                value={hours}
+                                onChange={(e) => handleCellEdit(member.id, monthIdx, e.target.value)}
+                                onBlur={() => setEditingCell(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === 'Tab') {
+                                    setEditingCell(null);
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setEditingCell(null);
+                                  }
+                                }}
+                                autoFocus
+                                className="w-full px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                            ) : (
+                              <div
+                                onClick={() => setEditingCell({ memberId: member.id, month: monthIdx })}
+                                className={`w-full px-2 py-2 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded ${getCellColor(hours)}`}
+                              >
+                                {hours > 0 ? `${hours}h` : '—'}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-3 text-center bg-gray-50">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {getMemberTotal(member.id)}h
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {Math.round(getMemberTotal(member.id) / 12)}h/mo
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r">
+                      Monthly Totals
+                    </td>
+                    {months.map((month, monthIdx) => (
+                      <td key={monthIdx} className="px-3 py-3 text-center border-r">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {getMonthlyTotal(monthIdx)}h
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {teamMembers.length} people
+                        </div>
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 text-center">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {teamMembers.reduce((sum, member) => sum + getMemberTotal(member.id), 0)}h
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Total Year
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  💡 <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Numbers are hours per week
+                </div>
+                <div className="flex space-x-2">
+                  <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
+                    📋 Export to Excel
+                  </button>
+                  <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                    📁 Save Template
+                  </button>
+                  <button 
+                    onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
+                    className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                  >
+                    🚀 Phase Templates
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Original Timeline View */
+          <div className="mb-8">
           <div className="mb-4 p-3 bg-gray-800 text-white rounded">
             <h3 className="font-semibold">Engineering & Data Science</h3>
             <p className="text-sm text-gray-300">3 team members</p>
@@ -375,6 +869,11 @@ const ResourcePlanner = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => handleAssignTask(member)}
+                    className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100">
+                    + Assign Task
+                  </button>
                   <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
                     {member.utilization}%
                     {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
@@ -398,6 +897,14 @@ const ResourcePlanner = () => {
                                   Long-term
                                 </span>
                               )}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditTask(task, member);
+                                }}
+                                className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
+                                ⚙️ Edit
+                              </button>
                             </div>
                             <div className="text-xs text-gray-600 mb-1">
                               <span className="font-medium">{task.activity}</span>
@@ -526,6 +1033,7 @@ const ResourcePlanner = () => {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {/* Task Detail Modal */}
@@ -534,10 +1042,10 @@ const ResourcePlanner = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-4">
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-start space-x-2 flex-1">
-                  <div className={`w-3 h-3 rounded-full ${selectedTask.color} mt-1`}></div>
-                  <div>
-                    <h2 className="text-base font-semibold">{selectedTask.project}</h2>
+                <div className="flex items-start space-x-2 flex-1 min-w-0">
+                  <div className={`w-3 h-3 rounded-full ${selectedTask.color} mt-1 flex-shrink-0`}></div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-semibold truncate">{selectedTask.project}</h2>
                     <p className="text-gray-600 text-xs">
                       <span className="font-medium">{selectedTask.activity}</span>
                       <span className="text-gray-400 mx-1">→</span>
@@ -545,53 +1053,302 @@ const ResourcePlanner = () => {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0">✕</button>
               </div>
 
-              <div className="space-y-3">
-                <div className="text-xs">
-                  <span className="text-gray-500">Assigned to:</span>
-                  <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
-                </div>
+              {selectedTask.isEditing ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">⚙️ Quick Task Settings</h3>
+                    <p className="text-xs text-blue-700">For detailed scheduling, use the Spreadsheet View with templates.</p>
+                  </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-blue-50 p-2 rounded text-center">
-                    <div className="text-xs text-blue-700">Estimated</div>
-                    <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-blue-50 p-2 rounded text-center">
+                      <div className="text-xs text-blue-700">Total Budget</div>
+                      <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
+                    </div>
+                    <div className="bg-green-50 p-2 rounded text-center">
+                      <div className="text-xs text-green-700">Completed</div>
+                      <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
+                    </div>
+                    <div className="bg-orange-50 p-2 rounded text-center">
+                      <div className="text-xs text-orange-700">Remaining</div>
+                      <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
+                    </div>
                   </div>
-                  <div className="bg-green-50 p-2 rounded text-center">
-                    <div className="text-xs text-green-700">Actual</div>
-                    <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Weekly Hours Target</label>
+                    <div className="flex items-center space-x-2">
+                      <input 
+                        type="number" 
+                        step="0.5"
+                        min="0.5"
+                        max="40"
+                        defaultValue={selectedTask.targetHoursPerWeek || 4}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                      <span className="text-sm text-gray-600">hours per week</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      This sets a general target. Use Spreadsheet View for month-by-month planning.
+                    </div>
                   </div>
-                  <div className="bg-orange-50 p-2 rounded text-center">
-                    <div className="text-xs text-orange-700">Remaining</div>
-                    <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Work Schedule</label>
+                    <div className="grid grid-cols-7 gap-1">
+                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => (
+                        <label key={day} className="flex flex-col items-center p-1 text-xs">
+                          <input 
+                            type="checkbox" 
+                            name="workDays"
+                            value={day.toLowerCase()}
+                            defaultChecked={selectedTask.pattern && selectedTask.pattern[idx]}
+                            className="h-3 w-3 text-blue-600 border-gray-300 rounded"
+                          />
+                          <span className="mt-1">{day}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Select which days this person typically works on this task
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                    <div className="text-xs font-medium text-yellow-900 mb-1">📊 Current Performance</div>
+                    <div className="text-xs text-yellow-800">
+                      Averaging {selectedTask.velocity}h/week vs target {selectedTask.targetHoursPerWeek}h/week
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                    <div className="text-xs font-medium text-blue-900 mb-1">💡 Pro Tip</div>
+                    <div className="text-xs text-blue-800">
+                      For complex scheduling (sprints, breaks, seasonal work), switch to <strong>Spreadsheet View</strong> and use phase templates for instant setup.
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-3 mt-6">
+                    <button 
+                      type="button"
+                      onClick={() => setSelectedTask({...selectedTask, isEditing: false})}
+                      className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedTask({...selectedTask, isEditing: false});
+                        setShowSpreadsheetView(true);
+                      }}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      📊 Go to Spreadsheet
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div className="text-xs">
+                      <span className="text-gray-500">Assigned to:</span>
+                      <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
+                    </div>
 
-                {selectedTask.intensityPhases && (
-                  <div className="bg-green-50 p-3 rounded border border-green-200">
-                    <div className="text-xs font-medium text-green-900 mb-1">🎯 Intensity Phases</div>
-                    {selectedTask.intensityPhases.map((phase, idx) => (
-                      <div key={idx} className="text-xs text-green-800">
-                        • {phase.name}: {phase.hoursPerWeek}h/week (weeks {phase.startWeek} to {phase.endWeek})
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-blue-50 p-2 rounded text-center">
+                        <div className="text-xs text-blue-700">Estimated</div>
+                        <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
                       </div>
-                    ))}
+                      <div className="bg-green-50 p-2 rounded text-center">
+                        <div className="text-xs text-green-700">Actual</div>
+                        <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
+                      </div>
+                      <div className="bg-orange-50 p-2 rounded text-center">
+                        <div className="text-xs text-orange-700">Remaining</div>
+                        <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-green-50 p-3 rounded border border-green-200">
+                      <div className="text-xs font-medium text-green-900 mb-1">🎯 Current Intensity</div>
+                      <div className="text-xs text-green-800">
+                        {selectedTask.targetHoursPerWeek}h per week • Working {selectedTask.pattern?.filter(Boolean).length || 6} days/week
+                      </div>
+                    </div>
+
+                    {selectedTask.intensityPhases && (
+                      <div className="bg-green-50 p-3 rounded border border-green-200">
+                        <div className="text-xs font-medium text-green-900 mb-1">🎯 Intensity Phases</div>
+                        {selectedTask.intensityPhases.map((phase, idx) => (
+                          <div key={idx} className="text-xs text-green-800">
+                            • {phase.name}: {phase.hoursPerWeek}h/week (weeks {phase.startWeek} to {phase.endWeek})
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {(() => {
+                      const velocity = calculateVelocity(selectedTask);
+                      return velocity ? (
+                        <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                          <div className="text-xs font-medium text-purple-900 mb-2">📊 Velocity Tracking</div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-purple-700">Current Velocity:</span>
+                              <span className={`font-medium ${getVelocityStatusColor(velocity)}`}>
+                                {getVelocityIcon(velocity)} {velocity.currentVelocity.toFixed(1)}h/week
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-purple-700">Target:</span>
+                              <span className="text-purple-900">{velocity.targetVelocity}h/week</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-purple-700">Projected:</span>
+                              <span className="text-purple-900">Week 16 (On time)</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {selectedTask.milestones && (
+                      <div className="bg-gray-50 p-3 rounded">
+                        <div className="text-xs font-medium text-gray-900 mb-2">🎯 Milestones</div>
+                        <div className="space-y-1">
+                          {selectedTask.milestones.map((milestone, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center space-x-1">
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  milestone.status === 'completed' ? 'bg-green-500' :
+                                  milestone.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-300'
+                                }`}></span>
+                                <span className="text-gray-700">{milestone.name}</span>
+                              </div>
+                              <div className="text-gray-500">
+                                {milestone.targetDate} • {milestone.targetHours}h
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
+                        {selectedTask.status.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
-                )}
 
-                <div>
-                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
-                    {selectedTask.status.toUpperCase()}
-                  </span>
+                  <div className="flex justify-between mt-4">
+                    <button 
+                      onClick={() => {
+                        setSelectedTask(null);
+                        setShowSpreadsheetView(true);
+                      }}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      📊 Schedule in Spreadsheet
+                    </button>
+                    <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Assignment Modal */}
+      {showAssignTaskModal && selectedMemberForAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAssignTaskModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Assign Task to {selectedMemberForAssignment.name}</h2>
+                <button onClick={() => setShowAssignTaskModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const taskData = {
+                  project: formData.get('project'),
+                  estimatedHours: parseInt(formData.get('estimatedHours')),
+                  priority: formData.get('priority')
+                };
+                submitTaskAssignment(taskData);
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                      <option value="">Select Project</option>
+                      <option value="AI Platform">AI Platform</option>
+                      <option value="BIORADAR">BIORADAR</option>
+                      <option value="ENERGIZE">ENERGIZE</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
+                      <input 
+                        type="number" 
+                        name="estimatedHours"
+                        required 
+                        min="1"
+                        placeholder="40"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                      <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Current Capacity</div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Current: {selectedMemberForAssignment.scheduled}h / {selectedMemberForAssignment.capacity}h</span>
+                      <span className={`font-medium ${
+                        selectedMemberForAssignment.utilization > 100 ? 'text-red-600' :
+                        selectedMemberForAssignment.utilization > 85 ? 'text-orange-600' : 'text-green-600'
+                      }`}>
+                        {selectedMemberForAssignment.utilization}% utilized
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end mt-4">
-                <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
-                  Close
-                </button>
-              </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAssignTaskModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    Assign Task
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
