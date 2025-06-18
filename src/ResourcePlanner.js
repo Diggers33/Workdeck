@@ -28,18 +28,27 @@ const ResourcePlanner = () => {
       'ai-platform': { 0: 15, 1: 15, 2: 0, 3: 0, 4: 0, 5: 10, 6: 10, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
       'legacy-migration': { 0: 5, 1: 5, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
       'security-audit': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 5, 6: 5, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'mobile-app': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 20, 9: 20, 10: 0, 11: 0 }
+      'mobile-app': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 20, 9: 20, 10: 0, 11: 0 },
+      'devops-pipeline': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'tech-debt-cleanup': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
     },
     2: { // Sarah
       'ai-platform': { 0: 20, 1: 20, 2: 20, 3: 0, 4: 0, 5: 0, 6: 25, 7: 25, 8: 0, 9: 0, 10: 0, 11: 0 },
       'data-migration': { 0: 5, 1: 5, 2: 5, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'customer-analytics': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 5, 7: 5, 8: 0, 9: 0, 10: 0, 11: 0 }
+      'customer-analytics': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 5, 7: 5, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'api-gateway': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'performance-optimization': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'e-commerce-platform': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
     },
     3: { // Dr. Raj
       'ai-platform': { 0: 10, 1: 10, 2: 10, 3: 10, 4: 0, 5: 0, 6: 0, 7: 0, 8: 15, 9: 15, 10: 0, 11: 0 },
       'bioradar': { 0: 5, 1: 5, 2: 5, 3: 5, 4: 0, 5: 0, 6: 0, 7: 0, 8: 5, 9: 5, 10: 0, 11: 0 },
       'compliance-report': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'energize': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
+      'energize': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'data-quality-framework': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'research-publications': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'hot-fix': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
+      'predictive-analytics': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
     }
   });
 
@@ -749,42 +758,87 @@ const ResourcePlanner = () => {
       const memberData = projectSpreadsheetData[memberId]?.[projectId] || {};
       return calculateValueForView(memberData, index);
     } else {
+      // Get total hours across all projects for this time period
       const memberProjects = projectSpreadsheetData[memberId] || {};
-      const totalData = {};
       
-      Object.values(memberProjects).forEach(projectData => {
-        Object.entries(projectData).forEach(([month, hours]) => {
-          totalData[month] = (totalData[month] || 0) + hours;
+      if (spreadsheetView === 'quarter') {
+        // For quarterly view, sum up the 3 months in this quarter
+        const quarterMonths = [
+          [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
+        ];
+        const monthsInQuarter = quarterMonths[index] || [];
+        
+        return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
+          let monthTotal = 0;
+          Object.values(memberProjects).forEach(projectData => {
+            const weeklyHours = projectData[monthIdx] || 0;
+            monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+          });
+          return sum + monthTotal;
+        }, 0));
+      } else if (spreadsheetView === 'year') {
+        // For year view, sum all 12 months
+        if (index === 0) {
+          return Math.round(Object.keys(Array.from({ length: 12 })).reduce((sum, monthIdx) => {
+            let monthTotal = 0;
+            Object.values(memberProjects).forEach(projectData => {
+              const weeklyHours = projectData[monthIdx] || 0;
+              monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+            });
+            return sum + monthTotal;
+          }, 0));
+        }
+        return 0;
+      } else if (spreadsheetView === 'month') {
+        // For monthly view, sum all projects for this month
+        let monthTotal = 0;
+        Object.values(memberProjects).forEach(projectData => {
+          const weeklyHours = projectData[index] || 0;
+          monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
         });
-      });
+        return Math.round(monthTotal);
+      } else if (spreadsheetView === 'week') {
+        // For weekly view, sum all projects for this week
+        const monthIndex = Math.floor(index / 4.33);
+        let weekTotal = 0;
+        Object.values(memberProjects).forEach(projectData => {
+          weekTotal += projectData[monthIndex] || 0;
+        });
+        return Math.round(weekTotal);
+      }
       
-      return calculateValueForView(totalData, index);
+      return 0;
     }
   };
   
   const calculateValueForView = (memberData, index) => {
     switch (spreadsheetView) {
       case 'week':
+        // For week view, return weekly hours directly
         const monthIndex = Math.floor(index / 4.33);
         return memberData[monthIndex] || 0;
         
       case 'month':
+        // For month view, convert weekly to monthly hours
         const weeklyHours = memberData[index] || 0;
         return Math.round(weeklyHours * 4.33);
         
       case 'quarter':
+        // For quarter view, sum 3 months and convert weekly to monthly
         const quarterMonths = [
           [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
         ];
         const monthsInQuarter = quarterMonths[index] || [];
         return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
           const weeklyHours = memberData[monthIdx] || 0;
-          return sum + (weeklyHours * 4.33);
+          return sum + (weeklyHours * 4.33); // Convert weekly to monthly
         }, 0));
         
       case 'year':
+        // For year view, sum all 12 months and convert weekly to monthly
         if (index === 0) {
-          return Math.round(Object.values(memberData).reduce((sum, weeklyHours) => {
+          return Math.round(Object.keys(Array.from({ length: 12 })).reduce((sum, monthIdx) => {
+            const weeklyHours = memberData[parseInt(monthIdx)] || 0;
             return sum + (weeklyHours * 4.33);
           }, 0));
         }
@@ -798,6 +852,22 @@ const ResourcePlanner = () => {
   const getColumnTotal = (index) => {
     return teamMembers.reduce((total, member) => {
       return total + getSpreadsheetValue(member.id, index);
+    }, 0);
+  };
+
+  const getMemberRowTotal = (memberId) => {
+    // Calculate total by summing all columns in the current view
+    const columns = getSpreadsheetColumns();
+    return columns.reduce((total, _, index) => {
+      return total + getSpreadsheetValue(memberId, index);
+    }, 0);
+  };
+
+  const getProjectRowTotal = (memberId, projectId) => {
+    // Calculate project total by summing all columns for this project
+    const columns = getSpreadsheetColumns();
+    return columns.reduce((total, _, index) => {
+      return total + getSpreadsheetValue(memberId, index, projectId);
     }, 0);
   };
 
@@ -1174,7 +1244,7 @@ const ResourcePlanner = () => {
                           })}
                           <td className="px-3 py-3 text-center bg-gray-50">
                             <div className="text-sm font-bold text-gray-900">
-                              {Math.round(getSpreadsheetValue(member.id, 0))}h
+                              {Math.round(getMemberRowTotal(member.id))}h
                             </div>
                             <div className="text-xs text-gray-500">
                               Total
@@ -1235,7 +1305,7 @@ const ResourcePlanner = () => {
                             })}
                             <td className="px-3 py-2 text-center bg-white">
                               <div className="text-sm font-medium text-gray-800">
-                                {Math.round(getSpreadsheetValue(member.id, 0, project.id))}h
+                                {Math.round(getProjectRowTotal(member.id, project.id))}h
                               </div>
                             </td>
                           </tr>
@@ -1261,10 +1331,10 @@ const ResourcePlanner = () => {
                     ))}
                     <td className="px-3 py-3 text-center">
                       <div className="text-sm font-semibold text-gray-900">
-                        {teamMembers.reduce((sum, member) => sum + getMemberTotal(member.id), 0)}h
+                        {Math.round(teamMembers.reduce((sum, member) => sum + getMemberRowTotal(member.id), 0))}h
                       </div>
                       <div className="text-xs text-gray-500">
-                        Total Year
+                        Total
                       </div>
                     </td>
                   </tr>
