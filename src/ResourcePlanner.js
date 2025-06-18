@@ -207,16 +207,24 @@ const ResourcePlanner = () => {
   const handleCellEdit = (memberId, columnIndex, value) => {
     const numValue = parseFloat(value) || 0;
     
-    // For now, we'll only allow editing in month view to keep data consistency
-    if (spreadsheetView === 'month') {
+    if (spreadsheetView === 'week' || spreadsheetView === 'month') {
+      // For week and month views, we're editing the base weekly hours
+      let weeklyHours = numValue;
+      
+      // If in month view, convert the total monthly hours back to weekly hours
+      if (spreadsheetView === 'month') {
+        weeklyHours = numValue / 4.33; // Convert monthly total back to weekly rate
+      }
+      
       setSpreadsheetData(prev => ({
         ...prev,
         [memberId]: {
           ...prev[memberId],
-          [columnIndex]: Math.max(0, Math.min(2000, numValue))
+          [columnIndex]: Math.max(0, Math.min(50, weeklyHours)) // Store as weekly hours
         }
       }));
     }
+    // For quarter and year views, we'll disable editing since they're calculated values
   };
 
   const getCellColor = (hours) => {
@@ -937,13 +945,13 @@ const ResourcePlanner = () => {
                         const isEditing = editingCell?.memberId === member.id && editingCell?.column === columnIdx;
                         return (
                           <td key={columnIdx} className="px-1 py-1 border-r">
-                            {isEditing ? (
+                            {(isEditing && (spreadsheetView === 'week' || spreadsheetView === 'month')) ? (
                               <input
                                 type="number"
                                 min="0"
-                                max={spreadsheetView === 'year' ? '2500' : spreadsheetView === 'quarter' ? '600' : '45'}
-                                step="0.5"
-                                value={hours}
+                                max={spreadsheetView === 'month' ? '200' : '50'}
+                                step={spreadsheetView === 'month' ? '5' : '0.5'}
+                                value={spreadsheetView === 'month' ? Math.round(hours) : hours}
                                 onChange={(e) => handleCellEdit(member.id, columnIdx, e.target.value)}
                                 onBlur={() => setEditingCell(null)}
                                 onKeyDown={(e) => {
@@ -959,8 +967,16 @@ const ResourcePlanner = () => {
                               />
                             ) : (
                               <div
-                                onClick={() => setEditingCell({ memberId: member.id, column: columnIdx })}
-                                className={`w-full px-2 py-2 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded ${getCellColor(hours)}`}
+                                onClick={() => {
+                                  if (spreadsheetView === 'week' || spreadsheetView === 'month') {
+                                    setEditingCell({ memberId: member.id, column: columnIdx });
+                                  }
+                                }}
+                                className={`w-full px-2 py-2 text-center text-sm font-medium rounded ${
+                                  (spreadsheetView === 'week' || spreadsheetView === 'month') 
+                                    ? 'cursor-pointer hover:ring-1 hover:ring-blue-300' 
+                                    : 'cursor-not-allowed opacity-75'
+                                } ${getCellColor(hours)}`}
                               >
                                 {hours > 0 ? `${Math.round(hours)}h` : '—'}
                               </div>
@@ -1010,7 +1026,7 @@ const ResourcePlanner = () => {
             <div className="p-4 bg-gray-50 border-t">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  💡 <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Switch views to see data at different time scales
+                  💡 <strong>Quick Tips:</strong> Click cells to edit {spreadsheetView === 'week' || spreadsheetView === 'month' ? '• Use templates for common patterns' : '(Week/Month views only)'} • 0 = break period • Switch views to see data at different time scales
                 </div>
                 <div className="flex space-x-2">
                   <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
