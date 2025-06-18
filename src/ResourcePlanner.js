@@ -205,26 +205,69 @@ const ResourcePlanner = () => {
 
   // Spreadsheet functions
   const handleCellEdit = (memberId, columnIndex, value) => {
-    const numValue = parseFloat(value) || 0;
+    // Parse and validate the input
+    const numValue = parseFloat(value);
+    
+    // Handle empty or invalid input gracefully
+    if (isNaN(numValue) || numValue < 0) {
+      return; // Don't update if invalid
+    }
+    
+    // Apply reasonable limits based on view
+    const maxLimits = {
+      week: 60,      // Max 60h/week
+      month: 300,    // Max 300h/month  
+      quarter: 800,  // Max 800h/quarter
+      year: 3000     // Max 3000h/year
+    };
+    
+    const clampedValue = Math.min(numValue, maxLimits[spreadsheetView] || 60);
     
     if (spreadsheetView === 'week' || spreadsheetView === 'month') {
       // For week and month views, we're editing the base weekly hours
-      let weeklyHours = numValue;
+      let weeklyHours = clampedValue;
       
       // If in month view, convert the total monthly hours back to weekly hours
       if (spreadsheetView === 'month') {
-        weeklyHours = numValue / 4.33; // Convert monthly total back to weekly rate
+        weeklyHours = clampedValue / 4.33; // Convert monthly total back to weekly rate
       }
       
       setSpreadsheetData(prev => ({
         ...prev,
         [memberId]: {
           ...prev[memberId],
-          [columnIndex]: Math.max(0, Math.min(50, weeklyHours)) // Store as weekly hours
+          [columnIndex]: Math.max(0, weeklyHours) // Store as weekly hours
         }
       }));
+    } else if (spreadsheetView === 'quarter') {
+      // For quarter view, distribute the total hours evenly across the 3 months
+      const quarterMonths = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
+      ];
+      const monthsInQuarter = quarterMonths[columnIndex] || [];
+      const weeklyHoursPerMonth = (clampedValue / 3) / 4.33; // Divide by 3 months, then by 4.33 weeks
+      
+      setSpreadsheetData(prev => {
+        const newData = { ...prev[memberId] };
+        monthsInQuarter.forEach(monthIdx => {
+          newData[monthIdx] = Math.max(0, weeklyHoursPerMonth);
+        });
+        return {
+          ...prev,
+          [memberId]: newData
+        };
+      });
+    } else if (spreadsheetView === 'year') {
+      // For year view, distribute the total hours evenly across all 12 months
+      const weeklyHoursPerMonth = clampedValue / (12 * 4.33); // Divide by 12 months, then by 4.33 weeks
+      
+      setSpreadsheetData(prev => ({
+        ...prev,
+        [memberId]: Array.from({ length: 12 }, (_, monthIdx) => ({
+          [monthIdx]: Math.max(0, weeklyHoursPerMonth)
+        })).reduce((acc, monthData) => ({ ...acc, ...monthData }), {})
+      }));
     }
-    // For quarter and year views, we'll disable editing since they're calculated values
   };
 
   const getCellColor = (hours) => {
@@ -945,13 +988,11 @@ const ResourcePlanner = () => {
                         const isEditing = editingCell?.memberId === member.id && editingCell?.column === columnIdx;
                         return (
                           <td key={columnIdx} className="px-1 py-1 border-r">
-                            {(isEditing && (spreadsheetView === 'week' || spreadsheetView === 'month')) ? (
+                            {isEditing ? (
                               <input
                                 type="number"
                                 min="0"
-                                max={spreadsheetView === 'month' ? '200' : '50'}
-                                step={spreadsheetView === 'month' ? '5' : '0.5'}
-                                value={spreadsheetView === 'month' ? Math.round(hours) : hours}
+                                value={Math.round(hours)}
                                 onChange={(e) => handleCellEdit(member.id, columnIdx, e.target.value)}
                                 onBlur={() => setEditingCell(null)}
                                 onKeyDown={(e) => {
@@ -964,19 +1005,16 @@ const ResourcePlanner = () => {
                                 }}
                                 autoFocus
                                 className="w-full px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder={
+                                  spreadsheetView === 'year' ? 'Annual hours' :
+                                  spreadsheetView === 'quarter' ? 'Quarterly hours' :
+                                  spreadsheetView === 'month' ? 'Monthly hours' : 'Weekly hours'
+                                }
                               />
                             ) : (
                               <div
-                                onClick={() => {
-                                  if (spreadsheetView === 'week' || spreadsheetView === 'month') {
-                                    setEditingCell({ memberId: member.id, column: columnIdx });
-                                  }
-                                }}
-                                className={`w-full px-2 py-2 text-center text-sm font-medium rounded ${
-                                  (spreadsheetView === 'week' || spreadsheetView === 'month') 
-                                    ? 'cursor-pointer hover:ring-1 hover:ring-blue-300' 
-                                    : 'cursor-not-allowed opacity-75'
-                                } ${getCellColor(hours)}`}
+                                onClick={() => setEditingCell({ memberId: member.id, column: columnIdx })}
+                                className={`w-full px-2 py-2 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded ${getCellColor(hours)}`}
                               >
                                 {hours > 0 ? `${Math.round(hours)}h` : '—'}
                               </div>
@@ -1026,7 +1064,7 @@ const ResourcePlanner = () => {
             <div className="p-4 bg-gray-50 border-t">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  💡 <strong>Quick Tips:</strong> Click cells to edit {spreadsheetView === 'week' || spreadsheetView === 'month' ? '• Use templates for common patterns' : '(Week/Month views only)'} • 0 = break period • Switch views to see data at different time scales
+                  💡 <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Switch views to see data at different time scales • All views are editable
                 </div>
                 <div className="flex space-x-2">
                   <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
