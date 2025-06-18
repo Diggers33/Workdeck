@@ -1397,104 +1397,52 @@ const ResourcePlanner = () => {
                   </div>
                 </div>
 
-                {(showTaskDetails || true) && (
-                  <div className="ml-4 space-y-1">
-                    {showTaskDetails && member.tasks.map((task, idx) => (
-                      <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
-                           onClick={() => setSelectedTask({...task, memberName: member.name})}>
-                        <div className="w-72 flex-shrink-0">
-                          <div className="flex items-start space-x-2">
-                            <div className={`w-3 h-3 rounded-full ${task.color} mt-0.5`}></div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <div className="text-sm font-medium truncate">{task.project}</div>
-                                {task.isLongTerm && (
-                                  <span className="px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded border">
-                                    Long-term
-                                  </span>
-                                )}
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditTask(task, member);
-                                  }}
-                                  className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
-                                  Edit
-                                </button>
-                              </div>
-                              <div className="text-xs text-gray-600 mb-1">
-                                <span className="font-medium">{task.activity}</span>
-                                <span className="text-gray-400 mx-1">→</span>
-                                <span>{task.task}</span>
-                              </div>
-                              <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
-                                <span className="font-medium">{task.actualHours}h / {task.estimatedHours}h personal</span>
-                                <span>•</span>
-                                <span className="text-orange-600">{task.totalActivityHours}h activity</span>
-                                <span>•</span>
-                                <span className="text-purple-600">{task.totalProjectHours}h project</span>
-                              </div>
-                              <div className="flex items-center space-x-2 text-xs mb-1">
-                                <span className="text-gray-500">Velocity:</span>
-                                <span className="font-medium text-green-600">{task.velocity}h/week</span>
-                                <span className="text-gray-400">(target: {task.targetHoursPerWeek}h/week)</span>
-                              </div>
-                              <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
-                                {task.status}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className={`flex-1 ${
-                          selectedView === 'year' ? 'grid grid-cols-1 gap-2' :
-                          selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
-                          selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
-                          'grid grid-cols-9 gap-2'
-                        }`}>
-                          {selectedView === 'year' ? 
-                            <div className={`h-6 rounded ${task.color} opacity-60`}></div> :
-                            selectedView === 'quarter' ? 
-                            Array.from({ length: 3 }, (_, dateIdx) => (
-                              <div key={dateIdx} className={`h-6 rounded ${
-                                `${task.color} opacity-70`
-                              } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
-                            )) :
-                            selectedView === 'month' ? 
-                            Array.from({ length: 4 }, (_, dateIdx) => (
-                              <div key={dateIdx} className={`h-6 rounded ${
-                                dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
-                              } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
-                            )) :
-                            task.pattern.map((isActive, dateIdx) => (
-                              <div key={dateIdx} className={`h-6 rounded ${
-                                dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
-                                isActive ? `${task.color} opacity-80` : 'bg-gray-100'
-                              }`}></div>
-                            ))
-                          }
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {/* Workload Summary - Always visible */}
-                    <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
+                {/* Always show the task area, but conditionally show task details */}
+                <div className="ml-4 space-y-1">
+                  {/* Individual task rows - only show when showTaskDetails is true */}
+                  {showTaskDetails && member.tasks.map((task, idx) => (
+                    <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
+                         onClick={() => setSelectedTask({...task, memberName: member.name})}>
                       <div className="w-72 flex-shrink-0">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                          <div>
-                            <div className="text-sm font-medium text-blue-900">
-                              {selectedView === 'year' ? 'Annual Workload' :
-                               selectedView === 'quarter' ? 'Quarterly Workload' :
-                               selectedView === 'month' ? 'Monthly Workload' :
-                               'Weekly Workload'}
+                        <div className="flex items-start space-x-2">
+                          <div className={`w-3 h-3 rounded-full ${task.color} mt-0.5`}></div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <div className="text-sm font-medium truncate">{task.project}</div>
+                              {task.isLongTerm && (
+                                <span className="px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded border">
+                                  Long-term
+                                </span>
+                              )}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditTask(task, member);
+                                }}
+                                className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
+                                Edit
+                              </button>
                             </div>
-                            <div className="text-xs text-blue-700">
-                              {selectedView === 'year' ? 'Total hours for the year' :
-                               selectedView === 'quarter' ? 'Hours per month in quarter' :
-                               selectedView === 'month' ? 'Hours per week in month' :
-                               'Hours per day this week'}
+                            <div className="text-xs text-gray-600 mb-1">
+                              <span className="font-medium">{task.activity}</span>
+                              <span className="text-gray-400 mx-1">→</span>
+                              <span>{task.task}</span>
                             </div>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                              <span className="font-medium">{task.actualHours}h / {task.estimatedHours}h personal</span>
+                              <span>•</span>
+                              <span className="text-orange-600">{task.totalActivityHours}h activity</span>
+                              <span>•</span>
+                              <span className="text-purple-600">{task.totalProjectHours}h project</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs mb-1">
+                              <span className="text-gray-500">Velocity:</span>
+                              <span className="font-medium text-green-600">{task.velocity}h/week</span>
+                              <span className="text-gray-400">(target: {task.targetHoursPerWeek}h/week)</span>
+                            </div>
+                            <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
+                              {task.status}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1505,60 +1453,112 @@ const ResourcePlanner = () => {
                         selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
                         'grid grid-cols-9 gap-2'
                       }`}>
-                        {selectedView === 'year' ? (
-                          (() => {
-                            // For year view, calculate total annual hours
-                            let hours = 0;
-                            for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-                              hours += calculateDailyHours(member, monthIndex, 'month');
-                            }
-                            
-                            return (
-                              <div className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
-                                getWorkloadColor(hours, 'year')
-                              }`}>
-                                {hours === 0 ? '—' : `${Math.round(hours)}h`}
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          Array.from({ length: getPeriodsForView() }, (_, periodIndex) => {
-                            if (selectedView === 'week' && (periodIndex === 2 || periodIndex === 3)) {
-                              return (
-                                <div key={periodIndex} className="h-6 rounded bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-semibold">
-                                  —
-                                </div>
-                              );
-                            }
-                            
-                            let hours = 0;
-                            if (selectedView === 'quarter') {
-                              hours = calculateDailyHours(member, periodIndex, 'month');
-                            } else if (selectedView === 'month') {
-                              hours = calculateDailyHours(member, periodIndex, 'week');
-                            } else {
-                              hours = calculateDailyHours(member, periodIndex, 'day');
-                            }
-                            
-                            const isCurrentPeriod = (
-                              (selectedView === 'week' && periodIndex === 0) ||
-                              (selectedView === 'month' && periodIndex === 1) ||
-                              (selectedView === 'quarter' && periodIndex === 2)
-                            );
-                            
-                            return (
-                              <div key={periodIndex} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
-                                getWorkloadColor(hours, selectedView)
-                              } ${isCurrentPeriod ? 'ring-1 ring-blue-400' : ''}`}>
-                                {hours === 0 ? '—' : `${Math.round(hours * 10) / 10}h`}
-                              </div>
-                            );
-                          })
-                        )}
+                        {selectedView === 'year' ? 
+                          <div className={`h-6 rounded ${task.color} opacity-60`}></div> :
+                          selectedView === 'quarter' ? 
+                          Array.from({ length: 3 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              `${task.color} opacity-70`
+                            } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          selectedView === 'month' ? 
+                          Array.from({ length: 4 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
+                            } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          task.pattern.map((isActive, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
+                              isActive ? `${task.color} opacity-80` : 'bg-gray-100'
+                            }`}></div>
+                          ))
+                        }
                       </div>
                     </div>
+                  ))}
+                  
+                  {/* Workload Summary - Always visible */}
+                  <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
+                    <div className="w-72 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <div>
+                          <div className="text-sm font-medium text-blue-900">
+                            {selectedView === 'year' ? 'Annual Workload' :
+                             selectedView === 'quarter' ? 'Quarterly Workload' :
+                             selectedView === 'month' ? 'Monthly Workload' :
+                             'Weekly Workload'}
+                          </div>
+                          <div className="text-xs text-blue-700">
+                            {selectedView === 'year' ? 'Total hours for the year' :
+                             selectedView === 'quarter' ? 'Hours per month in quarter' :
+                             selectedView === 'month' ? 'Hours per week in month' :
+                             'Hours per day this week'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex-1 ${
+                      selectedView === 'year' ? 'grid grid-cols-1 gap-2' :
+                      selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                      selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                      'grid grid-cols-9 gap-2'
+                    }`}>
+                      {selectedView === 'year' ? (
+                        (() => {
+                          // For year view, calculate total annual hours
+                          let hours = 0;
+                          for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+                            hours += calculateDailyHours(member, monthIndex, 'month');
+                          }
+                          
+                          return (
+                            <div className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                              getWorkloadColor(hours, 'year')
+                            }`}>
+                              {hours === 0 ? '—' : `${Math.round(hours)}h`}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        Array.from({ length: getPeriodsForView() }, (_, periodIndex) => {
+                          if (selectedView === 'week' && (periodIndex === 2 || periodIndex === 3)) {
+                            return (
+                              <div key={periodIndex} className="h-6 rounded bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-semibold">
+                                —
+                              </div>
+                            );
+                          }
+                          
+                          let hours = 0;
+                          if (selectedView === 'quarter') {
+                            hours = calculateDailyHours(member, periodIndex, 'month');
+                          } else if (selectedView === 'month') {
+                            hours = calculateDailyHours(member, periodIndex, 'week');
+                          } else {
+                            hours = calculateDailyHours(member, periodIndex, 'day');
+                          }
+                          
+                          const isCurrentPeriod = (
+                            (selectedView === 'week' && periodIndex === 0) ||
+                            (selectedView === 'month' && periodIndex === 1) ||
+                            (selectedView === 'quarter' && periodIndex === 2)
+                          );
+                          
+                          return (
+                            <div key={periodIndex} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                              getWorkloadColor(hours, selectedView)
+                            } ${isCurrentPeriod ? 'ring-1 ring-blue-400' : ''}`}>
+                              {hours === 0 ? '—' : `${Math.round(hours * 10) / 10}h`}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>
