@@ -82,12 +82,12 @@ const ResourcePlanner = () => {
   };
 
   const getVelocityIcon = (velocity) => {
-    if (!velocity) return '📊';
+    if (!velocity) return '';
     const ratio = velocity.currentVelocity / velocity.targetVelocity;
-    if (ratio >= 1.1) return '🚀';
-    if (ratio >= 0.9) return '✅';
-    if (ratio >= 0.7) return '⚠️';
-    return '🚨';
+    if (ratio >= 1.1) return '';
+    if (ratio >= 0.9) return '';
+    if (ratio >= 0.7) return '';
+    return '';
   };
 
   const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
@@ -259,14 +259,16 @@ const ResourcePlanner = () => {
       });
     } else if (spreadsheetView === 'year') {
       // For year view, distribute the total hours evenly across all 12 months
-      const weeklyHoursPerMonth = clampedValue / (12 * 4.33); // Divide by 12 months, then by 4.33 weeks
-      
-      setSpreadsheetData(prev => ({
-        ...prev,
-        [memberId]: Array.from({ length: 12 }, (_, monthIdx) => ({
-          [monthIdx]: Math.max(0, weeklyHoursPerMonth)
-        })).reduce((acc, monthData) => ({ ...acc, ...monthData }), {})
-      }));
+      if (columnIndex === 0) { // Only allow editing the single year column
+        const weeklyHoursPerMonth = clampedValue / (12 * 4.33); // Divide by 12 months, then by 4.33 weeks
+        
+        setSpreadsheetData(prev => ({
+          ...prev,
+          [memberId]: Array.from({ length: 12 }, (_, monthIdx) => ({
+            [monthIdx]: Math.max(0, weeklyHoursPerMonth)
+          })).reduce((acc, monthData) => ({ ...acc, ...monthData }), {})
+        }));
+      }
     }
   };
 
@@ -321,32 +323,27 @@ const ResourcePlanner = () => {
     {
       name: "2-Month Sprint + 3-Month Break + 2-Month Sprint",
       description: "Work intensively, then break, then final push",
-      pattern: [25, 25, 0, 0, 0, 20, 20, 0, 0, 0, 0, 0],
-      icon: "🚀"
+      pattern: [25, 25, 0, 0, 0, 20, 20, 0, 0, 0, 0, 0]
     },
     {
       name: "Seasonal Work (Summer Focus)",
       description: "Light work, then summer intensive, then light",
-      pattern: [10, 10, 10, 10, 10, 30, 30, 30, 10, 10, 10, 10],
-      icon: "☀️"
+      pattern: [10, 10, 10, 10, 10, 30, 30, 30, 10, 10, 10, 10]
     },
     {
       name: "Academic Schedule",
       description: "Term work with holiday breaks",
-      pattern: [20, 20, 20, 20, 0, 0, 0, 20, 20, 20, 20, 0],
-      icon: "🎓"
+      pattern: [20, 20, 20, 20, 0, 0, 0, 20, 20, 20, 20, 0]
     },
     {
       name: "Quarterly Sprints",
       description: "3-month sprints with 1-month breaks",
-      pattern: [20, 20, 20, 0, 20, 20, 20, 0, 20, 20, 20, 0],
-      icon: "📅"
+      pattern: [20, 20, 20, 0, 20, 20, 20, 0, 20, 20, 20, 0]
     },
     {
       name: "Steady Consistent Work",
       description: "Same hours every month",
-      pattern: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20],
-      icon: "⚡"
+      pattern: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]
     }
   ];
 
@@ -429,10 +426,13 @@ const ResourcePlanner = () => {
         }, 0));
         
       case 'year':
-        // Year view shows TOTAL hours for entire year
-        return Math.round(Object.values(memberData).reduce((sum, weeklyHours) => {
-          return sum + (weeklyHours * 4.33); // Convert each month's weekly hours to monthly total
-        }, 0));
+        // Year view shows TOTAL hours for entire year (only one column)
+        if (index === 0) {
+          return Math.round(Object.values(memberData).reduce((sum, weeklyHours) => {
+            return sum + (weeklyHours * 4.33); // Convert each month's weekly hours to monthly total
+          }, 0));
+        }
+        return 0;
         
       default:
         return memberData[index] || 0;
@@ -617,12 +617,16 @@ const ResourcePlanner = () => {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen" style={{ 
+      fontFamily: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif',
+      fontSize: '14px',
+      lineHeight: '1.5'
+    }}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
-            <h1 className="text-xl font-semibold text-gray-900">Resource Planner</h1>
+            <h1 className="text-xl font-semibold text-gray-900" style={{ fontWeight: '600' }}>Resource Planner</h1>
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <Calendar className="w-4 h-4" />
               <span>{getDateRangeLabel()}</span>
@@ -657,49 +661,18 @@ const ResourcePlanner = () => {
                   : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
               }`}
             >
-              📊 {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
+              {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
             </button>
 
-            {showSpreadsheetView && (
-              <div className="flex items-center space-x-1 border border-gray-300 rounded-md bg-white">
-                <button 
-                  onClick={() => setSpreadsheetView('week')}
-                  className={`px-3 py-1 text-xs font-medium rounded-l-md ${
-                    spreadsheetView === 'week' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Week View
-                </button>
-                <button 
-                  onClick={() => setSpreadsheetView('month')}
-                  className={`px-3 py-1 text-xs font-medium ${
-                    spreadsheetView === 'month' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Month View
-                </button>
-                <button 
-                  onClick={() => setSpreadsheetView('quarter')}
-                  className={`px-3 py-1 text-xs font-medium ${
-                    spreadsheetView === 'quarter' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Quarter View
-                </button>
-                <button 
-                  onClick={() => setSpreadsheetView('year')}
-                  className={`px-3 py-1 text-xs font-medium rounded-r-md ${
-                    spreadsheetView === 'year' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Year View
-                </button>
-              </div>
-            )}
-
             <select 
-              value={selectedView} 
-              onChange={(e) => setSelectedView(e.target.value)}
+              value={showSpreadsheetView ? spreadsheetView : selectedView} 
+              onChange={(e) => {
+                if (showSpreadsheetView) {
+                  setSpreadsheetView(e.target.value);
+                } else {
+                  setSelectedView(e.target.value);
+                }
+              }}
               className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
             >
               <option value="week">Week View</option>
@@ -853,17 +826,17 @@ const ResourcePlanner = () => {
                     onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
                     className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
-                    🚀 Apply Template
+                    Apply Template
                   </button>
                   <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                    📋 Export to Excel
+                    Export to Excel
                   </button>
                   <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
-                    📁 Save as Template
+                    Save as Template
                   </button>
                 </div>
-                <div className="text-xs text-gray-500">
-                  💡 Select a team member row, then apply templates for instant scheduling
+                <div className="text-sm text-gray-600">
+                  Select a team member row, then apply templates for instant scheduling
                 </div>
               </div>
 
@@ -871,7 +844,7 @@ const ResourcePlanner = () => {
               {showPhaseTemplates && (
                 <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-blue-900">📚 Phase Templates</h3>
+                    <h3 className="text-sm font-semibold text-blue-900">Phase Templates</h3>
                     <button 
                       onClick={() => setShowPhaseTemplates(false)}
                       className="text-blue-600 hover:text-blue-800"
@@ -887,7 +860,6 @@ const ResourcePlanner = () => {
                     {phaseTemplates.map((template, idx) => (
                       <div key={idx} className="bg-white p-3 rounded border hover:shadow-md transition-shadow">
                         <div className="flex items-start space-x-2 mb-2">
-                          <span className="text-lg">{template.icon}</span>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-gray-900">{template.name}</div>
                             <div className="text-xs text-gray-600">{template.description}</div>
@@ -971,14 +943,14 @@ const ResourcePlanner = () => {
                               className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
                               title="Apply template to this member"
                             >
-                              🚀 Template
+                              Template
                             </button>
                             <button 
                               onClick={() => clearMemberSchedule(member.id)}
                               className="px-2 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
                               title="Clear all months"
                             >
-                              🗑️ Clear
+                              Clear
                             </button>
                           </div>
                         </div>
@@ -1064,20 +1036,20 @@ const ResourcePlanner = () => {
             <div className="p-4 bg-gray-50 border-t">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  💡 <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Switch views to see data at different time scales • All views are editable
+                  <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Switch views to see data at different time scales • All views are editable
                 </div>
                 <div className="flex space-x-2">
                   <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
-                    📋 Export to Excel
+                    Export to Excel
                   </button>
                   <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                    📁 Save Template
+                    Save Template
                   </button>
                   <button 
                     onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
                     className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
                   >
-                    🚀 Phase Templates
+                    Phase Templates
                   </button>
                 </div>
               </div>
@@ -1138,7 +1110,7 @@ const ResourcePlanner = () => {
                                   handleEditTask(task, member);
                                 }}
                                 className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
-                                ⚙️ Edit
+                                Edit
                               </button>
                             </div>
                             <div className="text-xs text-gray-600 mb-1">
@@ -1155,7 +1127,7 @@ const ResourcePlanner = () => {
                             </div>
                             <div className="flex items-center space-x-2 text-xs mb-1">
                               <span className="text-gray-500">Velocity:</span>
-                              <span className="font-medium text-green-600">🚀 {task.velocity}h/week</span>
+                              <span className="font-medium text-green-600">{task.velocity}h/week</span>
                               <span className="text-gray-400">(target: {task.targetHoursPerWeek}h/week)</span>
                             </div>
                             <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
@@ -1294,7 +1266,7 @@ const ResourcePlanner = () => {
               {selectedTask.isEditing ? (
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <h3 className="text-sm font-semibold text-blue-900 mb-2">⚙️ Quick Task Settings</h3>
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">Quick Task Settings</h3>
                     <p className="text-xs text-blue-700">For detailed scheduling, use the Spreadsheet View with templates.</p>
                   </div>
 
@@ -1353,14 +1325,14 @@ const ResourcePlanner = () => {
                   </div>
 
                   <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-                    <div className="text-xs font-medium text-yellow-900 mb-1">📊 Current Performance</div>
+                    <div className="text-xs font-medium text-yellow-900 mb-1">Current Performance</div>
                     <div className="text-xs text-yellow-800">
                       Averaging {selectedTask.velocity}h/week vs target {selectedTask.targetHoursPerWeek}h/week
                     </div>
                   </div>
 
                   <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <div className="text-xs font-medium text-blue-900 mb-1">💡 Pro Tip</div>
+                    <div className="text-xs font-medium text-blue-900 mb-1">Pro Tip</div>
                     <div className="text-xs text-blue-800">
                       For complex scheduling (sprints, breaks, seasonal work), switch to <strong>Spreadsheet View</strong> and use phase templates for instant setup.
                     </div>
@@ -1381,7 +1353,7 @@ const ResourcePlanner = () => {
                       }}
                       className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      📊 Go to Spreadsheet
+                      Go to Spreadsheet
                     </button>
                   </div>
                 </div>
@@ -1409,7 +1381,7 @@ const ResourcePlanner = () => {
                     </div>
 
                     <div className="bg-green-50 p-3 rounded border border-green-200">
-                      <div className="text-xs font-medium text-green-900 mb-1">🎯 Current Intensity</div>
+                      <div className="text-xs font-medium text-green-900 mb-1">Current Intensity</div>
                       <div className="text-xs text-green-800">
                         {selectedTask.targetHoursPerWeek}h per week • Working {selectedTask.pattern?.filter(Boolean).length || 6} days/week
                       </div>
@@ -1417,7 +1389,7 @@ const ResourcePlanner = () => {
 
                     {selectedTask.intensityPhases && (
                       <div className="bg-green-50 p-3 rounded border border-green-200">
-                        <div className="text-xs font-medium text-green-900 mb-1">🎯 Intensity Phases</div>
+                        <div className="text-xs font-medium text-green-900 mb-1">Intensity Phases</div>
                         {selectedTask.intensityPhases.map((phase, idx) => (
                           <div key={idx} className="text-xs text-green-800">
                             • {phase.name}: {phase.hoursPerWeek}h/week (weeks {phase.startWeek} to {phase.endWeek})
@@ -1430,7 +1402,7 @@ const ResourcePlanner = () => {
                       const velocity = calculateVelocity(selectedTask);
                       return velocity ? (
                         <div className="bg-purple-50 p-3 rounded border border-purple-200">
-                          <div className="text-xs font-medium text-purple-900 mb-2">📊 Velocity Tracking</div>
+                          <div className="text-xs font-medium text-purple-900 mb-2">Velocity Tracking</div>
                           <div className="space-y-1 text-xs">
                             <div className="flex justify-between">
                               <span className="text-purple-700">Current Velocity:</span>
@@ -1453,7 +1425,7 @@ const ResourcePlanner = () => {
 
                     {selectedTask.milestones && (
                       <div className="bg-gray-50 p-3 rounded">
-                        <div className="text-xs font-medium text-gray-900 mb-2">🎯 Milestones</div>
+                        <div className="text-xs font-medium text-gray-900 mb-2">Milestones</div>
                         <div className="space-y-1">
                           {selectedTask.milestones.map((milestone, idx) => (
                             <div key={idx} className="flex items-center justify-between text-xs">
@@ -1488,7 +1460,7 @@ const ResourcePlanner = () => {
                       }}
                       className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      📊 Schedule in Spreadsheet
+                      Schedule in Spreadsheet
                     </button>
                     <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
                       Close
