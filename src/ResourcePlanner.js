@@ -595,6 +595,21 @@ const ResourcePlanner = () => {
   };
 
   const handleProjectCellEdit = (memberId, projectId, columnIndex, value) => {
+    // Allow empty string to clear the field
+    if (value === '') {
+      setProjectSpreadsheetData(prev => ({
+        ...prev,
+        [memberId]: {
+          ...prev[memberId],
+          [projectId]: {
+            ...prev[memberId]?.[projectId],
+            [columnIndex]: 0
+          }
+        }
+      }));
+      return;
+    }
+    
     const numValue = parseFloat(value);
     
     if (isNaN(numValue) || numValue < 0) {
@@ -1273,7 +1288,7 @@ const ResourcePlanner = () => {
                                     <input
                                       type="number"
                                       min="0"
-                                      value={Math.round(hours)}
+                                      value={hours > 0 ? Math.round(hours) : ''}
                                       onChange={(e) => handleProjectCellEdit(member.id, project.id, columnIdx, e.target.value)}
                                       onBlur={() => setEditingCell(null)}
                                       onKeyDown={(e) => {
@@ -1285,7 +1300,7 @@ const ResourcePlanner = () => {
                                         }
                                       }}
                                       autoFocus
-                                      className="w-full px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      className="w-full h-8 px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                       placeholder={
                                         spreadsheetView === 'year' ? 'Annual hours' :
                                         spreadsheetView === 'quarter' ? 'Quarterly hours' :
@@ -1295,7 +1310,7 @@ const ResourcePlanner = () => {
                                   ) : (
                                     <div
                                       onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: project.id })}
-                                      className={`w-full px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded ${getCellColor(hours)}`}
+                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${getCellColor(hours)}`}
                                     >
                                       {hours > 0 ? `${Math.round(hours)}h` : '—'}
                                     </div>
