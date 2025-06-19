@@ -15,44 +15,8 @@ const ResourcePlanner = () => {
   const [selectedMemberForTemplate, setSelectedMemberForTemplate] = useState(null);
   const [spreadsheetView, setSpreadsheetView] = useState('month');
   
-  // Keep both data structures - legacy for compatibility and new for projects
-  const [spreadsheetData, setSpreadsheetData] = useState({
-    1: { 0: 20, 1: 20, 2: 0, 3: 0, 4: 0, 5: 15, 6: 15, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-    2: { 0: 25, 1: 25, 2: 25, 3: 0, 4: 0, 5: 0, 6: 30, 7: 30, 8: 0, 9: 0, 10: 0, 11: 0 },
-    3: { 0: 15, 1: 15, 2: 15, 3: 15, 4: 0, 5: 0, 6: 0, 7: 0, 8: 20, 9: 20, 10: 0, 11: 0 }
-  });
-
-  // Enhanced spreadsheet data structure to include project breakdowns
-  const [projectSpreadsheetData, setProjectSpreadsheetData] = useState({
-    1: { // Alejandro
-      'ai-platform': { 0: 15, 1: 15, 2: 0, 3: 0, 4: 0, 5: 10, 6: 10, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'legacy-migration': { 0: 5, 1: 5, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'security-audit': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 5, 6: 5, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'mobile-app': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 20, 9: 20, 10: 0, 11: 0 },
-      'devops-pipeline': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'tech-debt-cleanup': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
-    },
-    2: { // Sarah
-      'ai-platform': { 0: 20, 1: 20, 2: 20, 3: 0, 4: 0, 5: 0, 6: 25, 7: 25, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'data-migration': { 0: 5, 1: 5, 2: 5, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'customer-analytics': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 5, 7: 5, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'api-gateway': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'performance-optimization': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'e-commerce-platform': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
-    },
-    3: { // Dr. Raj
-      'ai-platform': { 0: 10, 1: 10, 2: 10, 3: 10, 4: 0, 5: 0, 6: 0, 7: 0, 8: 15, 9: 15, 10: 0, 11: 0 },
-      'bioradar': { 0: 5, 1: 5, 2: 5, 3: 5, 4: 0, 5: 0, 6: 0, 7: 0, 8: 5, 9: 5, 10: 0, 11: 0 },
-      'compliance-report': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'energize': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'data-quality-framework': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'research-publications': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'hot-fix': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 },
-      'predictive-analytics': { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0 }
-    }
-  });
-
-  const teamMembers = [
+  // Static team data definition
+  const staticTeamMembers = [
     {
       id: 1,
       name: 'Alejandro Rosales',
@@ -104,82 +68,6 @@ const ResourcePlanner = () => {
           isLongTerm: false,
           targetHoursPerWeek: 5,
           duration: '2 months'
-        },
-        {
-          id: 3,
-          project: 'Security Audit',
-          activity: 'Code Review',
-          task: 'OWASP Compliance Check',
-          color: 'bg-red-500',
-          estimatedHours: 30,
-          actualHours: 5,
-          totalActivityHours: 60,
-          totalProjectHours: 90,
-          velocity: 5.0,
-          status: 'planned',
-          startWeek: 16,
-          endWeek: 22,
-          pattern: [true, true, true, false, false, false, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 5,
-          duration: '6 weeks'
-        },
-        {
-          id: 4,
-          project: 'Mobile App',
-          activity: 'Backend API',
-          task: 'REST API Development',
-          color: 'bg-blue-500',
-          estimatedHours: 160,
-          actualHours: 0,
-          totalActivityHours: 240,
-          totalProjectHours: 400,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 32,
-          endWeek: 44,
-          pattern: [true, true, true, true, true, false, false, false, false],
-          isLongTerm: true,
-          targetHoursPerWeek: 20,
-          duration: '3 months'
-        },
-        {
-          id: 5,
-          project: 'DevOps Pipeline',
-          activity: 'CI/CD Setup',
-          task: 'Docker & Kubernetes Config',
-          color: 'bg-cyan-500',
-          estimatedHours: 25,
-          actualHours: 8,
-          totalActivityHours: 35,
-          totalProjectHours: 50,
-          velocity: 4.0,
-          status: 'in-progress',
-          startWeek: -2,
-          endWeek: 6,
-          pattern: [false, true, true, false, true, true, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 3,
-          duration: '2 months'
-        },
-        {
-          id: 6,
-          project: 'Tech Debt Cleanup',
-          activity: 'Code Refactoring',
-          task: 'Legacy Code Modernization',
-          color: 'bg-yellow-600',
-          estimatedHours: 80,
-          actualHours: 12,
-          totalActivityHours: 120,
-          totalProjectHours: 200,
-          velocity: 3.0,
-          status: 'in-progress',
-          startWeek: -1,
-          endWeek: 20,
-          pattern: [false, false, true, false, true, true, false, false, false],
-          isLongTerm: true,
-          targetHoursPerWeek: 4,
-          duration: '5 months'
         }
       ]
     },
@@ -229,82 +117,6 @@ const ResourcePlanner = () => {
           isLongTerm: false,
           targetHoursPerWeek: 5,
           duration: '3 months'
-        },
-        {
-          id: 9,
-          project: 'Customer Analytics',
-          activity: 'Dashboard Development',
-          task: 'React Frontend',
-          color: 'bg-green-500',
-          estimatedHours: 80,
-          actualHours: 10,
-          totalActivityHours: 120,
-          totalProjectHours: 200,
-          velocity: 5.0,
-          status: 'in-progress',
-          startWeek: 20,
-          endWeek: 32,
-          pattern: [true, true, true, false, true, false, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 6.67,
-          duration: '3 months'
-        },
-        {
-          id: 10,
-          project: 'API Gateway',
-          activity: 'Microservices',
-          task: 'Service Mesh Implementation',
-          color: 'bg-pink-500',
-          estimatedHours: 120,
-          actualHours: 0,
-          totalActivityHours: 180,
-          totalProjectHours: 250,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 36,
-          endWeek: 52,
-          pattern: [true, true, true, true, false, false, false, false, false],
-          isLongTerm: true,
-          targetHoursPerWeek: 7.5,
-          duration: '4 months'
-        },
-        {
-          id: 11,
-          project: 'Performance Optimization',
-          activity: 'Frontend Performance',
-          task: 'Bundle Size Optimization',
-          color: 'bg-lime-500',
-          estimatedHours: 15,
-          actualHours: 3,
-          totalActivityHours: 20,
-          totalProjectHours: 30,
-          velocity: 2.5,
-          status: 'in-progress',
-          startWeek: 1,
-          endWeek: 4,
-          pattern: [false, true, false, false, true, true, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 5,
-          duration: '3 weeks'
-        },
-        {
-          id: 12,
-          project: 'E-commerce Platform',
-          activity: 'Payment Integration',
-          task: 'Stripe & PayPal Setup',
-          color: 'bg-emerald-600',
-          estimatedHours: 45,
-          actualHours: 0,
-          totalActivityHours: 60,
-          totalProjectHours: 180,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 8,
-          endWeek: 16,
-          pattern: [true, true, true, false, false, true, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 5.6,
-          duration: '2 months'
         }
       ]
     },
@@ -354,124 +166,129 @@ const ResourcePlanner = () => {
           isLongTerm: true,
           targetHoursPerWeek: 5,
           duration: '12 months'
-        },
-        {
-          id: 15,
-          project: 'Compliance Report',
-          activity: 'Data Audit',
-          task: 'GDPR Compliance Analysis',
-          color: 'bg-yellow-500',
-          estimatedHours: 20,
-          actualHours: 0,
-          totalActivityHours: 20,
-          totalProjectHours: 35,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 8,
-          endWeek: 12,
-          pattern: [true, true, true, false, false, false, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 5,
-          duration: '1 month'
-        },
-        {
-          id: 16,
-          project: 'ENERGIZE',
-          activity: 'Energy Modeling',
-          task: 'Renewable Energy Forecasting',
-          color: 'bg-emerald-600',
-          estimatedHours: 320,
-          actualHours: 0,
-          totalActivityHours: 400,
-          totalProjectHours: 600,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 44,
-          endWeek: 70,
-          pattern: [true, true, true, true, false, false, false, false, false],
-          isLongTerm: true,
-          targetHoursPerWeek: 12,
-          duration: '6 months'
-        },
-        {
-          id: 17,
-          project: 'Data Quality Framework',
-          activity: 'Data Validation',
-          task: 'Automated Testing Pipeline',
-          color: 'bg-slate-600',
-          estimatedHours: 60,
-          actualHours: 15,
-          totalActivityHours: 80,
-          totalProjectHours: 120,
-          velocity: 3.8,
-          status: 'in-progress',
-          startWeek: -2,
-          endWeek: 14,
-          pattern: [false, true, true, true, false, true, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 4,
-          duration: '4 months'
-        },
-        {
-          id: 18,
-          project: 'Research Publications',
-          activity: 'Academic Writing',
-          task: 'ML Conference Paper',
-          color: 'bg-violet-500',
-          estimatedHours: 40,
-          actualHours: 8,
-          totalActivityHours: 50,
-          totalProjectHours: 80,
-          velocity: 2.0,
-          status: 'in-progress',
-          startWeek: 0,
-          endWeek: 20,
-          pattern: [false, false, true, false, false, true, true, false, false],
-          isLongTerm: true,
-          targetHoursPerWeek: 2,
-          duration: '5 months'
-        },
-        {
-          id: 19,
-          project: 'Hot Fix',
-          activity: 'Bug Resolution',
-          task: 'Critical Production Issue',
-          color: 'bg-red-600',
-          estimatedHours: 8,
-          actualHours: 6,
-          totalActivityHours: 8,
-          totalProjectHours: 8,
-          velocity: 8.0,
-          status: 'completed',
-          startWeek: -1,
-          endWeek: 0,
-          pattern: [true, true, true, true, true, false, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 8,
-          duration: '1 week'
-        },
-        {
-          id: 20,
-          project: 'Predictive Analytics',
-          activity: 'Time Series Forecasting',
-          task: 'Customer Churn Prediction',
-          color: 'bg-orange-600',
-          estimatedHours: 100,
-          actualHours: 0,
-          totalActivityHours: 140,
-          totalProjectHours: 200,
-          velocity: 0,
-          status: 'planned',
-          startWeek: 24,
-          endWeek: 36,
-          pattern: [true, true, false, true, true, false, false, false, false],
-          isLongTerm: false,
-          targetHoursPerWeek: 8.3,
-          duration: '3 months'
         }
       ]
     }
   ];
+
+  // Unified data structure - SINGLE SOURCE OF TRUTH
+  // This replaces both spreadsheetData and projectSpreadsheetData
+  const [teamData, setTeamData] = useState([]);
+
+  // Initialize unified data structure from static team data
+  React.useEffect(() => {
+    const initializeTeamData = () => {
+      const unifiedData = staticTeamMembers.map(member => ({
+        ...member,
+        // Enhanced tasks with hour allocation
+        tasks: member.tasks.map(task => {
+          const projectId = task.project.toLowerCase().replace(/\s+/g, '-');
+          return {
+            ...task,
+            projectId,
+            // Initialize monthly hours from task's target hours per week
+            monthlyHours: Array.from({ length: 12 }, (_, month) => {
+              // Check if task is active in this month
+              const weekInMonth = month * 4.33; // Approximate week for this month
+              if (task.startWeek !== undefined && task.endWeek !== undefined) {
+                if (weekInMonth >= task.startWeek && weekInMonth <= task.endWeek) {
+                  return task.targetHoursPerWeek || 0;
+                }
+              }
+              return 0;
+            })
+          };
+        })
+      }));
+      setTeamData(unifiedData);
+    };
+
+    if (teamData.length === 0) {
+      initializeTeamData();
+    }
+  }, []);
+
+  // Debug: Add logging to see what's happening with the sync
+  const syncTaskFromSpreadsheet = (memberId, projectId, monthIndex, hours) => {
+    console.log('syncTaskFromSpreadsheet called:', { memberId, projectId, monthIndex, hours });
+    
+    setTeamData(prevData => {
+      const newData = prevData.map(member => {
+        if (member.id === memberId) {
+          const updatedMember = {
+            ...member,
+            tasks: member.tasks.map(task => {
+              if (task.projectId === projectId) {
+                const newMonthlyHours = [...(task.monthlyHours || Array(12).fill(0))];
+                newMonthlyHours[monthIndex] = hours;
+                
+                console.log('Updating task:', task.project, 'Month:', monthIndex, 'Hours:', hours);
+                console.log('New monthly hours:', newMonthlyHours);
+                
+                // Update targetHoursPerWeek based on average of non-zero months
+                const activeMonths = newMonthlyHours.filter(h => h > 0);
+                const avgWeeklyHours = activeMonths.length > 0 
+                  ? activeMonths.reduce((sum, h) => sum + h, 0) / activeMonths.length 
+                  : 0;
+                
+                const updatedTask = {
+                  ...task,
+                  monthlyHours: newMonthlyHours,
+                  targetHoursPerWeek: avgWeeklyHours,
+                  // Update task timeline based on allocated months
+                  startWeek: newMonthlyHours.findIndex(h => h > 0) * 4.33,
+                  endWeek: (newMonthlyHours.length - 1 - [...newMonthlyHours].reverse().findIndex(h => h > 0)) * 4.33
+                };
+                
+                console.log('Updated task:', updatedTask);
+                return updatedTask;
+              }
+              return task;
+            })
+          };
+          console.log('Updated member:', updatedMember);
+          return updatedMember;
+        }
+        return member;
+      });
+      
+      console.log('Final team data update:', newData);
+      return newData;
+    });
+  };
+
+  // Sync function: Updates spreadsheet when task properties change
+  const syncSpreadsheetFromTask = (memberId, taskId, updates) => {
+    setTeamData(prevData => 
+      prevData.map(member => {
+        if (member.id === memberId) {
+          return {
+            ...member,
+            tasks: member.tasks.map(task => {
+              if (task.id === taskId) {
+                const updatedTask = { ...task, ...updates };
+                
+                // If targetHoursPerWeek changed, update monthlyHours
+                if (updates.targetHoursPerWeek !== undefined) {
+                  const newMonthlyHours = task.monthlyHours.map(hours => 
+                    hours > 0 ? updates.targetHoursPerWeek : 0
+                  );
+                  updatedTask.monthlyHours = newMonthlyHours;
+                }
+                
+                return updatedTask;
+              }
+              return task;
+            })
+          };
+        }
+        return member;
+      })
+    );
+  };
+
+  // Use teamData instead of static data for the component
+  const teamMembers = teamData.length > 0 ? teamData : staticTeamMembers;
 
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
@@ -510,14 +327,49 @@ const ResourcePlanner = () => {
     });
   };
 
+  // Enhanced calculateDailyHours with debugging  
   const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
-    return member.tasks.reduce((totalHours, task) => {
+    if (!member.tasks) return 0;
+    
+    const totalHours = member.tasks.reduce((totalHours, task) => {
+      // Priority 1: Use monthlyHours from unified data structure
+      if (task.monthlyHours && task.monthlyHours.length > 0) {
+        let hours = 0;
+        
+        if (viewType === 'week') {
+          const monthIndex = Math.floor(dateIdx / 4.33);
+          hours = task.monthlyHours[monthIndex] || 0;
+        } else if (viewType === 'month') {
+          // For month view, we want the weekly hours for that specific month
+          hours = task.monthlyHours[dateIdx] || 0;
+        } else if (viewType === 'day') {
+          const monthIndex = Math.floor(dateIdx / 4.33);
+          const weeklyHours = task.monthlyHours[monthIndex] || 0;
+          const activeDaysPerWeek = task.pattern ? task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length : 5;
+          hours = weeklyHours / Math.max(1, activeDaysPerWeek);
+        }
+        
+        // Debug log for June (month index 5)
+        if (dateIdx === 5 && viewType === 'month' && task.project === 'AI Platform') {
+          console.log('calculateDailyHours DEBUG:', {
+            taskProject: task.project,
+            monthIndex: dateIdx,
+            monthlyHours: task.monthlyHours,
+            calculatedHours: hours,
+            viewType
+          });
+        }
+        
+        return totalHours + hours;
+      }
+      
+      // Fallback to old calculation if monthlyHours not available
       if (isTaskActive(task, currentWeekOffset)) {
         if (task.intensityPhases) {
           const currentPhase = getCurrentPhaseFromDates(task, currentWeekOffset);
           if (currentPhase) {
             if (viewType === 'day') {
-              const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length;
+              const activeDaysPerWeek = task.pattern ? task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length : 5;
               return totalHours + (currentPhase.hoursPerWeek / Math.max(1, activeDaysPerWeek));
             } else if (viewType === 'week') {
               return totalHours + currentPhase.hoursPerWeek;
@@ -527,20 +379,20 @@ const ResourcePlanner = () => {
           }
         }
         
-        if (task.isLongTerm) {
-          const weeklyHours = task.targetHoursPerWeek || Math.min(20, task.estimatedHours / 4);
-          if (viewType === 'day') {
-            const activeDaysPerWeek = task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length;
-            return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
-          } else if (viewType === 'week') {
-            return totalHours + weeklyHours;
-          } else if (viewType === 'month') {
-            return totalHours + (weeklyHours * 4.33);
-          }
+        const weeklyHours = task.targetHoursPerWeek || 0;
+        if (viewType === 'day') {
+          const activeDaysPerWeek = task.pattern ? task.pattern.filter(day => day && ![2,3].includes(task.pattern.indexOf(day))).length : 5;
+          return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
+        } else if (viewType === 'week') {
+          return totalHours + weeklyHours;
+        } else if (viewType === 'month') {
+          return totalHours + (weeklyHours * 4.33);
         }
       }
       return totalHours;
     }, 0);
+    
+    return totalHours;
   };
 
   const getWorkloadColor = (hours, viewType) => {
@@ -571,12 +423,38 @@ const ResourcePlanner = () => {
   };
 
   const getDateRangeLabel = () => {
-    if (selectedView === 'year') return '2025';
-    if (selectedView === 'quarter') return 'Q4 2025 (Oct-Dec)';
-    if (selectedView === 'month') return 'December 2025';
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth(); // 0-based (June = 5)
+    const currentDay = currentDate.getDate();
     
-    if (currentWeekOffset === 0) return 'Dec 12-20, 2025';
-    return `Dec 12-20, 2025 (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
+    if (selectedView === 'year') return currentYear.toString();
+    if (selectedView === 'quarter') {
+      const quarterNumber = Math.floor(currentMonth / 3) + 1;
+      const quarterMonths = [
+        ['Jan', 'Feb', 'Mar'],
+        ['Apr', 'May', 'Jun'], 
+        ['Jul', 'Aug', 'Sep'],
+        ['Oct', 'Nov', 'Dec']
+      ];
+      return `Q${quarterNumber} ${currentYear} (${quarterMonths[quarterNumber - 1].join('-')})`;
+    }
+    if (selectedView === 'month') {
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[currentMonth]} ${currentYear}`;
+    }
+    
+    // For week view, calculate the actual current week
+    const weekStart = currentDay - currentDate.getDay() + (currentWeekOffset * 7);
+    const weekEnd = weekStart + 6;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (currentWeekOffset === 0) {
+      return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear}`;
+    }
+    return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear} (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
   };
 
   const handleAssignTask = (member) => {
@@ -584,8 +462,18 @@ const ResourcePlanner = () => {
     setShowAssignTaskModal(true);
   };
 
+  // Enhanced task editing with bi-directional sync
   const handleEditTask = (task, member) => {
-    setSelectedTask({...task, memberName: member.name, isEditing: true});
+    setSelectedTask({
+      ...task, 
+      memberName: member.name, 
+      isEditing: true,
+      onSave: (updates) => {
+        // Update task with bi-directional sync
+        syncSpreadsheetFromTask(member.id, task.id, updates);
+        setSelectedTask(null);
+      }
+    });
   };
 
   const submitTaskAssignment = (taskData) => {
@@ -594,25 +482,20 @@ const ResourcePlanner = () => {
     setSelectedMemberForAssignment(null);
   };
 
+  // Debug enhanced cell edit function
   const handleProjectCellEdit = (memberId, projectId, columnIndex, value) => {
+    console.log('handleProjectCellEdit called:', { memberId, projectId, columnIndex, value, spreadsheetView });
+    
     // Allow empty string to clear the field
     if (value === '') {
-      setProjectSpreadsheetData(prev => ({
-        ...prev,
-        [memberId]: {
-          ...prev[memberId],
-          [projectId]: {
-            ...prev[memberId]?.[projectId],
-            [columnIndex]: 0
-          }
-        }
-      }));
+      syncTaskFromSpreadsheet(memberId, projectId, columnIndex, 0);
       return;
     }
     
     const numValue = parseFloat(value);
     
     if (isNaN(numValue) || numValue < 0) {
+      console.log('Invalid value, returning');
       return;
     }
     
@@ -623,26 +506,28 @@ const ResourcePlanner = () => {
       year: 3000
     };
     
-    const clampedValue = Math.min(numValue, maxLimits[spreadsheetView] || 60);
+    const clampedValue = Math.min(numValue, maxLimits[spreadsheetView] || 300);
+    console.log('Clamped value:', clampedValue);
     
-    if (spreadsheetView === 'week' || spreadsheetView === 'month') {
-      let weeklyHours = clampedValue;
-      
-      if (spreadsheetView === 'month') {
-        weeklyHours = clampedValue / 4.33;
-      }
-      
-      setProjectSpreadsheetData(prev => ({
-        ...prev,
-        [memberId]: {
-          ...prev[memberId],
-          [projectId]: {
-            ...prev[memberId]?.[projectId],
-            [columnIndex]: Math.max(0, weeklyHours)
-          }
-        }
-      }));
+    // Convert the input value to weekly hours for storage
+    let weeklyHours = clampedValue;
+    
+    if (spreadsheetView === 'month') {
+      // User entered total monthly hours, convert to weekly
+      weeklyHours = clampedValue / 4.33;
+      console.log('Converting monthly to weekly:', clampedValue, '→', weeklyHours);
+    } else if (spreadsheetView === 'quarter') {
+      // User entered total quarterly hours, convert to weekly  
+      weeklyHours = clampedValue / (4.33 * 3);
+    } else if (spreadsheetView === 'year') {
+      // User entered total yearly hours, convert to weekly
+      weeklyHours = clampedValue / (4.33 * 12);
     }
+    
+    console.log('Final weekly hours to store:', weeklyHours);
+    
+    // Update unified data structure with bi-directional sync
+    syncTaskFromSpreadsheet(memberId, projectId, columnIndex, Math.max(0, weeklyHours));
   };
 
   const getCellColor = (hours) => {
@@ -677,11 +562,6 @@ const ResourcePlanner = () => {
     return 'bg-gray-100 text-gray-400';
   };
 
-  const getMemberTotal = (memberId) => {
-    const memberData = spreadsheetData[memberId] || {};
-    return Object.values(memberData).reduce((sum, hours) => sum + hours, 0);
-  };
-
   const phaseTemplates = [
     {
       name: "2-Month Sprint + 3-Month Break + 2-Month Sprint",
@@ -710,34 +590,45 @@ const ResourcePlanner = () => {
     }
   ];
 
+  // Updated template application with bi-directional sync
   const applyTemplate = (memberId, template) => {
-    setSpreadsheetData(prev => ({
-      ...prev,
-      [memberId]: {
-        ...prev[memberId],
-        ...template.pattern.reduce((acc, hours, month) => {
-          acc[month] = hours;
-          return acc;
-        }, {})
-      }
-    }));
+    // Apply template pattern to all tasks for this member
+    setTeamData(prevData =>
+      prevData.map(member => {
+        if (member.id === memberId) {
+          return {
+            ...member,
+            tasks: member.tasks.map(task => ({
+              ...task,
+              monthlyHours: template.pattern.map(hours => hours),
+              targetHoursPerWeek: template.pattern.reduce((sum, h) => sum + h, 0) / template.pattern.filter(h => h > 0).length || 0
+            }))
+          };
+        }
+        return member;
+      })
+    );
     setShowPhaseTemplates(false);
     setSelectedMemberForTemplate(null);
   };
 
+  // Updated clear function with bi-directional sync
   const clearMemberSchedule = (memberId) => {
-    setSpreadsheetData(prev => ({
-      ...prev,
-      [memberId]: Array.from({ length: 12 }, () => 0).reduce((acc, _, month) => {
-        acc[month] = 0;
-        return acc;
-      }, {})
-    }));
-    
-    setProjectSpreadsheetData(prev => ({
-      ...prev,
-      [memberId]: {}
-    }));
+    setTeamData(prevData =>
+      prevData.map(member => {
+        if (member.id === memberId) {
+          return {
+            ...member,
+            tasks: member.tasks.map(task => ({
+              ...task,
+              monthlyHours: Array.from({ length: 12 }, () => 0),
+              targetHoursPerWeek: 0
+            }))
+          };
+        }
+        return member;
+      })
+    );
   };
 
   const getSpreadsheetColumns = () => {
@@ -768,16 +659,20 @@ const ResourcePlanner = () => {
     }));
   };
 
+  // Updated function to read from unified data structure
   const getSpreadsheetValue = (memberId, index, projectId = null) => {
+    const member = teamData.find(m => m.id === memberId);
+    if (!member) return 0;
+
     if (projectId) {
-      const memberData = projectSpreadsheetData[memberId]?.[projectId] || {};
-      return calculateValueForView(memberData, index);
+      // Get hours for specific project
+      const task = member.tasks.find(t => t.projectId === projectId);
+      if (!task || !task.monthlyHours) return 0;
+      
+      return calculateValueForView({ [index]: task.monthlyHours[index] || 0 }, index);
     } else {
       // Get total hours across all projects for this time period
-      const memberProjects = projectSpreadsheetData[memberId] || {};
-      
       if (spreadsheetView === 'quarter') {
-        // For quarterly view, sum up the 3 months in this quarter
         const quarterMonths = [
           [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
         ];
@@ -785,39 +680,44 @@ const ResourcePlanner = () => {
         
         return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
           let monthTotal = 0;
-          Object.values(memberProjects).forEach(projectData => {
-            const weeklyHours = projectData[monthIdx] || 0;
-            monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+          member.tasks.forEach(task => {
+            if (task.monthlyHours) {
+              const weeklyHours = task.monthlyHours[monthIdx] || 0;
+              monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+            }
           });
           return sum + monthTotal;
         }, 0));
       } else if (spreadsheetView === 'year') {
-        // For year view, sum all 12 months
         if (index === 0) {
-          return Math.round(Object.keys(Array.from({ length: 12 })).reduce((sum, monthIdx) => {
+          return Math.round(Array.from({ length: 12 }, (_, monthIdx) => {
             let monthTotal = 0;
-            Object.values(memberProjects).forEach(projectData => {
-              const weeklyHours = projectData[monthIdx] || 0;
-              monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+            member.tasks.forEach(task => {
+              if (task.monthlyHours) {
+                const weeklyHours = task.monthlyHours[monthIdx] || 0;
+                monthTotal += weeklyHours * 4.33;
+              }
             });
-            return sum + monthTotal;
-          }, 0));
+            return monthTotal;
+          }).reduce((sum, monthTotal) => sum + monthTotal, 0));
         }
         return 0;
       } else if (spreadsheetView === 'month') {
-        // For monthly view, sum all projects for this month
         let monthTotal = 0;
-        Object.values(memberProjects).forEach(projectData => {
-          const weeklyHours = projectData[index] || 0;
-          monthTotal += weeklyHours * 4.33; // Convert weekly to monthly
+        member.tasks.forEach(task => {
+          if (task.monthlyHours) {
+            const weeklyHours = task.monthlyHours[index] || 0;
+            monthTotal += weeklyHours * 4.33;
+          }
         });
         return Math.round(monthTotal);
       } else if (spreadsheetView === 'week') {
-        // For weekly view, sum all projects for this week
         const monthIndex = Math.floor(index / 4.33);
         let weekTotal = 0;
-        Object.values(memberProjects).forEach(projectData => {
-          weekTotal += projectData[monthIndex] || 0;
+        member.tasks.forEach(task => {
+          if (task.monthlyHours) {
+            weekTotal += task.monthlyHours[monthIndex] || 0;
+          }
         });
         return Math.round(weekTotal);
       }
@@ -924,6 +824,12 @@ const ResourcePlanner = () => {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* Sync Status Indicator */}
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-md">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-green-700">Modes Synced</span>
+            </div>
+            
             <div className="flex items-center space-x-1 border border-gray-300 rounded-md">
               <button onClick={goToPreviousWeek} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-l-md">
                 ◀
@@ -1006,35 +912,42 @@ const ResourcePlanner = () => {
                   <div className="text-xs">Full Year</div>
                 </div>
               ) : selectedView === 'quarter' ? (
-                ['Oct', 'Nov', 'Dec'].map((month, i) => (
+                ['Apr', 'May', 'Jun'].map((month, i) => (
                   <div key={i} className={`text-center py-2 px-2 rounded border ${
                     i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
                   }`}>
                     <div className="text-sm font-semibold">{month}</div>
-                    <div className="text-xs opacity-75">{i + 10}</div>
+                    <div className="text-xs opacity-75">{i + 4}</div>
                     {i === 2 && <div className="text-xs font-medium">NOW</div>}
                   </div>
                 ))
               ) : selectedView === 'month' ? (
                 ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((week, i) => (
                   <div key={i} className={`text-center py-2 px-2 rounded border ${
-                    i === 1 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                    i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
                   }`}>
                     <div className="text-sm font-semibold">{week}</div>
-                    <div className="text-xs opacity-75">Dec {i * 7 + 1}-{(i + 1) * 7}</div>
-                    {i === 1 && <div className="text-xs font-medium">NOW</div>}
+                    <div className="text-xs opacity-75">Jun {i * 7 + 1}-{Math.min((i + 1) * 7, 30)}</div>
+                    {i === 2 && <div className="text-xs font-medium">NOW</div>}
                   </div>
                 ))
               ) : (
-                ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, i) => (
-                  <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
-                    i === 0 ? 'bg-blue-500 text-white font-semibold' :
-                    i === 2 || i === 3 ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
-                  }`}>
-                    <div className="uppercase tracking-wide">{day}</div>
-                    <div className="text-sm font-bold">{12 + i}</div>
-                  </div>
-                ))
+                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'].map((day, i) => {
+                  const currentDate = new Date();
+                  const dayOfMonth = currentDate.getDate() + i - 3; // Center around current day
+                  const isToday = i === 3;
+                  const isWeekend = day === 'Sat' || day === 'Sun';
+                  
+                  return (
+                    <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                      isToday ? 'bg-blue-500 text-white font-semibold' :
+                      isWeekend ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
+                    }`}>
+                      <div className="uppercase tracking-wide">{day}</div>
+                      <div className="text-sm font-bold">{Math.max(1, Math.min(dayOfMonth, 30))}</div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -1043,6 +956,22 @@ const ResourcePlanner = () => {
 
       {/* Content */}
       <div className="p-4">
+        {/* Sync Info Panel */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start space-x-2">
+            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">ℹ</div>
+            <div>
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">Bi-Directional Sync Active</h3>
+              <div className="text-xs text-blue-800 space-y-1">
+                <div>• <strong>Timeline → Spreadsheet:</strong> Task edits automatically update hour allocations</div>
+                <div>• <strong>Spreadsheet → Timeline:</strong> Hour changes instantly adjust task schedules</div>
+                <div>• <strong>Templates:</strong> Apply patterns to all tasks simultaneously</div>
+                <div>• <strong>Real-time:</strong> Both views always show the same data</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {showSpreadsheetView ? (
           /* Spreadsheet View */
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -1050,7 +979,7 @@ const ResourcePlanner = () => {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">{getSpreadsheetLabel()}</h2>
-                  <p className="text-sm text-gray-600">Click cells to edit {getUnitLabel()}. Use templates for quick setup.</p>
+                  <p className="text-sm text-gray-600">Edit hours to automatically sync with Timeline mode. Changes update task schedules in real-time.</p>
                 </div>
                 <div className="flex items-center space-x-4 text-sm">
                   <div className="flex items-center space-x-2">
@@ -1059,48 +988,19 @@ const ResourcePlanner = () => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-blue-100 rounded"></div>
-                    <span>{
-                      spreadsheetView === 'year' ? '1-520h' : 
-                      spreadsheetView === 'quarter' ? '1-130h' : 
-                      spreadsheetView === 'month' ? '1-43h' :
-                      '1-10h'
-                    }</span>
+                    <span>Low</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-green-100 rounded"></div>
-                    <span>{
-                      spreadsheetView === 'year' ? '521-1040h' : 
-                      spreadsheetView === 'quarter' ? '131-260h' : 
-                      spreadsheetView === 'month' ? '44-87h' :
-                      '11-20h'
-                    }</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-yellow-100 rounded"></div>
-                    <span>{
-                      spreadsheetView === 'year' ? '1041-1560h' : 
-                      spreadsheetView === 'quarter' ? '261-390h' : 
-                      spreadsheetView === 'month' ? '88-130h' :
-                      '21-30h'
-                    }</span>
+                    <span>Medium</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-orange-100 rounded"></div>
-                    <span>{
-                      spreadsheetView === 'year' ? '1561-2080h' : 
-                      spreadsheetView === 'quarter' ? '391-520h' : 
-                      spreadsheetView === 'month' ? '131-173h' :
-                      '31-40h'
-                    }</span>
+                    <span>High</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 bg-red-100 rounded"></div>
-                    <span>{
-                      spreadsheetView === 'year' ? '2080h+' : 
-                      spreadsheetView === 'quarter' ? '520h+' : 
-                      spreadsheetView === 'month' ? '173h+' :
-                      '40h+'
-                    }</span>
+                    <span>Overload</span>
                   </div>
                 </div>
               </div>
@@ -1116,7 +1016,7 @@ const ResourcePlanner = () => {
                     Apply Template
                   </button>
                   <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                    Export to Excel
+                    Export Unified Data
                   </button>
                   <button className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700">
                     Save as Template
@@ -1360,14 +1260,14 @@ const ResourcePlanner = () => {
             <div className="p-4 bg-gray-50 border-t">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  <strong>Quick Tips:</strong> Click cells to edit • Use templates for common patterns • 0 = break period • Switch views to see data at different time scales • All views are editable
+                  <strong>Synchronized Planning:</strong> Timeline and Spreadsheet modes share the same data • Edit anywhere, see changes everywhere • Templates create real task schedules
                 </div>
                 <div className="flex space-x-2">
                   <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
-                    Export to Excel
+                    Export Unified Data
                   </button>
                   <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
-                    Save Template
+                    Save as Template
                   </button>
                   <button 
                     onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
@@ -1580,7 +1480,7 @@ const ResourcePlanner = () => {
         )}
       </div>
 
-      {/* Task Detail Modal */}
+      {/* Enhanced Task Detail Modal with bi-directional editing */}
       {selectedTask && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTask(null)}>
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1621,10 +1521,55 @@ const ResourcePlanner = () => {
                   </div>
                 </div>
 
+                {/* Bi-directional sync editing section */}
+                {selectedTask.isEditing && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                    <div className="text-xs font-medium text-blue-900 mb-2">Edit Task (Changes sync to Spreadsheet)</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-blue-800">Weekly Hours Target:</label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          max="40" 
+                          defaultValue={selectedTask.targetHoursPerWeek || 0}
+                          className="w-full mt-1 px-2 py-1 text-xs border rounded"
+                          onChange={(e) => {
+                            const newHours = parseFloat(e.target.value) || 0;
+                            if (selectedTask.onSave) {
+                              selectedTask.onSave({ targetHoursPerWeek: newHours });
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-blue-800">Status:</label>
+                        <select 
+                          defaultValue={selectedTask.status}
+                          className="w-full mt-1 px-2 py-1 text-xs border rounded"
+                          onChange={(e) => {
+                            if (selectedTask.onSave) {
+                              selectedTask.onSave({ status: e.target.value });
+                            }
+                          }}
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="over-budget">Over Budget</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-green-50 p-3 rounded border border-green-200">
-                  <div className="text-xs font-medium text-green-900 mb-1">Current Intensity</div>
+                  <div className="text-xs font-medium text-green-900 mb-1">Current Allocation</div>
                   <div className="text-xs text-green-800">
-                    {selectedTask.targetHoursPerWeek}h per week • Working {selectedTask.pattern?.filter(Boolean).length || 6} days/week
+                    {selectedTask.targetHoursPerWeek || 0}h per week • Working {selectedTask.pattern?.filter(Boolean).length || 5} days/week
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    💡 Spreadsheet changes automatically update this allocation
                   </div>
                 </div>
 
@@ -1654,7 +1599,7 @@ const ResourcePlanner = () => {
                   }}
                   className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
-                  Schedule in Spreadsheet
+                  Edit in Spreadsheet
                 </button>
                 <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
                   Close
@@ -1757,4 +1702,3 @@ const ResourcePlanner = () => {
 };
 
 export default ResourcePlanner;
-                    
