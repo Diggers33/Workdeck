@@ -1288,7 +1288,7 @@ const ResourcePlanner = () => {
             </div>
 
             {teamMembers.map((member) => (
-              <div key={member.id} className="mb-4">
+              <div key={`${member.id}-${JSON.stringify(member.tasks.map(t => t.monthlyHours))}`} className="mb-4">
                 <div className="flex items-center justify-between mb-2 p-3 bg-white rounded border">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm">
@@ -1451,7 +1451,11 @@ const ResourcePlanner = () => {
                           if (selectedView === 'quarter') {
                             hours = calculateDailyHours(member, periodIndex, 'month');
                           } else if (selectedView === 'month') {
-                            hours = calculateDailyHours(member, periodIndex, 'week');
+                            // For month view, we want to show weekly hours for each week
+                            // Use the actual month index (June = 5) instead of period index
+                            const currentDate = new Date();
+                            const currentMonth = currentDate.getMonth(); // June = 5
+                            hours = calculateDailyHours(member, currentMonth, 'month');
                           } else {
                             hours = calculateDailyHours(member, periodIndex, 'day');
                           }
