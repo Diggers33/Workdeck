@@ -2,32 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Users, AlertTriangle } from 'lucide-react';
 
 const ResourcePlanner = () => {
-  const [showTaskDetails, setShowTaskDetails] = useState(true);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
-  const [selectedView, setSelectedView] = useState('month');
-  const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
-  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState(null);
   const [showSpreadsheetView, setShowSpreadsheetView] = useState(false);
   const [editingCell, setEditingCell] = useState(null);
-  const [showPhaseTemplates, setShowPhaseTemplates] = useState(false);
-  const [spreadsheetView, setSpreadsheetView] = useState('month');
-
-  // Static team data
-  const staticTeamMembers = [
+  const [selectedTask, setSelectedTask] = useState(null);
+  
+  // Team data with monthly hours
+  const [teamData, setTeamData] = useState([
     {
       id: 1,
       name: 'Alejandro Rosales',
       avatar: '👨‍💻',
       department: 'Engineering',
       capacity: 40,
-      scheduled: 42,
       utilization: 105,
       tasks: [
         {
           id: 1,
           project: 'AI Platform',
+          projectId: 'ai-platform',
           activity: 'Core Architecture',
           task: 'System Design & Planning',
           color: 'bg-purple-600',
@@ -36,11 +28,12 @@ const ResourcePlanner = () => {
           velocity: 7.3,
           status: 'in-progress',
           targetHoursPerWeek: 6.25,
-          pattern: [true, true, false, false, true, true, false, true, true]
+          monthlyHours: [27, 27, 27, 27, 27, 27, 0, 0, 0, 0, 0, 0]
         },
         {
           id: 2,
           project: 'Legacy Migration',
+          projectId: 'legacy-migration',
           activity: 'Database Migration',
           task: 'PostgreSQL to MongoDB',
           color: 'bg-orange-500',
@@ -49,7 +42,7 @@ const ResourcePlanner = () => {
           velocity: 5.0,
           status: 'in-progress',
           targetHoursPerWeek: 5,
-          pattern: [true, true, false, false, true, false, false, false, false]
+          monthlyHours: [22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
       ]
     },
@@ -59,12 +52,12 @@ const ResourcePlanner = () => {
       avatar: '👩‍💻',
       department: 'Engineering',
       capacity: 40,
-      scheduled: 38,
       utilization: 95,
       tasks: [
         {
           id: 7,
           project: 'AI Platform',
+          projectId: 'ai-platform',
           activity: 'ML Algorithms',
           task: 'Model Development',
           color: 'bg-purple-600',
@@ -73,7 +66,7 @@ const ResourcePlanner = () => {
           velocity: 8.2,
           status: 'in-progress',
           targetHoursPerWeek: 8.33,
-          pattern: [true, true, false, false, true, true, true, true, true]
+          monthlyHours: [36, 36, 36, 0, 0, 0, 36, 36, 0, 0, 0, 0]
         }
       ]
     },
@@ -83,12 +76,12 @@ const ResourcePlanner = () => {
       avatar: '👨‍💻',
       department: 'Data Science',
       capacity: 40,
-      scheduled: 39,
       utilization: 98,
       tasks: [
         {
           id: 13,
           project: 'AI Platform',
+          projectId: 'ai-platform',
           activity: 'Data Pipeline',
           task: 'ETL Development',
           color: 'bg-purple-600',
@@ -97,11 +90,12 @@ const ResourcePlanner = () => {
           velocity: 6.8,
           status: 'in-progress',
           targetHoursPerWeek: 5,
-          pattern: [true, true, false, false, true, true, true, true, false]
+          monthlyHours: [22, 22, 22, 22, 0, 0, 0, 0, 22, 22, 0, 0]
         },
         {
           id: 14,
           project: 'BIORADAR',
+          projectId: 'bioradar',
           activity: 'Bioinformatics Analysis',
           task: 'Genomic Data Processing',
           color: 'bg-teal-500',
@@ -110,47 +104,15 @@ const ResourcePlanner = () => {
           velocity: 5.0,
           status: 'in-progress',
           targetHoursPerWeek: 5,
-          pattern: [true, true, false, false, true, true, false, false, false]
+          monthlyHours: [22, 22, 22, 22, 0, 0, 0, 0, 22, 22, 0, 0]
         }
       ]
     }
-  ];
+  ]);
 
-  // Unified data structure
-  const [teamData, setTeamData] = useState([]);
-
-  // Initialize team data
-  useEffect(() => {
-    if (teamData.length === 0) {
-      const unifiedData = staticTeamMembers.map(member => ({
-        ...member,
-        tasks: member.tasks.map(task => ({
-          ...task,
-          projectId: task.project.toLowerCase().replace(/\s+/g, '-'),
-          monthlyHours: Array.from({ length: 12 }, () => task.targetHoursPerWeek || 0)
-        }))
-      }));
-      setTeamData(unifiedData);
-    }
-  }, [teamData.length]);
-
-  const teamMembers = teamData.length > 0 ? teamData : staticTeamMembers;
-
-  // Add loading state check
-  if (!teamMembers || teamMembers.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-lg font-semibold">Loading Resource Planner...</div>
-          <div className="text-sm text-gray-600">Initializing team data</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Sync functions
+  // Sync function for bi-directional updates
   const syncTaskFromSpreadsheet = (memberId, projectId, monthIndex, hours) => {
-    console.log('🔄 Syncing:', { memberId, projectId, monthIndex, hours });
+    console.log('🔄 Syncing task:', { memberId, projectId, monthIndex, hours });
     
     setTeamData(prevData => 
       prevData.map(member => {
@@ -159,10 +121,10 @@ const ResourcePlanner = () => {
             ...member,
             tasks: member.tasks.map(task => {
               if (task.projectId === projectId) {
-                const newMonthlyHours = [...(task.monthlyHours || Array(12).fill(0))];
+                const newMonthlyHours = [...task.monthlyHours];
                 newMonthlyHours[monthIndex] = hours;
                 
-                console.log('✅ Updated task:', task.project, 'Month:', monthIndex, 'New hours:', newMonthlyHours);
+                console.log('✅ Updated hours for', task.project, ':', newMonthlyHours);
                 
                 return {
                   ...task,
@@ -179,8 +141,9 @@ const ResourcePlanner = () => {
     );
   };
 
+  // Handle cell editing
   const handleProjectCellEdit = (memberId, projectId, columnIndex, value) => {
-    console.log('📝 Cell edit:', { memberId, projectId, columnIndex, value });
+    console.log('📝 Editing cell:', { memberId, projectId, columnIndex, value });
     
     if (value === '') {
       syncTaskFromSpreadsheet(memberId, projectId, columnIndex, 0);
@@ -190,34 +153,24 @@ const ResourcePlanner = () => {
     const numValue = parseFloat(value);
     if (isNaN(numValue) || numValue < 0) return;
     
-    let weeklyHours = numValue;
-    if (spreadsheetView === 'month') {
-      weeklyHours = numValue / 4.33;
-      console.log('💱 Converting monthly to weekly:', numValue, '→', weeklyHours);
-    }
+    // Convert monthly hours to weekly hours
+    const weeklyHours = numValue / 4.33;
+    console.log('💱 Converting monthly to weekly:', numValue, '→', weeklyHours);
     
     syncTaskFromSpreadsheet(memberId, projectId, columnIndex, weeklyHours);
   };
 
-  const calculateDailyHours = (member, dateIdx, viewType = 'month') => {
-    console.log('📊 Calculating for:', member.name, 'Month:', dateIdx, 'View:', viewType);
-    
-    if (!member.tasks) return 0;
+  // Calculate workload for timeline
+  const calculateWorkload = (member, monthIndex) => {
+    console.log('📊 Calculating workload for', member.name, 'month', monthIndex);
     
     const total = member.tasks.reduce((sum, task) => {
-      if (task.monthlyHours && task.monthlyHours[dateIdx]) {
-        const hours = task.monthlyHours[dateIdx];
-        
-        if (task.project === 'AI Platform') {
-          console.log('🎯 AI Platform hours for', member.name, ':', hours);
-        }
-        
-        return sum + hours;
-      }
-      return sum + (task.targetHoursPerWeek || 0);
+      const hours = task.monthlyHours[monthIndex] || 0;
+      console.log(`Task ${task.project}: ${hours}h`);
+      return sum + hours;
     }, 0);
     
-    console.log('📈 Total hours for', member.name, ':', total);
+    console.log('Total workload:', total);
     return total;
   };
 
@@ -226,16 +179,17 @@ const ResourcePlanner = () => {
     switch (status) {
       case 'completed': return 'text-green-700 bg-green-100 border-green-200';
       case 'in-progress': return 'text-blue-700 bg-blue-100 border-blue-200';
-      case 'over-budget': return 'text-red-700 bg-red-100 border-red-200';
       default: return 'text-gray-600 bg-gray-100 border-gray-200';
     }
   };
 
-  const getUtilizationColor = (utilization) => {
-    if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
-    if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
-    if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
-    return 'text-green-600 bg-green-50 border-green-200';
+  const getCellColor = (hours) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    if (hours <= 43) return 'bg-blue-100 text-blue-800';
+    if (hours <= 87) return 'bg-green-100 text-green-800';
+    if (hours <= 130) return 'bg-yellow-100 text-yellow-800';
+    if (hours <= 173) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
   };
 
   const getWorkloadColor = (hours) => {
@@ -245,77 +199,32 @@ const ResourcePlanner = () => {
     return 'bg-green-500 text-white';
   };
 
-  const getCellColor = (hours) => {
-    if (hours === 0) return 'bg-gray-100 text-gray-400';
-    if (spreadsheetView === 'month') {
-      if (hours <= 43) return 'bg-blue-100 text-blue-800';
-      if (hours <= 87) return 'bg-green-100 text-green-800';
-      if (hours <= 130) return 'bg-yellow-100 text-yellow-800';
-      if (hours <= 173) return 'bg-orange-100 text-orange-800';
-      return 'bg-red-100 text-red-800';
-    }
-    return 'bg-gray-100 text-gray-400';
-  };
-
-  const getSpreadsheetColumns = () => {
-    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  };
-
-  const getMemberProjects = (memberId) => {
-    const member = teamMembers.find(m => m.id === memberId);
-    if (!member) return [];
-    
-    return member.tasks.map(task => ({
-      id: task.project.toLowerCase().replace(/\s+/g, '-'),
-      name: task.project,
-      activity: task.activity,
-      task: task.task,
-      color: task.color
-    }));
-  };
-
-  const getSpreadsheetValue = (memberId, index, projectId = null) => {
+  const getSpreadsheetValue = (memberId, monthIndex, projectId = null) => {
     const member = teamData.find(m => m.id === memberId);
     if (!member) return 0;
 
     if (projectId) {
       const task = member.tasks.find(t => t.projectId === projectId);
-      if (!task || !task.monthlyHours) return 0;
-      
-      const weeklyHours = task.monthlyHours[index] || 0;
-      return spreadsheetView === 'month' ? Math.round(weeklyHours * 4.33) : weeklyHours;
+      if (!task) return 0;
+      const weeklyHours = task.monthlyHours[monthIndex] || 0;
+      return Math.round(weeklyHours * 4.33); // Convert to monthly for display
     } else {
+      // Total for member
       let total = 0;
       member.tasks.forEach(task => {
-        if (task.monthlyHours) {
-          const weeklyHours = task.monthlyHours[index] || 0;
-          total += spreadsheetView === 'month' ? weeklyHours * 4.33 : weeklyHours;
-        }
+        const weeklyHours = task.monthlyHours[monthIndex] || 0;
+        total += weeklyHours * 4.33;
       });
       return Math.round(total);
     }
   };
 
-  const getMemberRowTotal = (memberId) => {
-    return getSpreadsheetColumns().reduce((total, _, index) => {
-      return total + getSpreadsheetValue(memberId, index);
-    }, 0);
+  const getMemberProjects = (memberId) => {
+    const member = teamData.find(m => m.id === memberId);
+    return member ? member.tasks : [];
   };
 
-  const getProjectRowTotal = (memberId, projectId) => {
-    return getSpreadsheetColumns().reduce((total, _, index) => {
-      return total + getSpreadsheetValue(memberId, index, projectId);
-    }, 0);
-  };
-
-  const handleAssignTask = (member) => {
-    setSelectedMemberForAssignment(member);
-    setShowAssignTaskModal(true);
-  };
-
-  const handleEditTask = (task, member) => {
-    setSelectedTask({...task, memberName: member.name});
-  };
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -331,18 +240,11 @@ const ResourcePlanner = () => {
           </div>
           
           <div className="flex items-center space-x-3">
-            {/* Sync Status Indicator */}
+            {/* Sync Status */}
             <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-md">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-xs font-medium text-green-700">Modes Synced</span>
             </div>
-            
-            <button 
-              onClick={() => setShowTaskDetails(!showTaskDetails)} 
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              {showTaskDetails ? 'Hide Tasks' : 'Show Tasks'}
-            </button>
 
             <button 
               onClick={() => setShowSpreadsheetView(!showSpreadsheetView)} 
@@ -354,17 +256,6 @@ const ResourcePlanner = () => {
             >
               {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
             </button>
-
-            <select 
-              value={selectedView}
-              onChange={(e) => setSelectedView(e.target.value)}
-              className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
-            >
-              <option value="week">Week View</option>
-              <option value="month">Month View</option>
-              <option value="quarter">Quarter View</option>
-              <option value="year">Year View</option>
-            </select>
             
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <Users className="w-4 h-4" />
@@ -406,9 +297,9 @@ const ResourcePlanner = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
                       Team Member
                     </th>
-                    {getSpreadsheetColumns().map((column, idx) => (
+                    {months.map((month, idx) => (
                       <th key={idx} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
-                        <div>{column}</div>
+                        <div>{month}</div>
                         <div className="text-xs text-gray-400 font-normal">2025</div>
                       </th>
                     ))}
@@ -418,96 +309,92 @@ const ResourcePlanner = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {teamMembers.map((member) => {
-                    const memberProjects = getMemberProjects(member.id);
-                    
-                    return (
-                      <React.Fragment key={member.id}>
-                        {/* Member Summary Row */}
-                        <tr className="hover:bg-gray-50 bg-gray-25">
-                          <td className="px-4 py-3 border-r bg-gray-50">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm text-white font-medium">
-                                {member.avatar}
+                  {teamData.map((member) => (
+                    <React.Fragment key={member.id}>
+                      {/* Member Summary Row */}
+                      <tr className="hover:bg-gray-50 bg-gray-25">
+                        <td className="px-4 py-3 border-r bg-gray-50">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm text-white font-medium">
+                              {member.avatar}
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{member.name}</div>
+                              <div className="text-xs text-gray-500">{member.department}</div>
+                              <div className="text-xs text-blue-600 font-medium">Total Allocation</div>
+                            </div>
+                          </div>
+                        </td>
+                        {months.map((month, columnIdx) => {
+                          const hours = getSpreadsheetValue(member.id, columnIdx);
+                          return (
+                            <td key={columnIdx} className="px-1 py-1 border-r bg-gray-50">
+                              <div className={`w-full px-2 py-2 text-center text-sm font-bold rounded ${getCellColor(hours)}`}>
+                                {hours > 0 ? `${hours}h` : '—'}
                               </div>
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-3 text-center bg-gray-50">
+                          <div className="text-sm font-bold text-gray-900">
+                            {months.reduce((sum, _, idx) => sum + getSpreadsheetValue(member.id, idx), 0)}h
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Project Breakdown Rows */}
+                      {getMemberProjects(member.id).map((task) => (
+                        <tr key={`${member.id}-${task.projectId}`} className="hover:bg-gray-25">
+                          <td className="px-4 py-2 border-r bg-white">
+                            <div className="flex items-center space-x-3 ml-8">
+                              <div className={`w-3 h-3 rounded-full ${task.color}`}></div>
                               <div>
-                                <div className="text-sm font-semibold text-gray-900">{member.name}</div>
-                                <div className="text-xs text-gray-500">{member.department}</div>
-                                <div className="text-xs text-blue-600 font-medium">Total Allocation</div>
+                                <div className="text-sm font-medium text-gray-800">{task.project}</div>
+                                <div className="text-xs text-gray-600">{task.activity} → {task.task}</div>
                               </div>
                             </div>
                           </td>
-                          {getSpreadsheetColumns().map((column, columnIdx) => {
-                            const hours = getSpreadsheetValue(member.id, columnIdx);
+                          {months.map((month, columnIdx) => {
+                            const hours = getSpreadsheetValue(member.id, columnIdx, task.projectId);
+                            const isEditing = editingCell?.memberId === member.id && editingCell?.column === columnIdx && editingCell?.projectId === task.projectId;
                             return (
-                              <td key={columnIdx} className="px-1 py-1 border-r bg-gray-50">
-                                <div className={`w-full px-2 py-2 text-center text-sm font-bold rounded ${getCellColor(hours)}`}>
-                                  {hours > 0 ? `${Math.round(hours)}h` : '—'}
-                                </div>
+                              <td key={columnIdx} className="px-1 py-1 border-r">
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={hours > 0 ? hours : ''}
+                                    onChange={(e) => handleProjectCellEdit(member.id, task.projectId, columnIdx, e.target.value)}
+                                    onBlur={() => setEditingCell(null)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === 'Tab') {
+                                        setEditingCell(null);
+                                      }
+                                    }}
+                                    autoFocus
+                                    className="w-full h-8 px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none"
+                                    placeholder="Monthly hours"
+                                  />
+                                ) : (
+                                  <div
+                                    onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: task.projectId })}
+                                    className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${getCellColor(hours)}`}
+                                  >
+                                    {hours > 0 ? `${hours}h` : '—'}
+                                  </div>
+                                )}
                               </td>
                             );
                           })}
-                          <td className="px-3 py-3 text-center bg-gray-50">
-                            <div className="text-sm font-bold text-gray-900">
-                              {Math.round(getMemberRowTotal(member.id))}h
+                          <td className="px-3 py-2 text-center bg-white">
+                            <div className="text-sm font-medium text-gray-800">
+                              {months.reduce((sum, _, idx) => sum + getSpreadsheetValue(member.id, idx, task.projectId), 0)}h
                             </div>
                           </td>
                         </tr>
-                        
-                        {/* Project Breakdown Rows */}
-                        {memberProjects.map((project) => (
-                          <tr key={`${member.id}-${project.id}`} className="hover:bg-gray-25">
-                            <td className="px-4 py-2 border-r bg-white">
-                              <div className="flex items-center space-x-3 ml-8">
-                                <div className={`w-3 h-3 rounded-full ${project.color}`}></div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-800">{project.name}</div>
-                                  <div className="text-xs text-gray-600">{project.activity} → {project.task}</div>
-                                </div>
-                              </div>
-                            </td>
-                            {getSpreadsheetColumns().map((column, columnIdx) => {
-                              const hours = getSpreadsheetValue(member.id, columnIdx, project.id);
-                              const isEditing = editingCell?.memberId === member.id && editingCell?.column === columnIdx && editingCell?.projectId === project.id;
-                              return (
-                                <td key={columnIdx} className="px-1 py-1 border-r">
-                                  {isEditing ? (
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={hours > 0 ? Math.round(hours) : ''}
-                                      onChange={(e) => handleProjectCellEdit(member.id, project.id, columnIdx, e.target.value)}
-                                      onBlur={() => setEditingCell(null)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === 'Tab') {
-                                          setEditingCell(null);
-                                        }
-                                      }}
-                                      autoFocus
-                                      className="w-full h-8 px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none"
-                                      placeholder="Monthly hours"
-                                    />
-                                  ) : (
-                                    <div
-                                      onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: project.id })}
-                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${getCellColor(hours)}`}
-                                    >
-                                      {hours > 0 ? `${Math.round(hours)}h` : '—'}
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center bg-white">
-                              <div className="text-sm font-medium text-gray-800">
-                                {Math.round(getProjectRowTotal(member.id, project.id))}h
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
+                      ))}
+                    </React.Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -520,8 +407,8 @@ const ResourcePlanner = () => {
               <p className="text-sm text-gray-300">3 team members</p>
             </div>
 
-            {teamMembers.map((member) => (
-              <div key={`${member.id}-${JSON.stringify(member.tasks.map(t => t.monthlyHours))}`} className="mb-4">
+            {teamData.map((member) => (
+              <div key={member.id} className="mb-4">
                 <div className="flex items-center justify-between mb-2 p-3 bg-white rounded border">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm">
@@ -529,16 +416,15 @@ const ResourcePlanner = () => {
                     </div>
                     <div>
                       <div className="font-medium text-sm">{member.name}</div>
-                      <div className="text-xs text-gray-500">{member.scheduled}h / {member.capacity}h</div>
+                      <div className="text-xs text-gray-500">{member.capacity}h capacity</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => handleAssignTask(member)}
-                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100">
-                      + Assign Task
-                    </button>
-                    <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
+                    <div className={`px-2 py-1 rounded text-xs font-medium border ${
+                      member.utilization > 100 ? 'text-red-600 bg-red-50 border-red-200' :
+                      member.utilization > 85 ? 'text-orange-600 bg-orange-50 border-orange-200' :
+                      'text-green-600 bg-green-50 border-green-200'
+                    }`}>
                       {member.utilization}%
                       {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
                     </div>
@@ -547,24 +433,14 @@ const ResourcePlanner = () => {
 
                 <div className="ml-4 space-y-1">
                   {/* Individual task rows */}
-                  {showTaskDetails && member.tasks.map((task, idx) => (
+                  {member.tasks.map((task, idx) => (
                     <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
                          onClick={() => setSelectedTask({...task, memberName: member.name})}>
                       <div className="w-72 flex-shrink-0">
                         <div className="flex items-start space-x-2">
                           <div className={`w-3 h-3 rounded-full ${task.color} mt-0.5`}></div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <div className="text-sm font-medium truncate">{task.project}</div>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditTask(task, member);
-                                }}
-                                className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
-                                Edit
-                              </button>
-                            </div>
+                            <div className="text-sm font-medium truncate">{task.project}</div>
                             <div className="text-xs text-gray-600 mb-1">
                               <span className="font-medium">{task.activity}</span>
                               <span className="text-gray-400 mx-1">→</span>
@@ -605,10 +481,8 @@ const ResourcePlanner = () => {
                     
                     <div className="flex-1 grid grid-cols-4 gap-3">
                       {Array.from({ length: 4 }, (_, periodIndex) => {
-                        console.log('🚀 WORKLOAD CALCULATION for:', member.name, 'Period:', periodIndex);
                         const currentMonth = 5; // June = 5
-                        const hours = calculateDailyHours(member, currentMonth, 'month');
-                        console.log('💡 Final workload hours:', hours);
+                        const hours = calculateWorkload(member, currentMonth);
                         
                         return (
                           <div key={periodIndex} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
@@ -640,3 +514,71 @@ const ResourcePlanner = () => {
                     <p className="text-gray-600 text-xs">
                       <span className="font-medium">{selectedTask.activity}</span>
                       <span className="text-gray-400 mx-1">→</span>
+                      <span>{selectedTask.task}</span>
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 ml-2">✕</button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-xs">
+                  <span className="text-gray-500">Assigned to:</span>
+                  <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-blue-50 p-2 rounded text-center">
+                    <div className="text-xs text-blue-700">Estimated</div>
+                    <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
+                  </div>
+                  <div className="bg-green-50 p-2 rounded text-center">
+                    <div className="text-xs text-green-700">Actual</div>
+                    <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
+                  </div>
+                  <div className="bg-orange-50 p-2 rounded text-center">
+                    <div className="text-xs text-orange-700">Remaining</div>
+                    <div className="text-sm font-bold text-orange-900">{Math.max(0, selectedTask.estimatedHours - selectedTask.actualHours)}h</div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 p-3 rounded border border-green-200">
+                  <div className="text-xs font-medium text-green-900 mb-1">Current Allocation</div>
+                  <div className="text-xs text-green-800">
+                    {selectedTask.targetHoursPerWeek || 0}h per week
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    💡 Spreadsheet changes automatically update this allocation
+                  </div>
+                </div>
+
+                <div>
+                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
+                    {selectedTask.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-4">
+                <button 
+                  onClick={() => {
+                    setSelectedTask(null);
+                    setShowSpreadsheetView(true);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Edit in Spreadsheet
+                </button>
+                <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ResourcePlanner;
