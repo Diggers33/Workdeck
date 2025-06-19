@@ -14,7 +14,6 @@ class WorkdeckAPI {
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
     const config = { headers: this.headers, ...options };
-
     try {
       const response = await fetch(url, config);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -25,7 +24,6 @@ class WorkdeckAPI {
     }
   }
 
-  // Authentication
   async login(email, password) {
     const response = await fetch(`${this.baseUrl}/auth/login`, {
       method: 'POST',
@@ -41,15 +39,9 @@ class WorkdeckAPI {
     throw new Error('Login failed');
   }
 
-  // API methods using your Postman endpoints
   async getUsers() { return this.request('/queries/users'); }
-  async getUsersSummary() { return this.request('/queries/users-summary'); }
   async getProjects() { return this.request('/queries/projects-summary'); }
   async getCompany() { return this.request('/queries/company'); }
-  async getMyEvents(startDate) {
-    const params = startDate ? `?start=${startDate}` : '';
-    return this.request(`/queries/me/events${params}`);
-  }
 }
 
 export default WorkdeckAPI;
