@@ -349,14 +349,16 @@ const ResourcePlanner = () => {
           hours = weeklyHours / Math.max(1, activeDaysPerWeek);
         }
         
-        // Debug log for June (month index 5)
-        if (dateIdx === 5 && viewType === 'month' && task.project === 'AI Platform') {
+        // Debug log for current month and AI Platform task
+        if (viewType === 'month' && task.project === 'AI Platform') {
           console.log('calculateDailyHours DEBUG:', {
+            memberName: member.name,
             taskProject: task.project,
             monthIndex: dateIdx,
             monthlyHours: task.monthlyHours,
             calculatedHours: hours,
-            viewType
+            viewType,
+            currentDate: new Date().getMonth() // Show current month (June = 5)
           });
         }
         
