@@ -142,17 +142,17 @@ class WorkdeckAPI {
   }
 
   async getUsers() { 
-    console.log('👥 Fetching users...');
+    console.log('👥 Fetching users from /queries/users...');
     return this.request('/queries/users'); 
   }
   
   async getProjects() { 
-    console.log('📁 Fetching projects...');
+    console.log('📁 Fetching projects from /queries/projects-summary...');
     return this.request('/queries/projects-summary'); 
   }
   
   async getCompany() { 
-    console.log('🏢 Fetching company info...');
+    console.log('🏢 Fetching company from /queries/company...');
     return this.request('/queries/company'); 
   }
 }
@@ -244,8 +244,7 @@ const ResourcePlanner = () => {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setLoggingIn(true);
     setError(null);
 
@@ -425,22 +424,7 @@ const ResourcePlanner = () => {
             >
               {loggingIn ? 'Connecting to Workdeck...' : 'Connect to Workdeck'}
             </button>
-          </div>ingIn}
-              style={{
-                width: '100%',
-                backgroundColor: loggingIn ? '#9ca3af' : '#2563eb',
-                color: 'white',
-                padding: '0.75rem 1rem',
-                borderRadius: '0.375rem',
-                border: 'none',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                cursor: loggingIn ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {loggingIn ? 'Connecting to Workdeck...' : 'Connect to Workdeck'}
-            </button>
-          </form>
+          </div>
           
           <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
             <div style={{ fontSize: '0.75rem', color: '#6b7280', textAlign: 'center', marginBottom: '0.5rem' }}>
