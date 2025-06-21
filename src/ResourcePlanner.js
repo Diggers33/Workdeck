@@ -18,53 +18,75 @@ class WorkdeckAPI {
   async makeRequest(endpoint, options = {}) {
     const targetUrl = `${this.originalBaseUrl}${endpoint}`;
     
-    // Most reliable CORS proxies (tested and working)
+    // Enhanced CORS proxies with POST support
     const proxies = [
-      // Primary: Corsfix (most reliable for development)
+      // Primary: Try direct request first (sometimes CORS is actually allowed)
       {
-        name: 'corsfix',
-        url: `https://proxy.corsfix.com/${targetUrl}`,
+        name: 'direct',
+        url: targetUrl,
         transform: (options) => ({
           method: options.method || 'GET',
           headers: { 
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             ...this.headers,
             ...options.headers 
           },
           body: options.body
         })
       },
-      // Backup: AllOrigins (different approach)
+      // Backup: AllOrigins with POST data in URL
       {
-        name: 'allorigins',
-        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        name: 'allorigins-post',
+        url: options.method === 'POST' 
+          ? `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&method=POST&headers=${encodeURIComponent(JSON.stringify({...this.headers, ...options.headers}))}&body=${encodeURIComponent(options.body || '')}`
+          : `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
         transform: (options) => ({
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
         }),
         processResponse: async (response) => {
-          const text = await response.text();
-          try {
-            return JSON.parse(text);
-          } catch (e) {
-            console.log('AllOrigins response preview:', text.substring(0, 200));
-            throw new Error('Invalid JSON response');
+          const result = await response.json();
+          if (result.status && result.status.http_code === 200) {
+            return JSON.parse(result.contents);
+          } else {
+            throw new Error(`HTTP ${result.status?.http_code || 'Unknown'}: ${result.status?.http_code_text || 'Error'}`);
           }
         }
       },
-      // Backup: CORS.SH
+      // Enhanced Corsfix with proper headers
       {
-        name: 'cors-sh',
-        url: `https://proxy.cors.sh/${targetUrl}`,
+        name: 'corsfix-enhanced',
+        url: `https://proxy.corsfix.com/${targetUrl}`,
         transform: (options) => ({
           method: options.method || 'GET',
           headers: { 
             'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
             ...this.headers,
             ...options.headers 
           },
           body: options.body
         })
+      },
+      // Backup: JSONProxy for POST requests
+      {
+        name: 'jsonproxy',
+        url: 'https://jsonp.afeld.me/',
+        transform: (options) => ({
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        customUrl: `https://jsonp.afeld.me/?url=${encodeURIComponent(targetUrl)}${options.method === 'POST' ? `&method=POST&data=${encodeURIComponent(options.body || '')}` : ''}`,
+        processResponse: async (response) => {
+          const text = await response.text();
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            console.log('JSONProxy response preview:', text.substring(0, 200));
+            throw new Error('Invalid JSON response from proxy');
+          }
+        }
       }
     ];
 
@@ -75,7 +97,8 @@ class WorkdeckAPI {
         console.log(`🌐 Trying ${proxy.name} for ${endpoint}`);
         
         const config = proxy.transform({ ...options, headers: this.headers });
-        const response = await fetch(proxy.url, config);
+        const requestUrl = proxy.customUrl || proxy.url;
+        const response = await fetch(requestUrl, config);
         
         console.log(`📡 ${proxy.name} response:`, response.status, response.statusText);
 
@@ -102,6 +125,11 @@ class WorkdeckAPI {
       } catch (error) {
         console.log(`❌ ${proxy.name} failed:`, error.message);
         lastError = error;
+        
+        // For 405 errors, try a different approach
+        if (error.message.includes('405') && proxy.name === 'direct' && options.method === 'POST') {
+          console.log('⚠️ Direct POST blocked, will try proxy methods...');
+        }
         continue;
       }
     }
@@ -234,7 +262,8 @@ const ResourcePlanner = () => {
   const [workdeckAPI] = useState(new WorkdeckAPI());
   const [credentials, setCredentials] = useState({ 
     email: 'jpedreno@iris-eng.com', 
-    password: '654321' 
+    password: '654321',
+    token: '' // Add manual token input
   });
   const [loggingIn, setLoggingIn] = useState(false);
 
@@ -249,13 +278,22 @@ const ResourcePlanner = () => {
     setError(null);
 
     try {
+      // If user provided a token manually, use it directly
+      if (credentials.token && credentials.token.trim()) {
+        console.log('🔑 Using manually provided token...');
+        workdeckAPI.setToken(credentials.token.trim());
+        setIsAuthenticated(true);
+        return;
+      }
+
+      // Otherwise try to login normally
       console.log('🚀 Login attempt starting...');
       await workdeckAPI.login(credentials.email, credentials.password);
       console.log('✅ Authentication successful!');
       setIsAuthenticated(true);
     } catch (error) {
       console.error('❌ Login failed:', error);
-      setError(error.message);
+      setError(`${error.message}\n\n💡 Tip: You can copy the token from Postman and paste it in the "Manual Token" field below to bypass login.`);
     } finally {
       setLoggingIn(false);
     }
@@ -406,6 +444,30 @@ const ResourcePlanner = () => {
                 required
               />
             </div>
+
+            <div style={{ padding: '0.75rem', backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '0.375rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#92400e', marginBottom: '0.5rem' }}>
+                💡 <strong>Alternative:</strong> If login fails due to CORS, copy your token from Postman:
+              </div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '500', color: '#92400e', marginBottom: '0.25rem' }}>
+                Manual Token (Optional)
+              </label>
+              <input
+                type="text"
+                value={credentials.token}
+                onChange={(e) => setCredentials(prev => ({ ...prev, token: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  border: '1px solid #fbbf24',
+                  borderRadius: '0.25rem',
+                  fontSize: '0.75rem',
+                  fontFamily: 'monospace'
+                }}
+                placeholder="Paste token from Postman login response..."
+              />
+            </div>
+            
             
             <button 
               onClick={handleLogin}
@@ -422,7 +484,7 @@ const ResourcePlanner = () => {
                 cursor: loggingIn ? 'not-allowed' : 'pointer'
               }}
             >
-              {loggingIn ? 'Connecting to Workdeck...' : 'Connect to Workdeck'}
+              {loggingIn ? 'Connecting to Workdeck...' : (credentials.token ? 'Use Manual Token' : 'Connect to Workdeck')}
             </button>
           </div>
           
