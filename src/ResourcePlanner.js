@@ -1,4 +1,16 @@
-import React, { useState, useEffect } from 'react';
+<div style={{ fontSize: '1rem', fontWeight: '600', color: '#111827' }}>
+                      {member.name}
+                      {member.isAdmin && <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', backgroundColor: '#dc2626', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '0.25rem' }}>ADMIN</span>}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      {member.scheduled}h / {member.capacity}h • {member.department} • {member.role}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <span>{member.email}</span>
+                      {member.isExpenseAdmin && <span style={{ backgroundColor: '#059669', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>EXPENSE</span>}
+                      {member.isPurchaseAdmin && <span style={{ backgroundColor: '#7c3aed', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>PURCHASE</span>}
+                      {member.isTravelAdmin && <span style={{ backgroundColor: '#ea580c', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>TRAVEL</span>}
+                    </div>import React, { useState, useEffect } from 'react';
 
 // Production-ready WorkdeckAPI with reliable CORS proxies
 class WorkdeckAPI {
@@ -289,63 +301,111 @@ const ResourcePlanner = () => {
     setError(null);
     
     try {
-      console.log('📊 Loading team data from Workdeck...');
+      console.log('📊 Attempting to load LIVE data from Workdeck...');
       
-      // For now, show the interface with your real Workdeck data structure
-      // Based on what we saw in Postman
-      const mockUsers = [
+      // Try to fetch real data first
+      const [usersResponse, projectsResponse, companyResponse] = await Promise.allSettled([
+        workdeckAPI.getUsers(),
+        workdeckAPI.getProjects(),
+        workdeckAPI.getCompany()
+      ]);
+
+      console.log('📈 API Response Status:', {
+        users: usersResponse.status,
+        projects: projectsResponse.status,
+        company: companyResponse.status
+      });
+
+      // Check if we got real data
+      const users = usersResponse.status === 'fulfilled' 
+        ? (usersResponse.value?.result || usersResponse.value || [])
+        : [];
+      
+      const projectsData = projectsResponse.status === 'fulfilled'
+        ? (projectsResponse.value?.result || projectsResponse.value || [])
+        : [];
+        
+      const companyData = companyResponse.status === 'fulfilled'
+        ? (companyResponse.value?.result || companyResponse.value || {})
+        : {};
+
+      console.log('📊 Raw API data received:', { 
+        usersCount: users.length, 
+        projectsCount: projectsData.length,
+        companyName: companyData.name || 'No company data',
+        usersData: users,
+        projectsData: projectsData,
+        companyData: companyData
+      });
+
+      // If we got real data, use it
+      if (users.length > 0 || projectsData.length > 0 || companyData.name) {
+        console.log('✅ Using LIVE data from Workdeck API!');
+        const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData);
+        setTeamData(teamMembers);
+        setProjects(projectsData);
+        setCompany(companyData);
+        setApiConnected(true);
+        console.log('🎉 Successfully loaded LIVE Workdeck data!');
+        return;
+      }
+
+      // If no live data, show detailed error and fall back to demo
+      console.warn('⚠️ No live data received, checking errors...');
+      const errors = [];
+      if (usersResponse.status === 'rejected') errors.push(`Users: ${usersResponse.reason?.message}`);
+      if (projectsResponse.status === 'rejected') errors.push(`Projects: ${projectsResponse.reason?.message}`);
+      if (companyResponse.status === 'rejected') errors.push(`Company: ${companyResponse.reason?.message}`);
+      
+      throw new Error(`Live data fetch failed:\n${errors.join('\n')}\n\nUsing demo data instead.`);
+      
+    } catch (err) {
+      console.error('💥 Live data failed, falling back to demo data:', err);
+      setError(`Could not fetch live data: ${err.message}`);
+      
+      // Fall back to demo data with clear indication
+      console.log('🎭 Loading demo data as fallback...');
+      const demoUsers = [
         {
           id: "557a5e10-1595-4999-be8e-fbbf6648db1c",
           email: "ebona@test.iris-eng.com",
           firstName: "Sergio",
           lastName: "Dona",
-          rol: null,
+          rol: "Senior Developer",
           isAdmin: false,
-          isGuest: false,
-          isPurchaseAdmin: false,
-          isExpenseAdmin: false,
-          isTravelAdmin: false,
+          department: "Engineering"
+        },
+        {
+          id: "demo-user-2",
+          email: "jpedreno@iris-eng.com", 
+          firstName: "Josep",
+          lastName: "Pedreno",
+          rol: "Team Lead",
+          isAdmin: true,
           department: "Engineering"
         }
       ];
 
-      const mockProjects = [
+      const demoProjects = [
         {
           id: "de63c8fe-9c7e-4e35-9195-dd8309c35db8",
           name: "test",
-          code: "2293",
-          availableHours: "290",
-          allocatedHours: "104",
-          isDraft: false,
-          startDate: "01/06/2022",
-          endDate: "30/06/2022"
+          code: "2293"
         }
       ];
 
-      const mockCompany = {
+      const demoCompany = {
         id: "9cf8bfb3-166d-498b-b213-912485d7a452",
         name: "IRIS",
-        address: "Carretera Esplugues local 39-41s",
-        zipCode: "08940",
-        email: "cdigy@iris.cat",
-        enabled: true
+        address: "Carretera Esplugues local 39-41s"
       };
 
-      console.log('📈 Using structured data based on your Workdeck instance');
-
-      const teamMembers = DataTransformer.transformUsersToTeamMembers(mockUsers, mockProjects);
-
+      const teamMembers = DataTransformer.transformUsersToTeamMembers(demoUsers, demoProjects);
       setTeamData(teamMembers);
-      setProjects(mockProjects);
-      setCompany(mockCompany);
-      setApiConnected(true);
+      setProjects(demoProjects);
+      setCompany(demoCompany);
+      setApiConnected(false); // Mark as not connected since using demo data
       
-      console.log('🎉 Demo data loaded with your real Workdeck structure!');
-      
-    } catch (err) {
-      console.error('💥 Failed to load data:', err);
-      setError(`Failed to load data: ${err.message}`);
-      setApiConnected(false);
     } finally {
       setLoading(false);
     }
@@ -531,16 +591,27 @@ const ResourcePlanner = () => {
           </button>
         </div>
         
-        {apiConnected && (
+        {apiConnected ? (
           <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #d1fae5', borderRadius: '0.5rem', padding: '1rem' }}>
             <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#065f46', marginBottom: '0.5rem' }}>
-              ✅ Connected to Workdeck API
+              ✅ Connected to Workdeck API - LIVE DATA
             </h3>
             <div style={{ fontSize: '0.75rem', color: '#047857' }}>
-              <div>• <strong>Live Data:</strong> Connected to test.workdeck.com</div>
-              <div>• <strong>Team Members:</strong> {teamData.length} loaded</div>
-              <div>• <strong>Projects:</strong> {projects.length} loaded</div>
-              {company && <div>• <strong>Company:</strong> {company.name}</div>}
+              <div>• <strong>Live Data:</strong> Real-time from test.workdeck.com</div>
+              <div>• <strong>Team Members:</strong> {teamData.length} loaded from API</div>
+              <div>• <strong>Projects:</strong> {projects.length} loaded from API</div>
+              {company && <div>• <strong>Company:</strong> {company.name} (Live)</div>}
+            </div>
+          </div>
+        ) : (
+          <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '0.5rem', padding: '1rem' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#92400e', marginBottom: '0.5rem' }}>
+              ⚠️ Using Demo Data - API Connection Failed
+            </h3>
+            <div style={{ fontSize: '0.75rem', color: '#92400e' }}>
+              <div>• CORS blocking live data access</div>
+              <div>• Showing demo data with your Workdeck structure</div>
+              <div>• Token authentication worked, but data fetch failed</div>
             </div>
           </div>
         )}
@@ -616,10 +687,10 @@ const ResourcePlanner = () => {
             marginBottom: '1rem' 
           }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              🎉 Resource Planner Interface (Demo with your Workdeck structure)
+              🎉 Complete Team Resource Overview
             </h3>
             <p style={{ fontSize: '0.875rem', color: '#d1d5db' }}>
-              {teamData.length} team members • {projects.length} projects • Using your real Workdeck data structure
+              {teamData.length} team members • {projects.length} active projects • IRIS Engineering Team
             </p>
           </div>
 
