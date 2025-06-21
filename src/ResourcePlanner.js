@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 // Production-ready WorkdeckAPI with reliable CORS proxies
 class WorkdeckAPI {
-  constructor(baseUrl = 'https://test.workdeck.com') {
+  constructor(baseUrl = 'https://test-api.workdeck.com') {
     this.originalBaseUrl = baseUrl;
     this.token = null;
     this.headers = { 'Content-Type': 'application/json' };
@@ -586,7 +586,7 @@ const ResourcePlanner = () => {
               ✅ Connected to Workdeck API - LIVE DATA
             </h3>
             <div style={{ fontSize: '0.75rem', color: '#047857' }}>
-              <div>• <strong>Live Data:</strong> Real-time from test.workdeck.com</div>
+              <div>• <strong>Live Data:</strong> Real-time from test-api.workdeck.com</div>
               <div>• <strong>Team Members:</strong> {teamData.length} loaded from API</div>
               <div>• <strong>Projects:</strong> {projects.length} loaded from API</div>
               {company && <div>• <strong>Company:</strong> {company.name} (Live)</div>}
