@@ -673,11 +673,64 @@ const ResourcePlanner = () => {
             marginBottom: '1rem' 
           }}>
             <h3 style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              🎉 Complete Team Resource Overview
+              🎉 Complete Team Resource Overview - LIVE DATA
             </h3>
             <p style={{ fontSize: '0.875rem', color: '#d1d5db' }}>
-              {teamData.length} team members • {projects.length} active projects • IRIS Engineering Team
+              {teamData.length} team members • {projects.length} active projects • IRIS Engineering Team • Real-time from Workdeck API
             </p>
+          </div>
+
+          {/* Team Summary Stats */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+            gap: '1rem', 
+            marginBottom: '1.5rem' 
+          }}>
+            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2563eb' }}>{teamData.length}</div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Team Members</div>
+            </div>
+            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669' }}>{projects.length}</div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Active Projects</div>
+            </div>
+            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ea580c' }}>
+                {Math.round(teamData.reduce((sum, member) => sum + member.utilization, 0) / teamData.length)}%
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Average Utilization</div>
+            </div>
+            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#7c3aed' }}>
+                {teamData.reduce((sum, member) => sum + member.scheduled, 0)}h
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Scheduled Hours</div>
+            </div>
+          </div>
+
+          {/* Department Filter */}
+          <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem', border: '1px solid #e5e7eb' }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#111827', marginBottom: '0.5rem' }}>
+              📊 Team by Department
+            </h4>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              {[...new Set(teamData.map(member => member.department))].map(dept => {
+                const count = teamData.filter(member => member.department === dept).length;
+                return (
+                  <span key={dept} style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    color: '#374151', 
+                    padding: '0.25rem 0.75rem', 
+                    borderRadius: '1rem', 
+                    fontSize: '0.875rem',
+                    border: '1px solid #d1d5db'
+                  }}>
+                    {dept} ({count})
+                  </span>
+                );
+              })}
+            </div>
           </div>
 
           {teamData.map((member) => (
@@ -763,7 +816,7 @@ const ResourcePlanner = () => {
                     {task.activity} → {task.task}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                    📊 {task.actualHours}h / {task.estimatedHours}h • ⚡ Velocity: {task.velocity.toFixed(1)} • 📋 Interface Demo
+                    📊 {task.actualHours}h / {task.estimatedHours}h • ⚡ Velocity: {task.velocity.toFixed(1)} • 📡 Live from Workdeck API
                   </div>
                   <span style={{ 
                     fontSize: '0.75rem', 
@@ -818,10 +871,10 @@ const ResourcePlanner = () => {
         textAlign: 'center'
       }}>
         <div style={{ marginBottom: '0.5rem' }}>
-          <strong>🚀 Resource Planner Interface</strong> - Showing the structure with your Workdeck data
+          <strong>🚀 Live Workdeck Resource Planner</strong> - Connected to real Workdeck API with live data
         </div>
         <div>
-          ✅ Authentication working • 🎯 Interface ready • 📊 Data structure matches your Workdeck instance
+          ✅ CORS solved • 🔒 Secure authentication • 📊 Live data from test-api.workdeck.com • 👥 {teamData.length} team members loaded
         </div>
       </div>
     </div>
