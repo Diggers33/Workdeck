@@ -1,16 +1,4 @@
-<div style={{ fontSize: '1rem', fontWeight: '600', color: '#111827' }}>
-                      {member.name}
-                      {member.isAdmin && <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', backgroundColor: '#dc2626', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '0.25rem' }}>ADMIN</span>}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                      {member.scheduled}h / {member.capacity}h • {member.department} • {member.role}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                      <span>{member.email}</span>
-                      {member.isExpenseAdmin && <span style={{ backgroundColor: '#059669', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>EXPENSE</span>}
-                      {member.isPurchaseAdmin && <span style={{ backgroundColor: '#7c3aed', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>PURCHASE</span>}
-                      {member.isTravelAdmin && <span style={{ backgroundColor: '#ea580c', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>TRAVEL</span>}
-                    </div>import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Production-ready WorkdeckAPI with reliable CORS proxies
 class WorkdeckAPI {
@@ -226,6 +214,9 @@ class DataTransformer {
         scheduled: totalScheduled,
         utilization: Math.round((totalScheduled / capacity) * 100),
         isAdmin: user.isAdmin || false,
+        isExpenseAdmin: user.isExpenseAdmin || false,
+        isPurchaseAdmin: user.isPurchaseAdmin || false,
+        isTravelAdmin: user.isTravelAdmin || false,
         tasks: tasks
       };
     });
@@ -527,7 +518,6 @@ const ResourcePlanner = () => {
               />
             </div>
             
-            
             <button 
               onClick={handleLogin}
               disabled={loggingIn}
@@ -563,7 +553,6 @@ const ResourcePlanner = () => {
   // Main application
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '1rem' }}>
-      {/* Header */}
       <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', marginBottom: '1rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>
@@ -634,7 +623,6 @@ const ResourcePlanner = () => {
         </button>
       </div>
 
-      {/* Loading State */}
       {loading && (
         <div style={{ textAlign: 'center', padding: '3rem' }}>
           <div style={{ fontSize: '1.125rem', color: '#6b7280', marginBottom: '0.5rem' }}>
@@ -646,7 +634,6 @@ const ResourcePlanner = () => {
         </div>
       )}
 
-      {/* Error State */}
       {error && !loading && (
         <div style={{ 
           backgroundColor: '#fef2f2', 
@@ -676,7 +663,6 @@ const ResourcePlanner = () => {
         </div>
       )}
 
-      {/* Team Data */}
       {!loading && teamData.length > 0 && (
         <div>
           <div style={{ 
@@ -718,13 +704,35 @@ const ResourcePlanner = () => {
                     {member.avatar}
                   </div>
                   <div>
-                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#111827' }}>{member.name}</div>
+                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#111827' }}>
+                      {member.name}
+                      {member.isAdmin && (
+                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', backgroundColor: '#dc2626', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '0.25rem' }}>
+                          ADMIN
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
                       {member.scheduled}h / {member.capacity}h • {member.department} • {member.role}
                     </div>
-                    {member.email && (
-                      <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{member.email}</div>
-                    )}
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <span>{member.email}</span>
+                      {member.isExpenseAdmin && (
+                        <span style={{ backgroundColor: '#059669', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
+                          EXPENSE
+                        </span>
+                      )}
+                      {member.isPurchaseAdmin && (
+                        <span style={{ backgroundColor: '#7c3aed', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
+                          PURCHASE
+                        </span>
+                      )}
+                      {member.isTravelAdmin && (
+                        <span style={{ backgroundColor: '#ea580c', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
+                          TRAVEL
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div style={{ 
@@ -774,7 +782,6 @@ const ResourcePlanner = () => {
         </div>
       )}
 
-      {/* Empty State */}
       {!loading && teamData.length === 0 && apiConnected && (
         <div style={{ textAlign: 'center', padding: '3rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
@@ -800,7 +807,6 @@ const ResourcePlanner = () => {
         </div>
       )}
 
-      {/* Footer */}
       <div style={{ 
         marginTop: '2rem', 
         padding: '1rem', 
