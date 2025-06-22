@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, AlertTriangle, Loader, AlertCircle } from 'lucide-react';
-import workdeckAPI from './workdeckApi';
-import { transformWorkdeckData } from './dataTransformers';
+import workdeckAPI from './services/workdeckApi';
+import { transformWorkdeckData } from './services/dataTransformer';
 
 const ResourcePlanner = () => {
   // State management
@@ -73,7 +73,7 @@ const ResourcePlanner = () => {
     }
   }, []);
 
-  // Sync functions (keeping your existing logic)
+  // Sync functions
   const syncTaskFromSpreadsheet = (memberId, projectId, monthIndex, hours) => {
     console.log('syncTaskFromSpreadsheet called:', { memberId, projectId, monthIndex, hours });
     
@@ -145,7 +145,7 @@ const ResourcePlanner = () => {
   // Use teamData for the component
   const teamMembers = teamData.length > 0 ? teamData : [];
 
-  // Your existing helper functions
+  // Helper functions
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
   const goToToday = () => setCurrentWeekOffset(0);
@@ -267,6 +267,14 @@ const ResourcePlanner = () => {
     return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear} (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
   };
 
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem('workdeck_token');
+    setIsAuthenticated(false);
+    setTeamData([]);
+    workdeckAPI.setToken(null);
+  };
+
   // Authentication form
   if (!isAuthenticated) {
     return (
@@ -363,7 +371,7 @@ const ResourcePlanner = () => {
     );
   }
 
-  // Main component UI (keeping all your existing UI logic)
+  // Main component UI
   return (
     <div className="bg-gray-50 min-h-screen" style={{ 
       fontFamily: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif',
@@ -396,6 +404,13 @@ const ResourcePlanner = () => {
               {loading ? 'Syncing...' : 'Refresh Data'}
             </button>
             
+            <button 
+              onClick={handleLogout}
+              className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100"
+            >
+              Disconnect
+            </button>
+            
             <div className="flex items-center space-x-1 border border-gray-300 rounded-md">
               <button onClick={goToPreviousWeek} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-l-md">
                 ◀
@@ -415,26 +430,9 @@ const ResourcePlanner = () => {
               {showTaskDetails ? 'Hide Tasks' : 'Show Tasks'}
             </button>
 
-            <button 
-              onClick={() => setShowSpreadsheetView(!showSpreadsheetView)} 
-              className={`px-3 py-1.5 text-sm font-medium border rounded-md ${
-                showSpreadsheetView 
-                  ? 'bg-blue-600 text-white border-blue-600' 
-                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
-            </button>
-
             <select 
-              value={showSpreadsheetView ? spreadsheetView : selectedView} 
-              onChange={(e) => {
-                if (showSpreadsheetView) {
-                  setSpreadsheetView(e.target.value);
-                } else {
-                  setSelectedView(e.target.value);
-                }
-              }}
+              value={selectedView} 
+              onChange={(e) => setSelectedView(e.target.value)}
               className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
             >
               <option value="week">Week View</option>
@@ -462,8 +460,9 @@ const ResourcePlanner = () => {
         </div>
       </div>
 
-      {/* Info Panel */}
+      {/* Content */}
       <div className="p-4">
+        {/* Info Panel */}
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start space-x-2">
             <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">ℹ</div>
@@ -471,15 +470,15 @@ const ResourcePlanner = () => {
               <h3 className="text-sm font-semibold text-blue-900 mb-1">Live Workdeck Integration</h3>
               <div className="text-xs text-blue-800 space-y-1">
                 <div>• <strong>Real Data:</strong> Team members and projects loaded from your Workdeck account</div>
-                <div>• <strong>Live Sync:</strong> Changes made here can be synced back to Workdeck</div>
+                <div>• <strong>Live Sync:</strong> Data refreshed from Workdeck API</div>
                 <div>• <strong>Resource Planning:</strong> Plan capacity across projects with real team data</div>
-                <div>• <strong>Departments:</strong> Filter by {[...new Set(teamMembers.map(m => m.department))].join(', ')}</div>
+                <div>• <strong>Departments:</strong> {[...new Set(teamMembers.map(m => m.department))].join(', ')}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Content */}
+        {/* Team Members Display */}
         {teamMembers.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -507,7 +506,7 @@ const ResourcePlanner = () => {
             {teamMembers
               .filter(member => selectedDepartment === 'all' || member.department === selectedDepartment)
               .map((member) => (
-              <div key={`${member.id}-${JSON.stringify(member.tasks.map(t => t.monthlyHours))}`} className="mb-4">
+              <div key={member.id} className="mb-4">
                 <div className="flex items-center justify-between mb-2 p-3 bg-white rounded border">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm">
@@ -528,7 +527,7 @@ const ResourcePlanner = () => {
 
                 {/* Task Details */}
                 <div className="ml-4 space-y-1">
-                  {showTaskDetails && member.tasks.map((task, idx) => (
+                  {showTaskDetails && member.tasks && member.tasks.map((task, idx) => (
                     <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
                          onClick={() => setSelectedTask({...task, memberName: member.name})}>
                       <div className="w-72 flex-shrink-0">
@@ -745,3 +744,6 @@ const ResourcePlanner = () => {
       )}
     </div>
   );
+};
+
+export default ResourcePlanner;
