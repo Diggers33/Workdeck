@@ -1990,6 +1990,10 @@ const ResourcePlanner = () => {
                       {member.email && (
                         <div className="text-xs text-gray-400">{member.email}</div>
                       )}
+                      {/* Show real task count */}
+                      <div className="text-xs text-blue-600">
+                        {member.realTasksCount || 0} real Workdeck tasks
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -2006,8 +2010,10 @@ const ResourcePlanner = () => {
                 </div>
 
                 <div className="ml-4 space-y-1">
-                  {/* Individual task rows */}
-                  {showTaskDetails && member.tasks.map((task, idx) => (
+                  {/* Only show tasks that have actual hours planned */}
+                  {showTaskDetails && member.tasks.filter(task => 
+                    task.targetHoursPerWeek > 0 || task.estimatedHours > 0
+                  ).map((task, idx) => (
                     <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
                          onClick={() => setSelectedTask({...task, memberName: member.name})}>
                       <div className="w-72 flex-shrink-0">
@@ -2019,6 +2025,11 @@ const ResourcePlanner = () => {
                               {task.isLongTerm && (
                                 <span className="px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded border">
                                   Long-term
+                                </span>
+                              )}
+                              {task.realWorkdeckTask && (
+                                <span className="px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded border">
+                                  Live
                                 </span>
                               )}
                               <button 
@@ -2046,6 +2057,9 @@ const ResourcePlanner = () => {
                               <span className="text-gray-500">Velocity:</span>
                               <span className="font-medium text-green-600">{task.velocity.toFixed(1)}h/week</span>
                               <span className="text-gray-400">(target: {task.targetHoursPerWeek.toFixed(1)}h/week)</span>
+                              {task.realWorkdeckTask && (
+                                <span className="text-blue-600 font-medium">• Real Workdeck Task</span>
+                              )}
                             </div>
                             <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
                               {task.status}
@@ -2061,29 +2075,74 @@ const ResourcePlanner = () => {
                         'grid grid-cols-9 gap-2'
                       }`}>
                         {selectedView === 'year' ? 
-                          <div className={`h-6 rounded ${task.color} opacity-60`}></div> :
+                          // Only show colored bar if task has hours
+                          <div className={`h-6 rounded ${
+                            task.targetHoursPerWeek > 0 ? `${task.color} opacity-60` : 'bg-gray-100'
+                          }`}></div> :
                           selectedView === 'quarter' ? 
-                          Array.from({ length: 3 }, (_, dateIdx) => (
-                            <div key={dateIdx} className={`h-6 rounded ${
-                              `${task.color} opacity-70`
-                            } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
-                          )) :
+                          Array.from({ length: 3 }, (_, dateIdx) => {
+                            // Check if task is active in this quarter month and has hours
+                            const hasHours = task.targetHoursPerWeek > 0;
+                            const isCurrentMonth = dateIdx === 2;
+                            return (
+                              <div key={dateIdx} className={`h-6 rounded ${
+                                hasHours ? `${task.color} opacity-70` : 'bg-gray-100'
+                              } ${isCurrentMonth && hasHours ? 'ring-1 ring-blue-400' : ''}`}></div>
+                            );
+                          }) :
                           selectedView === 'month' ? 
-                          Array.from({ length: 4 }, (_, dateIdx) => (
-                            <div key={dateIdx} className={`h-6 rounded ${
-                              dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
-                            } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
-                          )) :
-                          task.pattern.map((isActive, dateIdx) => (
-                            <div key={dateIdx} className={`h-6 rounded ${
-                              dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
-                              isActive ? `${task.color} opacity-80` : 'bg-gray-100'
-                            }`}></div>
-                          ))
+                          Array.from({ length: 4 }, (_, dateIdx) => {
+                            // Check if task is active in this week and has hours
+                            const hasHours = task.targetHoursPerWeek > 0;
+                            const isCurrentWeek = dateIdx === 1;
+                            return (
+                              <div key={dateIdx} className={`h-6 rounded ${
+                                hasHours && isCurrentWeek ? `${task.color} opacity-80` : 'bg-gray-100'
+                              } ${isCurrentWeek && hasHours ? 'ring-1 ring-blue-400' : ''}`}></div>
+                            );
+                          }) :
+                          task.pattern.map((isActive, dateIdx) => {
+                            // Only show color if task has hours and is active on this day
+                            const hasHours = task.targetHoursPerWeek > 0;
+                            const isWeekend = dateIdx === 2 || dateIdx === 3;
+                            return (
+                              <div key={dateIdx} className={`h-6 rounded ${
+                                isWeekend ? 'bg-gray-100' : 
+                                (isActive && hasHours) ? `${task.color} opacity-80` : 'bg-gray-100'
+                              }`}></div>
+                            );
+                          })
                         }
                       </div>
                     </div>
                   ))}
+
+                  {/* Show message if user has no tasks with hours */}
+                  {member.tasks.filter(task => task.targetHoursPerWeek > 0 || task.estimatedHours > 0).length === 0 && (
+                    <div className="flex items-center bg-yellow-50 border border-yellow-200 rounded p-3">
+                      <div className="w-72 flex-shrink-0">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <div>
+                            <div className="text-sm font-medium text-yellow-800">
+                              No Active Task Assignments
+                            </div>
+                            <div className="text-xs text-yellow-700">
+                              {member.realTasksCount > 0 
+                                ? `Has ${member.realTasksCount} Workdeck tasks but no hours planned`
+                                : 'No tasks assigned in Workdeck'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex-1 grid grid-cols-9 gap-2">
+                        {Array.from({ length: 9 }, (_, i) => (
+                          <div key={i} className="h-6 rounded bg-gray-100"></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Workload Summary - Always visible */}
                   <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
@@ -2098,7 +2157,7 @@ const ResourcePlanner = () => {
                              'Weekly Workload'}
                           </div>
                           <div className="text-xs text-blue-700">
-                            Live data from Workdeck • {member.tasks.length} active tasks
+                            Live data from Workdeck • {member.realTasksCount || 0} real tasks • {member.tasks.filter(t => t.targetHoursPerWeek > 0).length} with hours
                           </div>
                         </div>
                       </div>
