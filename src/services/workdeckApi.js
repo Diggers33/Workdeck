@@ -1,197 +1,123 @@
-// workdeckApi.js - Version with CORS proxy support
+// workdeckApi.js - API service for Workdeck integration
+
+const WORKDECK_BASE_URL = 'https://test-api.workdeck.com';
+
 class WorkdeckAPI {
-  constructor(baseUrl = process.env.REACT_APP_WORKDECK_URL || 'http://localhost:3000') {
-    this.originalBaseUrl = baseUrl;
-    
-    // Use CORS proxy for external domains to bypass CORS restrictions
-    if (baseUrl.includes('test.workdeck.com') || baseUrl.includes('workdeck.com')) {
-      // Using allorigins.win as a reliable CORS proxy
-      this.baseUrl = baseUrl;
-      this.corsProxy = true;
-      console.log('🔧 Using CORS proxy for Workdeck API access');
-    } else {
-      this.baseUrl = baseUrl;
-      this.corsProxy = false;
-    }
-    
+  constructor() {
     this.token = null;
-    this.headers = { 'Content-Type': 'application/json' };
+    this.baseURL = WORKDECK_BASE_URL;
   }
 
+  // Set authentication token
   setToken(token) {
     this.token = token;
-    this.headers.Authorization = `Bearer ${token}`;
   }
 
+  // Generic API request method
   async request(endpoint, options = {}) {
-    let url;
-    let config;
-
-    if (this.corsProxy) {
-      // Use allorigins.win proxy for CORS bypass
-      const targetUrl = `${this.originalBaseUrl}${endpoint}`;
-      url = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-      
-      config = {
-        ...options,
-        headers: {
-          ...this.headers,
-          ...options.headers
-        }
-      };
-    } else {
-      url = `${this.baseUrl}${endpoint}`;
-      config = {
-        headers: this.headers,
-        ...options
-      };
-    }
+    const url = `${this.baseURL}${endpoint}`;
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+        ...options.headers,
+      },
+      ...options,
+    };
 
     try {
-      console.log(`🌐 API Request: ${this.corsProxy ? 'PROXY → ' : ''}${endpoint}`);
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log(`✅ API Response: ${endpoint}`, data);
-      return data;
+      return data.result || data; // Workdeck returns data in 'result' field
     } catch (error) {
-      console.error(`❌ API request failed for ${endpoint}:`, error);
+      console.error('API request failed:', error);
       throw error;
     }
   }
 
+  // Authentication
   async login(email, password) {
-    try {
-      let url;
-      let config;
-
-      if (this.corsProxy) {
-        // Use proxy for login request
-        const targetUrl = `${this.originalBaseUrl}/auth/login`;
-        url = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-        
-        config = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ mail: email, password })
-        };
-      } else {
-        url = `${this.baseUrl}/auth/login`;
-        config = {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mail: email, password })
-        };
-      }
-
-      console.log('🔐 Attempting login to Workdeck...');
-      const response = await fetch(url, config);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Login successful');
-        this.setToken(data.result);
-        return data.result;
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Login failed:', response.status, errorText);
-        throw new Error(`Login failed: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      throw new Error(`Authentication failed: ${error.message}`);
+    const response = await this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        mail: email,
+        password: password,
+      }),
+    });
+    
+    if (response) {
+      this.setToken(response);
     }
+    
+    return response;
   }
 
-  // API endpoints using your Postman collection
-  async getUsers() { 
-    return this.request('/queries/users'); 
+  // Get current user info
+  async getCurrentUser() {
+    return this.request('/queries/me');
   }
-  
-  async getUsersSummary() { 
-    return this.request('/queries/users-summary'); 
+
+  // Get team members (users)
+  async getUsers() {
+    return this.request('/queries/users');
   }
-  
-  async getUser(userId) { 
-    return this.request(`/queries/users/${userId}`); 
+
+  // Get projects
+  async getProjects() {
+    return this.request('/queries/projects-summary');
   }
-  
-  async getUserInfo(userId) { 
-    return this.request(`/queries/users-summary/${userId}/info`); 
+
+  // Get tasks for a specific project
+  async getProjectTasks(projectId) {
+    return this.request(`/queries/projects/${projectId}`);
   }
-  
-  async getProjects() { 
-    return this.request('/queries/projects-summary'); 
+
+  // Get user's tasks
+  async getUserTasks(userId) {
+    // This might need to be implemented based on available endpoints
+    // For now, we'll use events as a proxy for tasks
+    return this.request(`/queries/me/events`);
   }
-  
-  async getProject(projectId) { 
-    return this.request(`/queries/projects/${projectId}`); 
+
+  // Get offices (for team structure)
+  async getOffices() {
+    return this.request('/queries/offices');
   }
-  
-  async getCompany() { 
-    return this.request('/queries/company'); 
+
+  // Get company info
+  async getCompany() {
+    return this.request('/queries/company');
   }
-  
-  async getOffices() { 
-    return this.request('/queries/offices'); 
-  }
-  
-  async getMyEvents(startDate) {
+
+  // Get events (can be used as tasks/activities)
+  async getEvents(startDate = null) {
     const params = startDate ? `?start=${startDate}` : '';
     return this.request(`/queries/me/events${params}`);
   }
-  
-  async getUserEvents(userId, startDate, endDate, timezone = 'Europe/Madrid') {
-    const params = new URLSearchParams({ start: startDate, end: endDate, tz: timezone });
-    return this.request(`/queries/events/user/${userId}?${params}`);
-  }
-  
-  async getLeaveRequests(startDate, endDate) {
-    const params = new URLSearchParams({ start: startDate, end: endDate });
-    return this.request(`/queries/leave-requests?${params}`);
-  }
-  
-  async getWhoIsWhere(department = null) {
-    const params = department ? `?department=${encodeURIComponent(department)}` : '';
-    return this.request(`/queries/who-is-where${params}`);
-  }
 
-  // Create/Update operations from your Postman collection
-  async createTask(taskData) {
-    return this.request('/commands/sync/create-task', {
+  // Create a new task/event
+  async createEvent(eventData) {
+    return this.request('/commands/sync/create-event', {
       method: 'POST',
-      body: JSON.stringify(taskData)
+      body: JSON.stringify(eventData),
     });
   }
 
-  async createProject(projectData) {
-    return this.request('/commands/sync/create-project', {
+  // Update an event/task
+  async updateEvent(eventData) {
+    return this.request('/commands/sync/update-event', {
       method: 'POST',
-      body: JSON.stringify(projectData)
+      body: JSON.stringify(eventData),
     });
-  }
-
-  async updateUser(userData) {
-    return this.request('/commands/sync/update-user', {
-      method: 'POST',
-      body: JSON.stringify(userData)
-    });
-  }
-
-  // Get connection status
-  getConnectionInfo() {
-    return {
-      baseUrl: this.originalBaseUrl,
-      usingProxy: this.corsProxy,
-      authenticated: !!this.token
-    };
   }
 }
 
-export default WorkdeckAPI;
+// Create singleton instance
+const workdeckAPI = new WorkdeckAPI();
+
+export default workdeckAPI;
