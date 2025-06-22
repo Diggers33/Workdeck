@@ -315,6 +315,12 @@ class DataTransformer {
         ? userTasks.map((task, index) => this.transformRealTaskToPlanning(task, index))
         : []; // No fake tasks if user has no real assignments
 
+      console.log(`📋 Transformed tasks for ${user.firstName}:`, planningTasks.map(t => ({
+        project: t.project,
+        monthlyHours: t.monthlyHours,
+        targetHoursPerWeek: t.targetHoursPerWeek
+      })));
+
       const totalScheduled = planningTasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
       const capacity = 40;
 
@@ -393,7 +399,7 @@ class DataTransformer {
       endWeek: this.parseWeekFromDate(task.endDate) || 8,
       isLongTerm: plannedHours > 80,
       duration: this.calculateDuration(task.startDate, task.endDate),
-      // Initialize monthly hours for spreadsheet view based on real task dates
+      // CRITICAL: Always initialize monthlyHours array - this is required for editing
       monthlyHours: this.distributeHoursAcrossMonths(targetWeeklyHours, task.startDate, task.endDate),
       intensityPhases: this.generateIntensityPhases(targetWeeklyHours, task.startDate, task.endDate),
       // Add real Workdeck task data
@@ -451,30 +457,49 @@ class DataTransformer {
   static distributeHoursAcrossMonths(weeklyHours, startDate, endDate) {
     const months = Array.from({ length: 12 }, () => 0);
     
-    if (!startDate || !endDate || weeklyHours === 0) {
-      return months;
-    }
+    console.log('📅 distributeHoursAcrossMonths:', { weeklyHours, startDate, endDate });
     
-    try {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const currentYear = new Date().getFullYear();
+    // If we have actual hours, distribute them
+    if (weeklyHours > 0) {
+      // For now, put the weekly hours in the current month and next few months
+      const currentMonth = new Date().getMonth(); // June = 5
       
-      for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-        const monthStart = new Date(currentYear, monthIndex, 1);
-        const monthEnd = new Date(currentYear, monthIndex + 1, 0);
-        
-        // Check if task is active in this month
-        if (monthStart <= end && monthEnd >= start) {
+      if (!startDate || !endDate) {
+        // Default: spread across current month + 3 months
+        for (let i = 0; i < 4; i++) {
+          const monthIndex = (currentMonth + i) % 12;
           months[monthIndex] = weeklyHours;
         }
+        console.log('📅 Using default distribution:', months);
+        return months;
       }
-    } catch (e) {
-      console.warn('Error distributing hours across months:', e);
-      // Fallback: distribute in middle months
-      for (let i = 5; i <= 8; i++) {
-        months[i] = weeklyHours;
+      
+      try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const currentYear = new Date().getFullYear();
+        
+        for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+          const monthStart = new Date(currentYear, monthIndex, 1);
+          const monthEnd = new Date(currentYear, monthIndex + 1, 0);
+          
+          // Check if task is active in this month
+          if (monthStart <= end && monthEnd >= start) {
+            months[monthIndex] = weeklyHours;
+          }
+        }
+        console.log('📅 Date-based distribution:', months);
+      } catch (e) {
+        console.warn('📅 Error distributing hours across months:', e);
+        // Fallback: distribute in current month + 3 months
+        for (let i = 0; i < 4; i++) {
+          const monthIndex = (currentMonth + i) % 12;
+          months[monthIndex] = weeklyHours;
+        }
+        console.log('📅 Fallback distribution:', months);
       }
+    } else {
+      console.log('📅 No hours to distribute, returning empty array');
     }
     
     return months;
@@ -1991,14 +2016,24 @@ const ResourcePlanner = () => {
                                     <input
                                       type="number"
                                       min="0"
-                                      value={hours > 0 ? Math.round(hours) : ''}
-                                      onChange={(e) => handleProjectCellEdit(member.id, project.id, columnIdx, e.target.value)}
-                                      onBlur={() => setEditingCell(null)}
+                                      step="0.5"
+                                      value={hours > 0 ? Math.round(hours * 10) / 10 : ''}
+                                      onChange={(e) => {
+                                        console.log('🔧 Input onChange:', e.target.value);
+                                        handleProjectCellEdit(member.id, project.id, columnIdx, e.target.value);
+                                      }}
+                                      onBlur={() => {
+                                        console.log('🔧 Input onBlur - closing editor');
+                                        setEditingCell(null);
+                                      }}
                                       onKeyDown={(e) => {
+                                        console.log('🔧 Input onKeyDown:', e.key);
                                         if (e.key === 'Enter' || e.key === 'Tab') {
+                                          e.preventDefault();
                                           setEditingCell(null);
                                         }
                                         if (e.key === 'Escape') {
+                                          e.preventDefault();
                                           setEditingCell(null);
                                         }
                                       }}
@@ -2012,13 +2047,26 @@ const ResourcePlanner = () => {
                                     />
                                   ) : (
                                     <div
-                                      onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: project.id })}
-                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${
-                                        hours > 0 ? getCellColor(hours) : 'bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300'
+                                      onClick={() => {
+                                        console.log('🔧 Cell clicked:', { 
+                                          member: member.name, 
+                                          project: project.name, 
+                                          projectId: project.id, 
+                                          column: columnIdx,
+                                          hours 
+                                        });
+                                        setEditingCell({ 
+                                          memberId: member.id, 
+                                          column: columnIdx, 
+                                          projectId: project.id 
+                                        });
+                                      }}
+                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-2 hover:ring-blue-300 rounded flex items-center justify-center transition-all ${
+                                        hours > 0 ? getCellColor(hours) : 'bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300 hover:bg-blue-50'
                                       }`}
-                                      title={hours === 0 ? 'Click to add hours' : `${Math.round(hours)}h planned`}
+                                      title={hours === 0 ? 'Click to add hours' : `${Math.round(hours * 10) / 10}h planned`}
                                     >
-                                      {hours > 0 ? `${Math.round(hours)}h` : '+'}
+                                      {hours > 0 ? `${Math.round(hours * 10) / 10}h` : '+'}
                                     </div>
                                   )}
                                 </td>
