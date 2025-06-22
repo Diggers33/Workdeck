@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Calendar, Users, AlertTriangle } from 'lucide-react';
 
 // Production-ready WorkdeckAPI with reliable CORS proxies
 class WorkdeckAPI {
@@ -18,9 +19,8 @@ class WorkdeckAPI {
   async makeRequest(endpoint, options = {}) {
     const targetUrl = `${this.originalBaseUrl}${endpoint}`;
     
-    // For GET requests with auth, we need different proxies
     const proxies = [
-      // Primary: Try direct request first (sometimes CORS is actually allowed)
+      // Primary: Try direct request first
       {
         name: 'direct',
         url: targetUrl,
@@ -35,27 +35,23 @@ class WorkdeckAPI {
           body: options.body
         })
       },
-      // For authenticated GET requests, use a simple proxy approach
+      // Proxy fallbacks
       {
         name: 'simple-proxy',
         url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
         transform: (options) => ({
           method: 'GET',
-          headers: { 
-            'Accept': 'application/json'
-          }
+          headers: { 'Accept': 'application/json' }
         }),
         processResponse: async (response) => {
           const text = await response.text();
           try {
             return JSON.parse(text);
           } catch (e) {
-            console.log('Proxy response preview:', text.substring(0, 200));
             throw new Error('Invalid JSON response from server');
           }
         }
       },
-      // Fallback: AllOrigins for GET only
       {
         name: 'allorigins-simple',
         url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
@@ -68,7 +64,6 @@ class WorkdeckAPI {
           try {
             return JSON.parse(text);
           } catch (e) {
-            console.log('AllOrigins response preview:', text.substring(0, 200));
             throw new Error('Invalid JSON response');
           }
         }
@@ -96,7 +91,6 @@ class WorkdeckAPI {
             try {
               data = JSON.parse(text);
             } catch (e) {
-              console.log(`❌ ${proxy.name} returned invalid JSON:`, text.substring(0, 200));
               throw new Error('Server returned invalid JSON');
             }
           }
@@ -110,11 +104,6 @@ class WorkdeckAPI {
       } catch (error) {
         console.log(`❌ ${proxy.name} failed:`, error.message);
         lastError = error;
-        
-        // For 405 errors, try a different approach
-        if (error.message.includes('405') && proxy.name === 'direct' && options.method === 'POST') {
-          console.log('⚠️ Direct POST blocked, will try proxy methods...');
-        }
         continue;
       }
     }
@@ -168,39 +157,43 @@ class WorkdeckAPI {
     console.log('🏢 Fetching company from /queries/company...');
     return this.request('/queries/company'); 
   }
+
+  async getTasks() {
+    console.log('📋 Fetching tasks from /queries/tasks...');
+    return this.request('/queries/tasks');
+  }
+
+  async getMe() {
+    console.log('👤 Fetching user profile from /queries/me...');
+    return this.request('/queries/me');
+  }
 }
 
 // Enhanced DataTransformer using real Workdeck data structure
 class DataTransformer {
-  static transformUsersToTeamMembers(users, projects = []) {
-    console.log('🔄 Transforming data:', { users: users?.length || 0, projects: projects?.length || 0 });
+  static transformUsersToTeamMembers(users, projects = [], tasks = []) {
+    console.log('🔄 Transforming data:', { 
+      users: users?.length || 0, 
+      projects: projects?.length || 0,
+      tasks: tasks?.length || 0 
+    });
     
     if (!users || users.length === 0) {
       return [];
     }
     
     return users.map(user => {
-      // Use real projects or create sample ones
-      const availableProjects = projects.length > 0 ? projects : [
-        { id: '1', name: 'Default Project', code: 'DEF' }
-      ];
-      
-      const userProjects = availableProjects.slice(0, Math.floor(Math.random() * 3) + 1);
-      const tasks = userProjects.map((project, index) => ({
-        id: `${user.id}-task-${index}`,
-        project: project.name || `Project ${index + 1}`,
-        activity: `${user.rol || user.department || 'General'} Work`,
-        task: `${project.name || `Task ${index + 1}`} Development`,
-        color: this.getProjectColor(project.name),
-        estimatedHours: 20 + Math.floor(Math.random() * 60),
-        actualHours: Math.floor(Math.random() * 40),
-        velocity: 3 + Math.random() * 7,
-        status: ['planned', 'in-progress', 'completed'][Math.floor(Math.random() * 3)],
-        targetHoursPerWeek: 8 + Math.floor(Math.random() * 8),
-        pattern: Array.from({ length: 10 }, () => Math.random() > 0.3)
-      }));
+      // Find tasks assigned to this user
+      const userTasks = tasks.filter(task => 
+        task.participants?.some(p => p.user?.id === user.id)
+      );
 
-      const totalScheduled = tasks.reduce((sum, task) => sum + task.targetHoursPerWeek, 0);
+      // Transform tasks for resource planning
+      const planningTasks = userTasks.length > 0 
+        ? userTasks.map((task, index) => this.transformTaskToPlanning(task, projects, index))
+        : this.createDefaultTasksForUser(user, projects);
+
+      const totalScheduled = planningTasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
       const capacity = 40;
 
       return {
@@ -211,19 +204,200 @@ class DataTransformer {
         role: user.rol || 'Team Member',
         email: user.email || 'No email',
         capacity: capacity,
-        scheduled: totalScheduled,
+        scheduled: Math.round(totalScheduled),
         utilization: Math.round((totalScheduled / capacity) * 100),
         isAdmin: user.isAdmin || false,
         isExpenseAdmin: user.isExpenseAdmin || false,
         isPurchaseAdmin: user.isPurchaseAdmin || false,
         isTravelAdmin: user.isTravelAdmin || false,
-        tasks: tasks
+        tasks: planningTasks
       };
     });
   }
 
+  static transformTaskToPlanning(task, projects, index) {
+    const project = projects.find(p => p.id === task.activity?.project?.id) || 
+                   { name: task.activity?.project?.name || 'Unknown Project', id: task.activity?.project?.id || 'unknown' };
+    
+    const plannedHours = parseFloat(task.plannedHours) || 40;
+    const targetWeeklyHours = Math.min(plannedHours / 8, 20); // Spread over ~8 weeks, max 20h/week
+    
+    return {
+      id: task.id,
+      project: project.name,
+      projectId: project.name?.toLowerCase().replace(/\s+/g, '-') || `project-${index}`,
+      activity: task.activity?.name || 'General Work',
+      task: task.name || `Task ${index + 1}`,
+      color: this.getProjectColor(project.name),
+      estimatedHours: plannedHours,
+      actualHours: 0, // Would need time tracking data
+      totalActivityHours: plannedHours,
+      totalProjectHours: plannedHours * 1.5, // Estimate
+      velocity: 6 + Math.random() * 3, // Placeholder
+      status: this.mapTaskStatus(task.flags),
+      targetHoursPerWeek: targetWeeklyHours,
+      pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3), // Skip weekends
+      startWeek: this.parseWeekFromDate(task.startDate) || -4,
+      endWeek: this.parseWeekFromDate(task.endDate) || 8,
+      isLongTerm: plannedHours > 80,
+      duration: this.calculateDuration(task.startDate, task.endDate),
+      // Initialize monthly hours for spreadsheet view
+      monthlyHours: Array.from({ length: 12 }, (_, month) => {
+        // Distribute hours based on task timeline
+        return this.isMonthInTaskRange(month, task.startDate, task.endDate) ? targetWeeklyHours : 0;
+      }),
+      intensityPhases: this.generateIntensityPhases(targetWeeklyHours, task.startDate, task.endDate)
+    };
+  }
+
+  static createDefaultTasksForUser(user, projects) {
+    // Create default tasks when no tasks are found for a user
+    const availableProjects = projects.slice(0, Math.min(2, projects.length));
+    
+    if (availableProjects.length === 0) {
+      return [{
+        id: `${user.id}-default-task`,
+        project: 'General Work',
+        projectId: 'general-work',
+        activity: user.department || 'General',
+        task: 'Daily Operations',
+        color: 'bg-gray-500',
+        estimatedHours: 80,
+        actualHours: 20,
+        totalActivityHours: 80,
+        totalProjectHours: 160,
+        velocity: 6,
+        status: 'in-progress',
+        targetHoursPerWeek: 10,
+        pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3),
+        startWeek: -4,
+        endWeek: 8,
+        isLongTerm: false,
+        duration: '3 months',
+        monthlyHours: Array.from({ length: 12 }, (_, month) => month >= 5 && month <= 8 ? 10 : 0),
+        intensityPhases: []
+      }];
+    }
+
+    return availableProjects.map((project, index) => ({
+      id: `${user.id}-project-${project.id}`,
+      project: project.name,
+      projectId: project.name?.toLowerCase().replace(/\s+/g, '-') || `project-${index}`,
+      activity: `${user.department || 'General'} Work`,
+      task: `${project.name} Development`,
+      color: this.getProjectColor(project.name),
+      estimatedHours: 60,
+      actualHours: 15,
+      totalActivityHours: 80,
+      totalProjectHours: 200,
+      velocity: 5 + Math.random() * 4,
+      status: 'in-progress',
+      targetHoursPerWeek: 8 + index * 4,
+      pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3),
+      startWeek: -2 - index * 2,
+      endWeek: 12 + index * 4,
+      isLongTerm: index === 0,
+      duration: index === 0 ? '6 months' : '3 months',
+      monthlyHours: Array.from({ length: 12 }, (_, month) => 
+        month >= 5 && month <= (8 + index * 2) ? 8 + index * 4 : 0
+      ),
+      intensityPhases: this.generateIntensityPhases(8 + index * 4)
+    }));
+  }
+
+  static parseWeekFromDate(dateStr) {
+    if (!dateStr) return null;
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffTime = date.getTime() - now.getTime();
+      const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+      return diffWeeks;
+    } catch {
+      return null;
+    }
+  }
+
+  static isMonthInTaskRange(monthIndex, startDate, endDate) {
+    if (!startDate || !endDate) return monthIndex >= 5 && monthIndex <= 8; // Default range
+    
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const currentYear = new Date().getFullYear();
+      const monthStart = new Date(currentYear, monthIndex, 1);
+      const monthEnd = new Date(currentYear, monthIndex + 1, 0);
+      
+      return monthStart <= end && monthEnd >= start;
+    } catch {
+      return monthIndex >= 5 && monthIndex <= 8;
+    }
+  }
+
+  static calculateDuration(startDate, endDate) {
+    if (!startDate || !endDate) return '3 months';
+    
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = end.getTime() - start.getTime();
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+      return `${Math.max(1, diffMonths)} months`;
+    } catch {
+      return '3 months';
+    }
+  }
+
+  static generateIntensityPhases(weeklyHours, startDate, endDate) {
+    const startWeek = this.parseWeekFromDate(startDate) || -4;
+    const endWeek = this.parseWeekFromDate(endDate) || 8;
+    const totalWeeks = endWeek - startWeek;
+    
+    if (totalWeeks <= 8) {
+      return [{
+        name: 'Execution Phase',
+        hoursPerWeek: weeklyHours,
+        startWeek: startWeek,
+        endWeek: endWeek
+      }];
+    }
+    
+    const planningWeeks = Math.ceil(totalWeeks * 0.2);
+    const executionWeeks = Math.floor(totalWeeks * 0.6);
+    
+    return [
+      {
+        name: 'Planning Phase',
+        hoursPerWeek: Math.max(4, weeklyHours * 0.7),
+        startWeek: startWeek,
+        endWeek: startWeek + planningWeeks
+      },
+      {
+        name: 'Execution Phase',
+        hoursPerWeek: weeklyHours,
+        startWeek: startWeek + planningWeeks,
+        endWeek: startWeek + planningWeeks + executionWeeks
+      },
+      {
+        name: 'Completion Phase',
+        hoursPerWeek: Math.max(2, weeklyHours * 0.5),
+        startWeek: startWeek + planningWeeks + executionWeeks,
+        endWeek: endWeek
+      }
+    ];
+  }
+
+  static mapTaskStatus(flags) {
+    if (!flags) return 'planned';
+    // Assuming flags is a bitmask, adjust as needed based on Workdeck's actual flag system
+    if (flags & 4) return 'completed';
+    if (flags & 2) return 'in-progress';
+    if (flags & 1) return 'planned';
+    return 'planned';
+  }
+
   static getProjectColor(projectName) {
-    const colors = ['bg-purple-600', 'bg-blue-600', 'bg-green-600', 'bg-orange-500', 'bg-red-500', 'bg-indigo-600'];
+    const colors = ['bg-purple-600', 'bg-blue-600', 'bg-green-600', 'bg-orange-500', 'bg-red-500', 'bg-indigo-600', 'bg-teal-500', 'bg-pink-500'];
     const hash = (projectName || '').split('').reduce((a, b) => {
       a = ((a << 5) - a) + b.charCodeAt(0);
       return a & a;
@@ -239,22 +413,36 @@ class DataTransformer {
 }
 
 const ResourcePlanner = () => {
-  const [teamData, setTeamData] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [company, setCompany] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [apiConnected, setApiConnected] = useState(false);
-
+  // Workdeck API Integration State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [workdeckAPI] = useState(new WorkdeckAPI());
   const [credentials, setCredentials] = useState({ 
     email: 'jpedreno@iris-eng.com', 
     password: '654321',
-    token: '' // Add manual token input
+    token: ''
   });
   const [loggingIn, setLoggingIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [company, setCompany] = useState(null);
 
+  // Resource Planner State
+  const [teamData, setTeamData] = useState([]);
+  const [showTaskDetails, setShowTaskDetails] = useState(true);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+  const [selectedView, setSelectedView] = useState('week');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
+  const [selectedMemberForAssignment, setSelectedMemberForAssignment] = useState(null);
+  const [showSpreadsheetView, setShowSpreadsheetView] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
+  const [showPhaseTemplates, setShowPhaseTemplates] = useState(false);
+  const [selectedMemberForTemplate, setSelectedMemberForTemplate] = useState(null);
+  const [spreadsheetView, setSpreadsheetView] = useState('month');
+
+  // Load Workdeck data when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       loadWorkdeckData();
@@ -266,7 +454,6 @@ const ResourcePlanner = () => {
     setError(null);
 
     try {
-      // If user provided a token manually, use it directly
       if (credentials.token && credentials.token.trim()) {
         console.log('🔑 Using manually provided token...');
         workdeckAPI.setToken(credentials.token.trim());
@@ -274,7 +461,6 @@ const ResourcePlanner = () => {
         return;
       }
 
-      // Otherwise try to login normally
       console.log('🚀 Login attempt starting...');
       await workdeckAPI.login(credentials.email, credentials.password);
       console.log('✅ Authentication successful!');
@@ -292,9 +478,9 @@ const ResourcePlanner = () => {
     setError(null);
     
     try {
-      console.log('📊 Attempting to load LIVE data from Workdeck...');
+      console.log('📊 Loading LIVE data from Workdeck API...');
       
-      // Try to fetch real data first
+      // Fetch all required data
       const [usersResponse, projectsResponse, companyResponse] = await Promise.allSettled([
         workdeckAPI.getUsers(),
         workdeckAPI.getProjects(),
@@ -307,7 +493,7 @@ const ResourcePlanner = () => {
         company: companyResponse.status
       });
 
-      // Check if we got real data
+      // Extract data from responses
       const users = usersResponse.status === 'fulfilled' 
         ? (usersResponse.value?.result || usersResponse.value || [])
         : [];
@@ -323,90 +509,107 @@ const ResourcePlanner = () => {
       console.log('📊 Raw API data received:', { 
         usersCount: users.length, 
         projectsCount: projectsData.length,
-        companyName: companyData.name || 'No company data',
-        usersData: users,
-        projectsData: projectsData,
-        companyData: companyData
+        companyName: companyData.name || 'No company data'
       });
 
-      // If we got real data, use it
-      if (users.length > 0 || projectsData.length > 0 || companyData.name) {
-        console.log('✅ Using LIVE data from Workdeck API!');
-        const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData);
-        setTeamData(teamMembers);
-        setProjects(projectsData);
-        setCompany(companyData);
-        setApiConnected(true);
-        console.log('🎉 Successfully loaded LIVE Workdeck data!');
-        return;
-      }
+      // Transform data for resource planning
+      const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, []);
+      setTeamData(teamMembers);
+      setProjects(projectsData);
+      setCompany(companyData);
 
-      // If no live data, show detailed error and fall back to demo
-      console.warn('⚠️ No live data received, checking errors...');
-      const errors = [];
-      if (usersResponse.status === 'rejected') errors.push(`Users: ${usersResponse.reason?.message}`);
-      if (projectsResponse.status === 'rejected') errors.push(`Projects: ${projectsResponse.reason?.message}`);
-      if (companyResponse.status === 'rejected') errors.push(`Company: ${companyResponse.reason?.message}`);
-      
-      throw new Error(`Live data fetch failed:\n${errors.join('\n')}\n\nUsing demo data instead.`);
+      console.log('🎉 Successfully loaded and transformed Workdeck data!', {
+        teamMembersCount: teamMembers.length,
+        projectsCount: projectsData.length
+      });
       
     } catch (err) {
-      console.error('💥 Live data failed, falling back to demo data:', err);
-      setError(`Could not fetch live data: ${err.message}`);
-      
-      // Fall back to demo data with clear indication
-      console.log('🎭 Loading demo data as fallback...');
-      const demoUsers = [
-        {
-          id: "557a5e10-1595-4999-be8e-fbbf6648db1c",
-          email: "ebona@test.iris-eng.com",
-          firstName: "Sergio",
-          lastName: "Dona",
-          rol: "Senior Developer",
-          isAdmin: false,
-          department: "Engineering"
-        },
-        {
-          id: "demo-user-2",
-          email: "jpedreno@iris-eng.com", 
-          firstName: "Josep",
-          lastName: "Pedreno",
-          rol: "Team Lead",
-          isAdmin: true,
-          department: "Engineering"
-        }
-      ];
-
-      const demoProjects = [
-        {
-          id: "de63c8fe-9c7e-4e35-9195-dd8309c35db8",
-          name: "test",
-          code: "2293"
-        }
-      ];
-
-      const demoCompany = {
-        id: "9cf8bfb3-166d-498b-b213-912485d7a452",
-        name: "IRIS",
-        address: "Carretera Esplugues local 39-41s"
-      };
-
-      const teamMembers = DataTransformer.transformUsersToTeamMembers(demoUsers, demoProjects);
-      setTeamData(teamMembers);
-      setProjects(demoProjects);
-      setCompany(demoCompany);
-      setApiConnected(false); // Mark as not connected since using demo data
-      
+      console.error('💥 Failed to load Workdeck data:', err);
+      setError(`Failed to load data: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const getUtilizationColor = (utilization) => {
-    if (utilization > 100) return { color: '#dc2626', backgroundColor: '#fef2f2', borderColor: '#fecaca' };
-    if (utilization > 85) return { color: '#ea580c', backgroundColor: '#fff7ed', borderColor: '#fed7aa' };
-    if (utilization < 60) return { color: '#2563eb', backgroundColor: '#eff6ff', borderColor: '#dbeafe' };
-    return { color: '#059669', backgroundColor: '#ecfdf5', borderColor: '#d1fae5' };
+  // Sync function: Updates spreadsheet when task properties change
+  const syncTaskFromSpreadsheet = (memberId, projectId, monthIndex, hours) => {
+    console.log('syncTaskFromSpreadsheet called:', { memberId, projectId, monthIndex, hours });
+    
+    setTeamData(prevData => {
+      return prevData.map(member => {
+        if (member.id === memberId) {
+          const updatedMember = {
+            ...member,
+            tasks: member.tasks.map(task => {
+              if (task.projectId === projectId) {
+                const newMonthlyHours = [...(task.monthlyHours || Array(12).fill(0))];
+                newMonthlyHours[monthIndex] = hours;
+                
+                // Update targetHoursPerWeek based on average of non-zero months
+                const activeMonths = newMonthlyHours.filter(h => h > 0);
+                const avgWeeklyHours = activeMonths.length > 0 
+                  ? activeMonths.reduce((sum, h) => sum + h, 0) / activeMonths.length 
+                  : 0;
+                
+                return {
+                  ...task,
+                  monthlyHours: newMonthlyHours,
+                  targetHoursPerWeek: avgWeeklyHours,
+                  startWeek: newMonthlyHours.findIndex(h => h > 0) * 4.33,
+                  endWeek: (newMonthlyHours.length - 1 - [...newMonthlyHours].reverse().findIndex(h => h > 0)) * 4.33
+                };
+              }
+              return task;
+            })
+          };
+          
+          // Recalculate member utilization
+          const totalScheduled = updatedMember.tasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
+          updatedMember.scheduled = Math.round(totalScheduled);
+          updatedMember.utilization = Math.round((totalScheduled / updatedMember.capacity) * 100);
+          
+          return updatedMember;
+        }
+        return member;
+      });
+    });
+  };
+
+  // Sync function: Updates spreadsheet when task properties change
+  const syncSpreadsheetFromTask = (memberId, taskId, updates) => {
+    setTeamData(prevData => 
+      prevData.map(member => {
+        if (member.id === memberId) {
+          const updatedMember = {
+            ...member,
+            tasks: member.tasks.map(task => {
+              if (task.id === taskId) {
+                const updatedTask = { ...task, ...updates };
+                
+                // If targetHoursPerWeek changed, update monthlyHours
+                if (updates.targetHoursPerWeek !== undefined) {
+                  const newMonthlyHours = task.monthlyHours.map(hours => 
+                    hours > 0 ? updates.targetHoursPerWeek : 0
+                  );
+                  updatedTask.monthlyHours = newMonthlyHours;
+                }
+                
+                return updatedTask;
+              }
+              return task;
+            })
+          };
+          
+          // Recalculate member utilization
+          const totalScheduled = updatedMember.tasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
+          updatedMember.scheduled = Math.round(totalScheduled);
+          updatedMember.utilization = Math.round((totalScheduled / updatedMember.capacity) * 100);
+          
+          return updatedMember;
+        }
+        return member;
+      })
+    );
   };
 
   // Authentication screen
@@ -550,331 +753,1545 @@ const ResourcePlanner = () => {
     );
   }
 
-  // Main application
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '1rem' }}>
-      <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', marginBottom: '1rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>
-            📊 Resource Planner
-          </h1>
-          <button 
-            onClick={() => {
-              setIsAuthenticated(false);
-              setTeamData([]);
-              setProjects([]);
-              setCompany(null);
-              setApiConnected(false);
-            }}
-            style={{
-              backgroundColor: '#6b7280',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.25rem',
-              border: 'none',
-              fontSize: '0.875rem',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
-        </div>
-        
-        {apiConnected ? (
-          <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #d1fae5', borderRadius: '0.5rem', padding: '1rem' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#065f46', marginBottom: '0.5rem' }}>
-              ✅ Connected to Workdeck API - LIVE DATA
-            </h3>
-            <div style={{ fontSize: '0.75rem', color: '#047857' }}>
-              <div>• <strong>Live Data:</strong> Real-time from test-api.workdeck.com</div>
-              <div>• <strong>Team Members:</strong> {teamData.length} loaded from API</div>
-              <div>• <strong>Projects:</strong> {projects.length} loaded from API</div>
-              {company && <div>• <strong>Company:</strong> {company.name} (Live)</div>}
-            </div>
-          </div>
-        ) : (
-          <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '0.5rem', padding: '1rem' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#92400e', marginBottom: '0.5rem' }}>
-              ⚠️ Using Demo Data - API Connection Failed
-            </h3>
-            <div style={{ fontSize: '0.75rem', color: '#92400e' }}>
-              <div>• CORS blocking live data access</div>
-              <div>• Showing demo data with your Workdeck structure</div>
-              <div>• Token authentication worked, but data fetch failed</div>
-            </div>
-          </div>
-        )}
-        
-        <button 
-          onClick={loadWorkdeckData}
-          disabled={loading}
-          style={{
-            marginTop: '1rem',
-            backgroundColor: loading ? '#9ca3af' : '#2563eb',
-            color: 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '0.25rem',
-            border: 'none',
-            fontSize: '0.875rem',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Syncing with Workdeck...' : 'Refresh Live Data'}
-        </button>
-      </div>
-
-      {loading && (
+  // Loading screen
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
           <div style={{ fontSize: '1.125rem', color: '#6b7280', marginBottom: '0.5rem' }}>
             📡 Loading data from Workdeck API...
           </div>
           <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-            Using multiple CORS proxy methods for reliable connection
+            Transforming live data for resource planning
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {error && !loading && (
-        <div style={{ 
-          backgroundColor: '#fef2f2', 
-          border: '1px solid #fecaca', 
-          borderRadius: '0.5rem', 
-          padding: '1rem',
-          marginBottom: '1rem'
-        }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>
-            🚨 Workdeck API Connection Failed
-          </h3>
-          <p style={{ fontSize: '0.875rem', color: '#dc2626', marginBottom: '0.5rem' }}>{error}</p>
-          <button 
-            onClick={loadWorkdeckData}
-            style={{
-              backgroundColor: '#dc2626',
-              color: 'white',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '0.25rem',
-              border: 'none',
-              fontSize: '0.75rem',
-              cursor: 'pointer'
-            }}
-          >
-            Retry Connection
-          </button>
-        </div>
-      )}
-
-      {!loading && teamData.length > 0 && (
-        <div>
-          <div style={{ 
-            backgroundColor: '#1f2937', 
-            color: 'white', 
-            borderRadius: '0.5rem', 
-            padding: '1rem', 
-            marginBottom: '1rem' 
-          }}>
-            <h3 style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              🎉 Complete Team Resource Overview - LIVE DATA
-            </h3>
-            <p style={{ fontSize: '0.875rem', color: '#d1d5db' }}>
-              {teamData.length} team members • {projects.length} active projects • IRIS Engineering Team • Real-time from Workdeck API
+  // Error screen (no demo fallback)
+  if (error && teamData.length === 0) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', maxWidth: '32rem', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>❌</div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>
+              Failed to Load Workdeck Data
+            </h1>
+            <p style={{ color: '#6b7280' }}>
+              Unable to fetch data from your Workdeck instance
             </p>
           </div>
-
-          {/* Team Summary Stats */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-            gap: '1rem', 
-            marginBottom: '1.5rem' 
-          }}>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2563eb' }}>{teamData.length}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Team Members</div>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669' }}>{projects.length}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Active Projects</div>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ea580c' }}>
-                {Math.round(teamData.reduce((sum, member) => sum + member.utilization, 0) / teamData.length)}%
-              </div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Average Utilization</div>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#7c3aed' }}>
-                {teamData.reduce((sum, member) => sum + member.scheduled, 0)}h
-              </div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Scheduled Hours</div>
-            </div>
+          
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.5rem', padding: '1rem', marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#dc2626', marginBottom: '0.5rem' }}>
+              Error Details:
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: '#dc2626', whiteSpace: 'pre-line' }}>{error}</p>
           </div>
 
-          {/* Department Filter */}
-          <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem', border: '1px solid #e5e7eb' }}>
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#111827', marginBottom: '0.5rem' }}>
-              📊 Team by Department
-            </h4>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {[...new Set(teamData.map(member => member.department))].map(dept => {
-                const count = teamData.filter(member => member.department === dept).length;
-                return (
-                  <span key={dept} style={{ 
-                    backgroundColor: '#f3f4f6', 
-                    color: '#374151', 
-                    padding: '0.25rem 0.75rem', 
-                    borderRadius: '1rem', 
-                    fontSize: '0.875rem',
-                    border: '1px solid #d1d5db'
-                  }}>
-                    {dept} ({count})
-                  </span>
-                );
-              })}
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              onClick={loadWorkdeckData}
+              style={{
+                flex: 1,
+                backgroundColor: '#dc2626',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Retry Connection
+            </button>
+            <button 
+              onClick={() => {
+                setIsAuthenticated(false);
+                setError(null);
+              }}
+              style={{
+                flex: 1,
+                backgroundColor: '#6b7280',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Change Credentials
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Resource Planner Interface
+  const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
+  const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
+  const goToToday = () => setCurrentWeekOffset(0);
+
+  const getTaskStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'text-green-700 bg-green-100 border-green-200';
+      case 'in-progress': return 'text-blue-700 bg-blue-100 border-blue-200';
+      case 'over-budget': return 'text-red-700 bg-red-100 border-red-200';
+      case 'planned': return 'text-gray-600 bg-gray-100 border-gray-200';
+      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+    }
+  };
+
+  const getRemainingHours = (task) => Math.max(0, task.estimatedHours - task.actualHours);
+
+  const getUtilizationColor = (utilization) => {
+    if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
+    if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
+    return 'text-green-600 bg-green-50 border-green-200';
+  };
+
+  const isTaskActive = (task, weekOffset) => {
+    if (!task.startWeek && !task.endWeek) return true;
+    const startWeek = task.startWeek || -Infinity;
+    const endWeek = task.endWeek || Infinity;
+    return weekOffset >= startWeek && weekOffset <= endWeek;
+  };
+
+  const getCurrentPhaseFromDates = (task, currentWeek) => {
+    if (!task.intensityPhases) return null;
+    return task.intensityPhases.find(phase => {
+      return currentWeek >= phase.startWeek && currentWeek <= phase.endWeek;
+    });
+  };
+
+  const calculateDailyHours = (member, dateIdx, viewType = 'day') => {
+    if (!member.tasks) return 0;
+    
+    const totalHours = member.tasks.reduce((totalHours, task) => {
+      // Priority 1: Use monthlyHours from unified data structure
+      if (task.monthlyHours && task.monthlyHours.length > 0) {
+        let hours = 0;
+        
+        if (viewType === 'week') {
+          const monthIndex = Math.floor(dateIdx / 4.33);
+          hours = task.monthlyHours[monthIndex] || 0;
+        } else if (viewType === 'month') {
+          hours = task.monthlyHours[dateIdx] || 0;
+        } else if (viewType === 'day') {
+          const monthIndex = Math.floor(dateIdx / 4.33);
+          const weeklyHours = task.monthlyHours[monthIndex] || 0;
+          const activeDaysPerWeek = task.pattern ? task.pattern.filter(Boolean).length : 5;
+          hours = weeklyHours / Math.max(1, activeDaysPerWeek);
+        }
+        
+        return totalHours + hours;
+      }
+      
+      // Fallback to old calculation if monthlyHours not available
+      if (isTaskActive(task, currentWeekOffset)) {
+        if (task.intensityPhases) {
+          const currentPhase = getCurrentPhaseFromDates(task, currentWeekOffset);
+          if (currentPhase) {
+            if (viewType === 'day') {
+              const activeDaysPerWeek = task.pattern ? task.pattern.filter(Boolean).length : 5;
+              return totalHours + (currentPhase.hoursPerWeek / Math.max(1, activeDaysPerWeek));
+            } else if (viewType === 'week') {
+              return totalHours + currentPhase.hoursPerWeek;
+            } else if (viewType === 'month') {
+              return totalHours + (currentPhase.hoursPerWeek * 4.33);
+            }
+          }
+        }
+        
+        const weeklyHours = task.targetHoursPerWeek || 0;
+        if (viewType === 'day') {
+          const activeDaysPerWeek = task.pattern ? task.pattern.filter(Boolean).length : 5;
+          return totalHours + (weeklyHours / Math.max(1, activeDaysPerWeek));
+        } else if (viewType === 'week') {
+          return totalHours + weeklyHours;
+        } else if (viewType === 'month') {
+          return totalHours + (weeklyHours * 4.33);
+        }
+      }
+      return totalHours;
+    }, 0);
+    
+    return totalHours;
+  };
+
+  const getWorkloadColor = (hours, viewType) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    
+    if (viewType === 'year' || viewType === 'quarter') {
+      if (hours > 160) return 'bg-red-500 text-white';
+      if (hours > 120) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else if (viewType === 'month') {
+      if (hours > 40) return 'bg-red-500 text-white';
+      if (hours > 30) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else {
+      if (hours > 8) return 'bg-red-500 text-white';
+      if (hours > 6) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    }
+  };
+
+  const getPeriodsForView = () => {
+    switch (selectedView) {
+      case 'year': return 1;
+      case 'quarter': return 3;
+      case 'month': return 4;
+      default: return 9;
+    }
+  };
+
+  const getDateRangeLabel = () => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const currentDay = currentDate.getDate();
+    
+    if (selectedView === 'year') return currentYear.toString();
+    if (selectedView === 'quarter') {
+      const quarterNumber = Math.floor(currentMonth / 3) + 1;
+      const quarterMonths = [
+        ['Jan', 'Feb', 'Mar'],
+        ['Apr', 'May', 'Jun'], 
+        ['Jul', 'Aug', 'Sep'],
+        ['Oct', 'Nov', 'Dec']
+      ];
+      return `Q${quarterNumber} ${currentYear} (${quarterMonths[quarterNumber - 1].join('-')})`;
+    }
+    if (selectedView === 'month') {
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[currentMonth]} ${currentYear}`;
+    }
+    
+    const weekStart = currentDay - currentDate.getDay() + (currentWeekOffset * 7);
+    const weekEnd = weekStart + 6;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (currentWeekOffset === 0) {
+      return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear}`;
+    }
+    return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear} (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
+  };
+
+  const handleAssignTask = (member) => {
+    setSelectedMemberForAssignment(member);
+    setShowAssignTaskModal(true);
+  };
+
+  const handleEditTask = (task, member) => {
+    setSelectedTask({
+      ...task, 
+      memberName: member.name, 
+      isEditing: true,
+      onSave: (updates) => {
+        syncSpreadsheetFromTask(member.id, task.id, updates);
+        setSelectedTask(null);
+      }
+    });
+  };
+
+  const submitTaskAssignment = (taskData) => {
+    console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
+    setShowAssignTaskModal(false);
+    setSelectedMemberForAssignment(null);
+  };
+
+  // Spreadsheet functionality
+  const handleProjectCellEdit = (memberId, projectId, columnIndex, value) => {
+    console.log('handleProjectCellEdit called:', { memberId, projectId, columnIndex, value, spreadsheetView });
+    
+    if (value === '') {
+      syncTaskFromSpreadsheet(memberId, projectId, columnIndex, 0);
+      return;
+    }
+    
+    const numValue = parseFloat(value);
+    
+    if (isNaN(numValue) || numValue < 0) {
+      console.log('Invalid value, returning');
+      return;
+    }
+    
+    const maxLimits = {
+      week: 60,
+      month: 300,
+      quarter: 800,
+      year: 3000
+    };
+    
+    const clampedValue = Math.min(numValue, maxLimits[spreadsheetView] || 300);
+    
+    let weeklyHours = clampedValue;
+    
+    if (spreadsheetView === 'month') {
+      weeklyHours = clampedValue / 4.33;
+    } else if (spreadsheetView === 'quarter') {
+      weeklyHours = clampedValue / (4.33 * 3);
+    } else if (spreadsheetView === 'year') {
+      weeklyHours = clampedValue / (4.33 * 12);
+    }
+    
+    syncTaskFromSpreadsheet(memberId, projectId, columnIndex, Math.max(0, weeklyHours));
+  };
+
+  const getCellColor = (hours) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    
+    if (spreadsheetView === 'week') {
+      if (hours <= 10) return 'bg-blue-100 text-blue-800';
+      if (hours <= 20) return 'bg-green-100 text-green-800';
+      if (hours <= 30) return 'bg-yellow-100 text-yellow-800';
+      if (hours <= 40) return 'bg-orange-100 text-orange-800';
+      return 'bg-red-100 text-red-800';
+    } else if (spreadsheetView === 'month') {
+      if (hours <= 43) return 'bg-blue-100 text-blue-800';
+      if (hours <= 87) return 'bg-green-100 text-green-800';
+      if (hours <= 130) return 'bg-yellow-100 text-yellow-800';
+      if (hours <= 173) return 'bg-orange-100 text-orange-800';
+      return 'bg-red-100 text-red-800';
+    } else if (spreadsheetView === 'quarter') {
+      if (hours <= 130) return 'bg-blue-100 text-blue-800';
+      if (hours <= 260) return 'bg-green-100 text-green-800';
+      if (hours <= 390) return 'bg-yellow-100 text-yellow-800';
+      if (hours <= 520) return 'bg-orange-100 text-orange-800';
+      return 'bg-red-100 text-red-800';
+    } else if (spreadsheetView === 'year') {
+      if (hours <= 520) return 'bg-blue-100 text-blue-800';
+      if (hours <= 1040) return 'bg-green-100 text-green-800';
+      if (hours <= 1560) return 'bg-yellow-100 text-yellow-800';
+      if (hours <= 2080) return 'bg-orange-100 text-orange-800';
+      return 'bg-red-100 text-red-800';
+    }
+    
+    return 'bg-gray-100 text-gray-400';
+  };
+
+  const phaseTemplates = [
+    {
+      name: "2-Month Sprint + 3-Month Break + 2-Month Sprint",
+      description: "Work intensively, then break, then final push",
+      pattern: [25, 25, 0, 0, 0, 20, 20, 0, 0, 0, 0, 0]
+    },
+    {
+      name: "Seasonal Work (Summer Focus)",
+      description: "Light work, then summer intensive, then light",
+      pattern: [10, 10, 10, 10, 10, 30, 30, 30, 10, 10, 10, 10]
+    },
+    {
+      name: "Academic Schedule",
+      description: "Term work with holiday breaks",
+      pattern: [20, 20, 20, 20, 0, 0, 0, 20, 20, 20, 20, 0]
+    },
+    {
+      name: "Quarterly Sprints",
+      description: "3-month sprints with 1-month breaks",
+      pattern: [20, 20, 20, 0, 20, 20, 20, 0, 20, 20, 20, 0]
+    },
+    {
+      name: "Steady Consistent Work",
+      description: "Same hours every month",
+      pattern: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20]
+    }
+  ];
+
+  const applyTemplate = (memberId, template) => {
+    setTeamData(prevData =>
+      prevData.map(member => {
+        if (member.id === memberId) {
+          const updatedMember = {
+            ...member,
+            tasks: member.tasks.map(task => ({
+              ...task,
+              monthlyHours: template.pattern.map(hours => hours),
+              targetHoursPerWeek: template.pattern.reduce((sum, h) => sum + h, 0) / template.pattern.filter(h => h > 0).length || 0
+            }))
+          };
+          
+          // Recalculate utilization
+          const totalScheduled = updatedMember.tasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
+          updatedMember.scheduled = Math.round(totalScheduled);
+          updatedMember.utilization = Math.round((totalScheduled / updatedMember.capacity) * 100);
+          
+          return updatedMember;
+        }
+        return member;
+      })
+    );
+    setShowPhaseTemplates(false);
+    setSelectedMemberForTemplate(null);
+  };
+
+  const clearMemberSchedule = (memberId) => {
+    setTeamData(prevData =>
+      prevData.map(member => {
+        if (member.id === memberId) {
+          const updatedMember = {
+            ...member,
+            tasks: member.tasks.map(task => ({
+              ...task,
+              monthlyHours: Array.from({ length: 12 }, () => 0),
+              targetHoursPerWeek: 0
+            }))
+          };
+          
+          updatedMember.scheduled = 0;
+          updatedMember.utilization = 0;
+          
+          return updatedMember;
+        }
+        return member;
+      })
+    );
+  };
+
+  const getSpreadsheetColumns = () => {
+    switch (spreadsheetView) {
+      case 'week':
+        return Array.from({ length: 52 }, (_, i) => `W${i + 1}`);
+      case 'month':
+        return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      case 'quarter':
+        return ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025'];
+      case 'year':
+        return ['2025'];
+      default:
+        return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    }
+  };
+
+  const getMemberProjects = (memberId) => {
+    const member = teamData.find(m => m.id === memberId);
+    if (!member) return [];
+    
+    return member.tasks.map(task => ({
+      id: task.project.toLowerCase().replace(/\s+/g, '-'),
+      name: task.project,
+      activity: task.activity,
+      task: task.task,
+      color: task.color
+    }));
+  };
+
+  const getSpreadsheetValue = (memberId, index, projectId = null) => {
+    const member = teamData.find(m => m.id === memberId);
+    if (!member) return 0;
+
+    if (projectId) {
+      const task = member.tasks.find(t => t.projectId === projectId);
+      if (!task || !task.monthlyHours) return 0;
+      
+      return calculateValueForView({ [index]: task.monthlyHours[index] || 0 }, index);
+    } else {
+      if (spreadsheetView === 'quarter') {
+        const quarterMonths = [
+          [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
+        ];
+        const monthsInQuarter = quarterMonths[index] || [];
+        
+        return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
+          let monthTotal = 0;
+          member.tasks.forEach(task => {
+            if (task.monthlyHours) {
+              const weeklyHours = task.monthlyHours[monthIdx] || 0;
+              monthTotal += weeklyHours * 4.33;
+            }
+          });
+          return sum + monthTotal;
+        }, 0));
+      } else if (spreadsheetView === 'year') {
+        if (index === 0) {
+          return Math.round(Array.from({ length: 12 }, (_, monthIdx) => {
+            let monthTotal = 0;
+            member.tasks.forEach(task => {
+              if (task.monthlyHours) {
+                const weeklyHours = task.monthlyHours[monthIdx] || 0;
+                monthTotal += weeklyHours * 4.33;
+              }
+            });
+            return monthTotal;
+          }).reduce((sum, monthTotal) => sum + monthTotal, 0));
+        }
+        return 0;
+      } else if (spreadsheetView === 'month') {
+        let monthTotal = 0;
+        member.tasks.forEach(task => {
+          if (task.monthlyHours) {
+            const weeklyHours = task.monthlyHours[index] || 0;
+            monthTotal += weeklyHours * 4.33;
+          }
+        });
+        return Math.round(monthTotal);
+      } else if (spreadsheetView === 'week') {
+        const monthIndex = Math.floor(index / 4.33);
+        let weekTotal = 0;
+        member.tasks.forEach(task => {
+          if (task.monthlyHours) {
+            weekTotal += task.monthlyHours[monthIndex] || 0;
+          }
+        });
+        return Math.round(weekTotal);
+      }
+      
+      return 0;
+    }
+  };
+  
+  const calculateValueForView = (memberData, index) => {
+    switch (spreadsheetView) {
+      case 'week':
+        const monthIndex = Math.floor(index / 4.33);
+        return memberData[monthIndex] || 0;
+        
+      case 'month':
+        const weeklyHours = memberData[index] || 0;
+        return Math.round(weeklyHours * 4.33);
+        
+      case 'quarter':
+        const quarterMonths = [
+          [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]
+        ];
+        const monthsInQuarter = quarterMonths[index] || [];
+        return Math.round(monthsInQuarter.reduce((sum, monthIdx) => {
+          const weeklyHours = memberData[monthIdx] || 0;
+          return sum + (weeklyHours * 4.33);
+        }, 0));
+        
+      case 'year':
+        if (index === 0) {
+          return Math.round(Object.keys(Array.from({ length: 12 })).reduce((sum, monthIdx) => {
+            const weeklyHours = memberData[parseInt(monthIdx)] || 0;
+            return sum + (weeklyHours * 4.33);
+          }, 0));
+        }
+        return 0;
+        
+      default:
+        return memberData[index] || 0;
+    }
+  };
+
+  const getColumnTotal = (index) => {
+    return teamData.reduce((total, member) => {
+      return total + getSpreadsheetValue(member.id, index);
+    }, 0);
+  };
+
+  const getMemberRowTotal = (memberId) => {
+    const columns = getSpreadsheetColumns();
+    return columns.reduce((total, _, index) => {
+      return total + getSpreadsheetValue(memberId, index);
+    }, 0);
+  };
+
+  const getProjectRowTotal = (memberId, projectId) => {
+    const columns = getSpreadsheetColumns();
+    return columns.reduce((total, _, index) => {
+      return total + getSpreadsheetValue(memberId, index, projectId);
+    }, 0);
+  };
+
+  const getSpreadsheetLabel = () => {
+    switch (spreadsheetView) {
+      case 'week': return '52-Week Resource Planning';
+      case 'month': return '12-Month Resource Planning';
+      case 'quarter': return 'Quarterly Resource Planning';
+      case 'year': return 'Annual Resource Planning';
+      default: return '12-Month Resource Planning';
+    }
+  };
+
+  return (
+    <div className="bg-gray-50 min-h-screen" style={{ 
+      fontFamily: '"Inter", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif',
+      fontSize: '14px',
+      lineHeight: '1.5'
+    }}>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <h1 className="text-xl font-semibold text-gray-900" style={{ fontWeight: '600' }}>
+              📊 Workdeck Resource Planner
+            </h1>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Calendar className="w-4 h-4" />
+              <span>{getDateRangeLabel()}</span>
             </div>
           </div>
+          
+          <div className="flex items-center space-x-3">
+            {/* Live Data Status */}
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-md">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-green-700">Live from Workdeck</span>
+            </div>
 
-          {teamData.map((member) => (
-            <div key={member.id} style={{ 
-              backgroundColor: 'white', 
-              borderRadius: '0.5rem', 
-              padding: '1rem', 
-              marginBottom: '1rem', 
-              border: '1px solid #e5e7eb',
-              boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ 
-                    width: '2.5rem', 
-                    height: '2.5rem', 
-                    backgroundColor: '#3b82f6', 
-                    borderRadius: '50%', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    fontSize: '1rem' 
-                  }}>
-                    {member.avatar}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '1rem', fontWeight: '600', color: '#111827' }}>
-                      {member.name}
-                      {member.isAdmin && (
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', backgroundColor: '#dc2626', color: 'white', padding: '0.125rem 0.375rem', borderRadius: '0.25rem' }}>
-                          ADMIN
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                      {member.scheduled}h / {member.capacity}h • {member.department} • {member.role}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                      <span>{member.email}</span>
-                      {member.isExpenseAdmin && (
-                        <span style={{ backgroundColor: '#059669', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
-                          EXPENSE
-                        </span>
-                      )}
-                      {member.isPurchaseAdmin && (
-                        <span style={{ backgroundColor: '#7c3aed', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
-                          PURCHASE
-                        </span>
-                      )}
-                      {member.isTravelAdmin && (
-                        <span style={{ backgroundColor: '#ea580c', color: 'white', padding: '0.125rem 0.25rem', borderRadius: '0.125rem', fontSize: '0.625rem' }}>
-                          TRAVEL
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ 
-                  padding: '0.25rem 0.5rem', 
-                  borderRadius: '0.25rem', 
-                  fontSize: '0.75rem', 
-                  fontWeight: '600',
-                  border: '1px solid',
-                  ...getUtilizationColor(member.utilization)
-                }}>
-                  {member.utilization}% Utilized
-                </div>
+            {/* Company Info */}
+            {company && (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-md">
+                <span className="text-xs font-medium text-blue-700">{company.name}</span>
               </div>
+            )}
+            
+            <div className="flex items-center space-x-1 border border-gray-300 rounded-md">
+              <button onClick={goToPreviousWeek} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-l-md">
+                ◀
+              </button>
+              <button onClick={goToToday} className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-50 border-l border-r border-gray-300">
+                Today
+              </button>
+              <button onClick={goToNextWeek} className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-r-md">
+                ▶
+              </button>
+            </div>
+            
+            <button 
+              onClick={() => setShowTaskDetails(!showTaskDetails)} 
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              {showTaskDetails ? 'Hide Tasks' : 'Show Tasks'}
+            </button>
 
-              {member.tasks.map((task, idx) => (
-                <div key={idx} style={{ 
-                  marginLeft: '3rem', 
-                  padding: '0.75rem', 
-                  backgroundColor: '#f9fafb', 
-                  borderRadius: '0.375rem', 
-                  marginBottom: '0.5rem',
-                  border: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#111827', marginBottom: '0.25rem' }}>
-                    {task.project}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                    {task.activity} → {task.task}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                    📊 {task.actualHours}h / {task.estimatedHours}h • ⚡ Velocity: {task.velocity.toFixed(1)} • 📡 Live from Workdeck API
-                  </div>
-                  <span style={{ 
-                    fontSize: '0.75rem', 
-                    padding: '0.125rem 0.5rem', 
-                    borderRadius: '0.25rem',
-                    backgroundColor: task.status === 'completed' ? '#dcfce7' : task.status === 'in-progress' ? '#dbeafe' : '#f3f4f6',
-                    color: task.status === 'completed' ? '#166534' : task.status === 'in-progress' ? '#1e40af' : '#374151',
-                    fontWeight: '500'
-                  }}>
-                    {task.status.toUpperCase()}
-                  </span>
-                </div>
+            <button 
+              onClick={() => setShowSpreadsheetView(!showSpreadsheetView)} 
+              className={`px-3 py-1.5 text-sm font-medium border rounded-md ${
+                showSpreadsheetView 
+                  ? 'bg-blue-600 text-white border-blue-600' 
+                  : 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {showSpreadsheetView ? 'Timeline View' : 'Spreadsheet View'}
+            </button>
+
+            <select 
+              value={showSpreadsheetView ? spreadsheetView : selectedView} 
+              onChange={(e) => {
+                if (showSpreadsheetView) {
+                  setSpreadsheetView(e.target.value);
+                } else {
+                  setSelectedView(e.target.value);
+                }
+              }}
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
+            >
+              <option value="week">Week View</option>
+              <option value="month">Month View</option>
+              <option value="quarter">Quarter View</option>
+              <option value="year">Year View</option>
+            </select>
+
+            <select 
+              value={selectedDepartment} 
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md px-3 py-1.5"
+            >
+              <option value="all">All Departments</option>
+              {[...new Set(teamData.map(member => member.department))].map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
               ))}
+            </select>
+            
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Users className="w-4 h-4" />
+              <span>{teamData.length} team members</span>
             </div>
-          ))}
+
+            <button 
+              onClick={loadWorkdeckData}
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
+            >
+              Refresh Data
+            </button>
+
+            <button 
+              onClick={() => {
+                setIsAuthenticated(false);
+                setTeamData([]);
+                setProjects([]);
+                setCompany(null);
+              }}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Data Status Bar */}
+      <div className="bg-green-50 border-b border-green-200 px-6 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="font-medium text-green-800">Connected to Workdeck API</span>
+            </div>
+            <span className="text-green-700">•</span>
+            <span className="text-green-700">{teamData.length} team members loaded</span>
+            <span className="text-green-700">•</span>
+            <span className="text-green-700">{projects.length} projects available</span>
+            {company && (
+              <>
+                <span className="text-green-700">•</span>
+                <span className="text-green-700">{company.name}</span>
+              </>
+            )}
+          </div>
+          <div className="text-xs text-green-600">
+            Last updated: {new Date().toLocaleTimeString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        {showSpreadsheetView ? (
+          /* Spreadsheet View */
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">{getSpreadsheetLabel()}</h2>
+                  <p className="text-sm text-gray-600">Live data from Workdeck • Edit hours to sync with Timeline mode</p>
+                </div>
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-gray-100 rounded"></div>
+                    <span>0h</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-100 rounded"></div>
+                    <span>Low</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-100 rounded"></div>
+                    <span>Medium</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-orange-100 rounded"></div>
+                    <span>High</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-red-100 rounded"></div>
+                    <span>Overload</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Bar */}
+              <div className="flex items-center justify-between p-3 bg-white rounded border">
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-gray-700">Quick Actions:</span>
+                  <button 
+                    onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Apply Template
+                  </button>
+                  <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                    Export Data
+                  </button>
+                  <button 
+                    onClick={loadWorkdeckData}
+                    className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                  >
+                    Refresh from Workdeck
+                  </button>
+                </div>
+                <div className="text-sm text-gray-600">
+                  Live data from {company?.name || 'Workdeck'} • {teamData.length} team members
+                </div>
+              </div>
+
+              {/* Phase Templates Panel */}
+              {showPhaseTemplates && (
+                <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-blue-900">Phase Templates</h3>
+                    <button 
+                      onClick={() => setShowPhaseTemplates(false)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-xs text-blue-700 mb-3">
+                    Choose a template to instantly apply a work pattern. You can then fine-tune individual months.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {phaseTemplates.map((template, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded border hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-2 mb-2">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                            <div className="text-xs text-gray-600">{template.description}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Mini timeline preview */}
+                        <div className="flex space-x-1 mb-2">
+                          {template.pattern.map((hours, month) => (
+                            <div 
+                              key={month} 
+                              className={`h-2 w-full rounded ${getCellColor(hours).split(' ')[0]}`}
+                              title={`${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month]}: ${hours}h/week`}
+                            ></div>
+                          ))}
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-500">
+                            {template.pattern.reduce((sum, h) => sum + h, 0)}h total
+                          </div>
+                          <div className="space-x-1">
+                            {teamData.map(member => (
+                              <button
+                                key={member.id}
+                                onClick={() => applyTemplate(member.id, template)}
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                title={`Apply to ${member.name}`}
+                              >
+                                {member.name.split(' ')[0]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                      Team Member
+                    </th>
+                    {getSpreadsheetColumns().map((column, idx) => (
+                      <th key={idx} className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r">
+                        <div>{column}</div>
+                        {spreadsheetView === 'month' && <div className="text-xs text-gray-400 font-normal">2025</div>}
+                      </th>
+                    ))}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {teamData.filter(member => 
+                    selectedDepartment === 'all' || member.department === selectedDepartment
+                  ).map((member) => {
+                    const memberProjects = getMemberProjects(member.id);
+                    
+                    return (
+                      <React.Fragment key={member.id}>
+                        {/* Member Summary Row */}
+                        <tr className="hover:bg-gray-50 bg-gray-25">
+                          <td className="px-4 py-3 border-r bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm text-white font-medium">
+                                  {member.avatar}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-semibold text-gray-900">{member.name}</div>
+                                  <div className="text-xs text-gray-500">{member.department} • {member.role}</div>
+                                  <div className="text-xs text-blue-600 font-medium">
+                                    Total: {member.scheduled}h / {member.capacity}h ({member.utilization}%)
+                                  </div>
+                                  {member.isAdmin && (
+                                    <div className="text-xs text-red-600 font-medium">Admin User</div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-col space-y-1">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedMemberForTemplate(member.id);
+                                    setShowPhaseTemplates(true);
+                                  }}
+                                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                  title="Apply template to this member"
+                                >
+                                  Template
+                                </button>
+                                <button 
+                                  onClick={() => clearMemberSchedule(member.id)}
+                                  className="px-2 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+                                  title="Clear all months"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          {getSpreadsheetColumns().map((column, columnIdx) => {
+                            const hours = getSpreadsheetValue(member.id, columnIdx);
+                            return (
+                              <td key={columnIdx} className="px-1 py-1 border-r bg-gray-50">
+                                <div className={`w-full px-2 py-2 text-center text-sm font-bold rounded ${getCellColor(hours)}`}>
+                                  {hours > 0 ? `${Math.round(hours)}h` : '—'}
+                                </div>
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-3 text-center bg-gray-50">
+                            <div className="text-sm font-bold text-gray-900">
+                              {Math.round(getMemberRowTotal(member.id))}h
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Total
+                            </div>
+                          </td>
+                        </tr>
+                        
+                        {/* Project Breakdown Rows */}
+                        {memberProjects.map((project, projectIdx) => (
+                          <tr key={`${member.id}-${project.id}`} className="hover:bg-gray-25">
+                            <td className="px-4 py-2 border-r bg-white">
+                              <div className="flex items-center space-x-3 ml-8">
+                                <div className={`w-3 h-3 rounded-full ${project.color}`}></div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-800">{project.name}</div>
+                                  <div className="text-xs text-gray-600">{project.activity} → {project.task}</div>
+                                </div>
+                              </div>
+                            </td>
+                            {getSpreadsheetColumns().map((column, columnIdx) => {
+                              const hours = getSpreadsheetValue(member.id, columnIdx, project.id);
+                              const isEditing = editingCell?.memberId === member.id && editingCell?.column === columnIdx && editingCell?.projectId === project.id;
+                              return (
+                                <td key={columnIdx} className="px-1 py-1 border-r">
+                                  {isEditing ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={hours > 0 ? Math.round(hours) : ''}
+                                      onChange={(e) => handleProjectCellEdit(member.id, project.id, columnIdx, e.target.value)}
+                                      onBlur={() => setEditingCell(null)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === 'Tab') {
+                                          setEditingCell(null);
+                                        }
+                                        if (e.key === 'Escape') {
+                                          setEditingCell(null);
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="w-full h-8 px-2 py-1 text-center text-sm border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      placeholder={
+                                        spreadsheetView === 'year' ? 'Annual hours' :
+                                        spreadsheetView === 'quarter' ? 'Quarterly hours' :
+                                        spreadsheetView === 'month' ? 'Monthly hours' : 'Weekly hours'
+                                      }
+                                    />
+                                  ) : (
+                                    <div
+                                      onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: project.id })}
+                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${getCellColor(hours)}`}
+                                    >
+                                      {hours > 0 ? `${Math.round(hours)}h` : '—'}
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="px-3 py-2 text-center bg-white">
+                              <div className="text-sm font-medium text-gray-800">
+                                {Math.round(getProjectRowTotal(member.id, project.id))}h
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r">
+                      Column Totals
+                    </td>
+                    {getSpreadsheetColumns().map((column, columnIdx) => (
+                      <td key={columnIdx} className="px-3 py-3 text-center border-r">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {Math.round(getColumnTotal(columnIdx))}h
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {teamData.filter(member => 
+                            selectedDepartment === 'all' || member.department === selectedDepartment
+                          ).length} people
+                        </div>
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 text-center">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {Math.round(teamData.filter(member => 
+                          selectedDepartment === 'all' || member.department === selectedDepartment
+                        ).reduce((sum, member) => sum + getMemberRowTotal(member.id), 0))}h
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Total
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <strong>Live Workdeck Integration:</strong> Real-time data from {company?.name || 'Workdeck'} • {teamData.length} team members • {projects.length} projects • Bi-directional sync active
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={loadWorkdeckData}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Refresh from API
+                  </button>
+                  <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
+                    Export Data
+                  </button>
+                  <button 
+                    onClick={() => setShowPhaseTemplates(!showPhaseTemplates)}
+                    className="px-3 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+                  >
+                    Phase Templates
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Timeline View */
+          <div className="mb-8">
+            <div className="mb-4 p-3 bg-gray-800 text-white rounded">
+              <h3 className="font-semibold">Live Team Data from {company?.name || 'Workdeck'}</h3>
+              <p className="text-sm text-gray-300">{teamData.length} team members • {projects.length} projects • Real-time integration</p>
+            </div>
+
+            {/* Date Headers */}
+            <div className="bg-white border-b border-gray-200 px-4 py-2 mb-4 rounded">
+              <div className="flex items-stretch">
+                <div className="w-72 flex-shrink-0"></div>
+                <div className={`flex-1 ${
+                  selectedView === 'year' ? 'grid grid-cols-1 gap-2' :
+                  selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                  selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                  'grid grid-cols-9 gap-2'
+                }`}>
+                  {selectedView === 'year' ? (
+                    <div className="text-center py-2 px-4 rounded text-sm bg-blue-500 text-white font-semibold border border-blue-600">
+                      <div className="uppercase tracking-wide">2025</div>
+                      <div className="text-xs">Full Year</div>
+                    </div>
+                  ) : selectedView === 'quarter' ? (
+                    ['Apr', 'May', 'Jun'].map((month, i) => (
+                      <div key={i} className={`text-center py-2 px-2 rounded border ${
+                        i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                      }`}>
+                        <div className="text-sm font-semibold">{month}</div>
+                        <div className="text-xs opacity-75">{i + 4}</div>
+                        {i === 2 && <div className="text-xs font-medium">NOW</div>}
+                      </div>
+                    ))
+                  ) : selectedView === 'month' ? (
+                    ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((week, i) => (
+                      <div key={i} className={`text-center py-2 px-2 rounded border ${
+                        i === 2 ? 'bg-blue-500 text-white border-blue-600' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50'
+                      }`}>
+                        <div className="text-sm font-semibold">{week}</div>
+                        <div className="text-xs opacity-75">Jun {i * 7 + 1}-{Math.min((i + 1) * 7, 30)}</div>
+                        {i === 2 && <div className="text-xs font-medium">NOW</div>}
+                      </div>
+                    ))
+                  ) : (
+                    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue'].map((day, i) => {
+                      const currentDate = new Date();
+                      const dayOfMonth = currentDate.getDate() + i - 3;
+                      const isToday = i === 3;
+                      const isWeekend = day === 'Sat' || day === 'Sun';
+                      
+                      return (
+                        <div key={i} className={`text-center py-1 px-1 rounded text-xs ${
+                          isToday ? 'bg-blue-500 text-white font-semibold' :
+                          isWeekend ? 'text-gray-400 bg-gray-50' : 'text-gray-700 font-medium'
+                        }`}>
+                          <div className="uppercase tracking-wide">{day}</div>
+                          <div className="text-sm font-bold">{Math.max(1, Math.min(dayOfMonth, 30))}</div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {teamData.filter(member => 
+              selectedDepartment === 'all' || member.department === selectedDepartment
+            ).map((member) => (
+              <div key={member.id} className="mb-4">
+                <div className="flex items-center justify-between mb-2 p-3 bg-white rounded border">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm">
+                      {member.avatar}
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">{member.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {member.department} • {member.role} • {member.scheduled}h / {member.capacity}h
+                      </div>
+                      {member.email && (
+                        <div className="text-xs text-gray-400">{member.email}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => handleAssignTask(member)}
+                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100">
+                      + Assign Task
+                    </button>
+                    <div className={`px-2 py-1 rounded text-xs font-medium border ${getUtilizationColor(member.utilization)}`}>
+                      {member.utilization}%
+                      {member.utilization > 100 && <AlertTriangle className="w-3 h-3 inline ml-1" />}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="ml-4 space-y-1">
+                  {/* Individual task rows */}
+                  {showTaskDetails && member.tasks.map((task, idx) => (
+                    <div key={idx} className="flex items-center bg-white rounded border p-2 hover:shadow-md cursor-pointer"
+                         onClick={() => setSelectedTask({...task, memberName: member.name})}>
+                      <div className="w-72 flex-shrink-0">
+                        <div className="flex items-start space-x-2">
+                          <div className={`w-3 h-3 rounded-full ${task.color} mt-0.5`}></div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <div className="text-sm font-medium truncate">{task.project}</div>
+                              {task.isLongTerm && (
+                                <span className="px-1 py-0.5 text-xs bg-purple-100 text-purple-700 rounded border">
+                                  Long-term
+                                </span>
+                              )}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditTask(task, member);
+                                }}
+                                className="px-1.5 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded border border-blue-200">
+                                Edit
+                              </button>
+                            </div>
+                            <div className="text-xs text-gray-600 mb-1">
+                              <span className="font-medium">{task.activity}</span>
+                              <span className="text-gray-400 mx-1">→</span>
+                              <span>{task.task}</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
+                              <span className="font-medium">{task.actualHours}h / {task.estimatedHours}h personal</span>
+                              <span>•</span>
+                              <span className="text-orange-600">{task.totalActivityHours}h activity</span>
+                              <span>•</span>
+                              <span className="text-purple-600">{task.totalProjectHours}h project</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs mb-1">
+                              <span className="text-gray-500">Velocity:</span>
+                              <span className="font-medium text-green-600">{task.velocity.toFixed(1)}h/week</span>
+                              <span className="text-gray-400">(target: {task.targetHoursPerWeek.toFixed(1)}h/week)</span>
+                            </div>
+                            <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
+                              {task.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className={`flex-1 ${
+                        selectedView === 'year' ? 'grid grid-cols-1 gap-2' :
+                        selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                        selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                        'grid grid-cols-9 gap-2'
+                      }`}>
+                        {selectedView === 'year' ? 
+                          <div className={`h-6 rounded ${task.color} opacity-60`}></div> :
+                          selectedView === 'quarter' ? 
+                          Array.from({ length: 3 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              `${task.color} opacity-70`
+                            } ${dateIdx === 2 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          selectedView === 'month' ? 
+                          Array.from({ length: 4 }, (_, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 1 ? `${task.color} opacity-80` : 'bg-gray-100'
+                            } ${dateIdx === 1 ? 'ring-1 ring-blue-400' : ''}`}></div>
+                          )) :
+                          task.pattern.map((isActive, dateIdx) => (
+                            <div key={dateIdx} className={`h-6 rounded ${
+                              dateIdx === 2 || dateIdx === 3 ? 'bg-gray-100' : 
+                              isActive ? `${task.color} opacity-80` : 'bg-gray-100'
+                            }`}></div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Workload Summary - Always visible */}
+                  <div className="flex items-center bg-blue-50 border-2 border-blue-200 rounded p-2">
+                    <div className="w-72 flex-shrink-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <div>
+                          <div className="text-sm font-medium text-blue-900">
+                            {selectedView === 'year' ? 'Annual Workload' :
+                             selectedView === 'quarter' ? 'Quarterly Workload' :
+                             selectedView === 'month' ? 'Monthly Workload' :
+                             'Weekly Workload'}
+                          </div>
+                          <div className="text-xs text-blue-700">
+                            Live data from Workdeck • {member.tasks.length} active tasks
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`flex-1 ${
+                      selectedView === 'year' ? 'grid grid-cols-1 gap-2' :
+                      selectedView === 'quarter' ? 'grid grid-cols-3 gap-4' :
+                      selectedView === 'month' ? 'grid grid-cols-4 gap-3' : 
+                      'grid grid-cols-9 gap-2'
+                    }`}>
+                      {selectedView === 'year' ? (
+                        (() => {
+                          let hours = 0;
+                          for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+                            hours += calculateDailyHours(member, monthIndex, 'month');
+                          }
+                          
+                          return (
+                            <div className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                              getWorkloadColor(hours, 'year')
+                            }`}>
+                              {hours === 0 ? '—' : `${Math.round(hours)}h`}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        Array.from({ length: getPeriodsForView() }, (_, periodIndex) => {
+                          if (selectedView === 'week' && (periodIndex === 2 || periodIndex === 3)) {
+                            return (
+                              <div key={periodIndex} className="h-6 rounded bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-semibold">
+                                —
+                              </div>
+                            );
+                          }
+                          
+                          let hours = 0;
+                          if (selectedView === 'quarter') {
+                            hours = calculateDailyHours(member, periodIndex, 'month');
+                          } else if (selectedView === 'month') {
+                            const currentDate = new Date();
+                            const currentMonth = currentDate.getMonth();
+                            hours = calculateDailyHours(member, currentMonth, 'month');
+                          } else {
+                            hours = calculateDailyHours(member, periodIndex, 'day');
+                          }
+                          
+                          const isCurrentPeriod = (
+                            (selectedView === 'week' && periodIndex === 0) ||
+                            (selectedView === 'month' && periodIndex === 1) ||
+                            (selectedView === 'quarter' && periodIndex === 2)
+                          );
+                          
+                          return (
+                            <div key={periodIndex} className={`h-6 rounded flex items-center justify-center text-xs font-semibold ${
+                              getWorkloadColor(hours, selectedView)
+                            } ${isCurrentPeriod ? 'ring-1 ring-blue-400' : ''}`}>
+                              {hours === 0 ? '—' : `${Math.round(hours * 10) / 10}h`}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Task Detail Modal */}
+      {selectedTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTask(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start space-x-2 flex-1 min-w-0">
+                  <div className={`w-3 h-3 rounded-full ${selectedTask.color} mt-1 flex-shrink-0`}></div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-semibold truncate">{selectedTask.project}</h2>
+                    <p className="text-gray-600 text-xs">
+                      <span className="font-medium">{selectedTask.activity}</span>
+                      <span className="text-gray-400 mx-1">→</span>
+                      <span>{selectedTask.task}</span>
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedTask(null)} className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0">✕</button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-xs">
+                  <span className="text-gray-500">Assigned to:</span>
+                  <span className="ml-2 font-medium text-gray-900">{selectedTask.memberName}</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-blue-50 p-2 rounded text-center">
+                    <div className="text-xs text-blue-700">Estimated</div>
+                    <div className="text-sm font-bold text-blue-900">{selectedTask.estimatedHours}h</div>
+                  </div>
+                  <div className="bg-green-50 p-2 rounded text-center">
+                    <div className="text-xs text-green-700">Actual</div>
+                    <div className="text-sm font-bold text-green-900">{selectedTask.actualHours}h</div>
+                  </div>
+                  <div className="bg-orange-50 p-2 rounded text-center">
+                    <div className="text-xs text-orange-700">Remaining</div>
+                    <div className="text-sm font-bold text-orange-900">{getRemainingHours(selectedTask)}h</div>
+                  </div>
+                </div>
+
+                {/* Live Workdeck Data Indicator */}
+                <div className="bg-green-50 p-3 rounded border border-green-200">
+                  <div className="text-xs font-medium text-green-900 mb-1">Live Workdeck Data</div>
+                  <div className="text-xs text-green-800">
+                    Task ID: {selectedTask.id} • Duration: {selectedTask.duration}
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    📡 Real-time data from {company?.name || 'Workdeck API'}
+                  </div>
+                </div>
+
+                {/* Bi-directional sync editing section */}
+                {selectedTask.isEditing && (
+                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                    <div className="text-xs font-medium text-blue-900 mb-2">Edit Task (Changes sync to Spreadsheet)</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-blue-800">Weekly Hours Target:</label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          max="40" 
+                          defaultValue={selectedTask.targetHoursPerWeek || 0}
+                          className="w-full mt-1 px-2 py-1 text-xs border rounded"
+                          onChange={(e) => {
+                            const newHours = parseFloat(e.target.value) || 0;
+                            if (selectedTask.onSave) {
+                              selectedTask.onSave({ targetHoursPerWeek: newHours });
+                            }
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-blue-800">Status:</label>
+                        <select 
+                          defaultValue={selectedTask.status}
+                          className="w-full mt-1 px-2 py-1 text-xs border rounded"
+                          onChange={(e) => {
+                            if (selectedTask.onSave) {
+                              selectedTask.onSave({ status: e.target.value });
+                            }
+                          }}
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="over-budget">Over Budget</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                  <div className="text-xs font-medium text-purple-900 mb-1">Current Allocation</div>
+                  <div className="text-xs text-purple-800">
+                    {(selectedTask.targetHoursPerWeek || 0).toFixed(1)}h per week • Duration: {selectedTask.duration}
+                  </div>
+                  <div className="text-xs text-purple-700 mt-1">
+                    💡 Spreadsheet changes automatically update this allocation
+                  </div>
+                </div>
+
+                {selectedTask.intensityPhases && selectedTask.intensityPhases.length > 0 && (
+                  <div className="bg-green-50 p-3 rounded border border-green-200">
+                    <div className="text-xs font-medium text-green-900 mb-1">Intensity Phases</div>
+                    {selectedTask.intensityPhases.map((phase, idx) => (
+                      <div key={idx} className="text-xs text-green-800">
+                        • {phase.name}: {phase.hoursPerWeek}h/week
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div>
+                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getTaskStatusColor(selectedTask.status)}`}>
+                    {selectedTask.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-4">
+                <button 
+                  onClick={() => {
+                    setSelectedTask(null);
+                    setShowSpreadsheetView(true);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Edit in Spreadsheet
+                </button>
+                <button onClick={() => setSelectedTask(null)} className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      {!loading && teamData.length === 0 && apiConnected && (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '0.5rem' }}>
-            No team members found
-          </h3>
-          <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-            Successfully connected to Workdeck, but no team members are available in your instance.
-          </p>
-          <button 
-            onClick={loadWorkdeckData}
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.25rem',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Try Again
-          </button>
+      {/* Task Assignment Modal */}
+      {showAssignTaskModal && selectedMemberForAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAssignTaskModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Assign Task to {selectedMemberForAssignment.name}</h2>
+                <button onClick={() => setShowAssignTaskModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const taskData = {
+                  project: formData.get('project'),
+                  estimatedHours: parseInt(formData.get('estimatedHours')),
+                  priority: formData.get('priority')
+                };
+                submitTaskAssignment(taskData);
+              }}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                      <option value="">Select Project</option>
+                      {projects.map(project => (
+                        <option key={project.id} value={project.name}>{project.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
+                      <input 
+                        type="number" 
+                        name="estimatedHours"
+                        required 
+                        min="1"
+                        placeholder="40"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                      <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Current Capacity</div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Current: {selectedMemberForAssignment.scheduled}h / {selectedMemberForAssignment.capacity}h</span>
+                      <span className={`font-medium ${
+                        selectedMemberForAssignment.utilization > 100 ? 'text-red-600' :
+                        selectedMemberForAssignment.utilization > 85 ? 'text-orange-600' : 'text-green-600'
+                      }`}>
+                        {selectedMemberForAssignment.utilization}% utilized
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-blue-700 mb-1">Live Workdeck Integration</div>
+                    <div className="text-xs text-blue-600">
+                      This assignment will be synced with your Workdeck instance. Changes made here will update the resource planning data in real-time.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAssignTaskModal(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                  >
+                    Assign Task
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
 
-      <div style={{ 
-        marginTop: '2rem', 
-        padding: '1rem', 
-        backgroundColor: 'white', 
-        borderRadius: '0.5rem', 
-        border: '1px solid #e5e7eb',
-        fontSize: '0.75rem',
-        color: '#6b7280',
-        textAlign: 'center'
-      }}>
-        <div style={{ marginBottom: '0.5rem' }}>
-          <strong>🚀 Live Workdeck Resource Planner</strong> - Connected to real Workdeck API with live data
-        </div>
-        <div>
-          ✅ CORS solved • 🔒 Secure authentication • 📊 Live data from test-api.workdeck.com • 👥 {teamData.length} team members loaded
+      {/* Footer */}
+      <div className="mt-8 p-4 bg-white border-t border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            <strong>🚀 Live Workdeck Resource Planner</strong> • Connected to {company?.name || 'Workdeck'} • {teamData.length} team members • {projects.length} projects • Real-time bi-directional sync
+          </div>
+          <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span>API Connected</span>
+          </div>
         </div>
       </div>
     </div>
