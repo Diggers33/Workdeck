@@ -2431,6 +2431,8 @@ const ResourcePlanner = () => {
                 const formData = new FormData(e.target);
                 const taskData = {
                   project: formData.get('project'),
+                  activity: formData.get('activity'),
+                  task: formData.get('task'),
                   estimatedHours: parseInt(formData.get('estimatedHours')),
                   priority: formData.get('priority')
                 };
@@ -2439,22 +2441,70 @@ const ResourcePlanner = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                    <select name="project" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <select 
+                      name="project" 
+                      required 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      onChange={(e) => {
+                        // Reset activity and task when project changes
+                        const activitySelect = e.target.form.querySelector('select[name="activity"]');
+                        const taskSelect = e.target.form.querySelector('select[name="task"]');
+                        if (activitySelect) activitySelect.value = '';
+                        if (taskSelect) taskSelect.value = '';
+                      }}
+                    >
                       <option value="">Select Project</option>
                       {projects.map(project => (
-                        <option key={project.id} value={project.name}>{project.name}</option>
+                        <option key={project.id} value={project.id}>{project.name}</option>
                       ))}
                     </select>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Activity</label>
+                    <select 
+                      name="activity" 
+                      required 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      onChange={(e) => {
+                        // Reset task when activity changes
+                        const taskSelect = e.target.form.querySelector('select[name="task"]');
+                        if (taskSelect) taskSelect.value = '';
+                      }}
+                    >
+                      <option value="">Select Activity</option>
+                      {/* Activities will be populated based on selected project */}
+                      <option value="analysis">Analysis</option>
+                      <option value="development">Development</option>
+                      <option value="testing">Testing</option>
+                      <option value="deployment">Deployment</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="documentation">Documentation</option>
+                      <option value="planning">Planning</option>
+                      <option value="review">Review</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+                    <input
+                      type="text"
+                      name="task"
+                      required
+                      placeholder="Enter task name (e.g., 'User Authentication Module')"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hours</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Planned Hours</label>
                       <input 
                         type="number" 
                         name="estimatedHours"
                         required 
                         min="1"
+                        max="500"
                         placeholder="40"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                       />
@@ -2462,10 +2512,34 @@ const ResourcePlanner = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                       <select name="priority" required className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="low">Low</option>
+                        <option value="1">Low</option>
+                        <option value="2" selected>Medium</option>
+                        <option value="3">High</option>
                       </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Task Dates</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          name="startDate"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          defaultValue={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">End Date</label>
+                        <input
+                          type="date"
+                          name="endDate"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          defaultValue={new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -2485,7 +2559,7 @@ const ResourcePlanner = () => {
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-blue-700 mb-1">Live Workdeck Integration</div>
                     <div className="text-xs text-blue-600">
-                      This assignment will be synced with your Workdeck instance. Changes made here will update the resource planning data in real-time.
+                      This assignment follows Workdeck's Project → Activity → Task structure and will be synced with your resource planning data in real-time.
                     </div>
                   </div>
                 </div>
