@@ -167,15 +167,40 @@ class WorkdeckAPI {
     console.log('👤 Fetching user profile from /queries/me...');
     return this.request('/queries/me');
   }
+
+  // Get detailed project information with tasks and assignments
+  async getProjectDetails(projectId) {
+    console.log(`📋 Fetching project details for ${projectId}...`);
+    return this.request(`/queries/projects/${projectId}`);
+  }
+
+  // Get all projects with full details
+  async getAllProjectsWithDetails() {
+    console.log('📋 Fetching all projects with details...');
+    const projects = await this.getProjects();
+    const projectsData = projects?.result || projects || [];
+    
+    if (projectsData.length === 0) return [];
+    
+    // Fetch detailed information for each project
+    const detailedProjects = await Promise.allSettled(
+      projectsData.map(project => this.getProjectDetails(project.id))
+    );
+    
+    return detailedProjects
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value?.result || result.value)
+      .filter(Boolean);
+  }
 }
 
 // Enhanced DataTransformer using real Workdeck data structure
 class DataTransformer {
-  static transformUsersToTeamMembers(users, projects = [], tasks = []) {
+  static transformUsersToTeamMembers(users, projects = [], detailedProjects = []) {
     console.log('🔄 Transforming data:', { 
       users: users?.length || 0, 
       projects: projects?.length || 0,
-      tasks: tasks?.length || 0 
+      detailedProjects: detailedProjects?.length || 0 
     });
     
     if (!users || users.length === 0) {
@@ -183,15 +208,41 @@ class DataTransformer {
     }
     
     return users.map(user => {
-      // Find tasks assigned to this user
-      const userTasks = tasks.filter(task => 
-        task.participants?.some(p => p.user?.id === user.id)
-      );
+      console.log(`🔄 Processing user: ${user.firstName} ${user.lastName} (${user.id})`);
+      
+      // Find actual tasks assigned to this user from detailed project data
+      const userTasks = [];
+      
+      detailedProjects.forEach(project => {
+        if (project.activities) {
+          project.activities.forEach(activity => {
+            if (activity.tasks) {
+              activity.tasks.forEach(task => {
+                if (task.participants) {
+                  const userParticipation = task.participants.find(p => p.user?.id === user.id);
+                  if (userParticipation) {
+                    userTasks.push({
+                      ...task,
+                      project: project,
+                      activity: activity,
+                      userParticipation: userParticipation,
+                      isOwner: userParticipation.isOwner,
+                      plannedHours: parseFloat(userParticipation.plannedHours) || 0
+                    });
+                  }
+                }
+              });
+            }
+          });
+        }
+      });
 
-      // Transform tasks for resource planning
+      console.log(`📋 Found ${userTasks.length} real tasks for ${user.firstName} ${user.lastName}`);
+
+      // Transform real tasks for resource planning
       const planningTasks = userTasks.length > 0 
-        ? userTasks.map((task, index) => this.transformTaskToPlanning(task, projects, index))
-        : this.createDefaultTasksForUser(user, projects);
+        ? userTasks.map((task, index) => this.transformRealTaskToPlanning(task, index))
+        : []; // No fake tasks if user has no real assignments
 
       const totalScheduled = planningTasks.reduce((sum, task) => sum + (task.targetHoursPerWeek || 0), 0);
       const capacity = 40;
@@ -210,99 +261,139 @@ class DataTransformer {
         isExpenseAdmin: user.isExpenseAdmin || false,
         isPurchaseAdmin: user.isPurchaseAdmin || false,
         isTravelAdmin: user.isTravelAdmin || false,
-        tasks: planningTasks
+        tasks: planningTasks,
+        // Add real Workdeck user data
+        realTasksCount: userTasks.length,
+        hasRealAssignments: userTasks.length > 0
       };
     });
   }
 
-  static transformTaskToPlanning(task, projects, index) {
-    const project = projects.find(p => p.id === task.activity?.project?.id) || 
-                   { name: task.activity?.project?.name || 'Unknown Project', id: task.activity?.project?.id || 'unknown' };
+  static transformRealTaskToPlanning(taskWithProject, index) {
+    const project = taskWithProject.project;
+    const activity = taskWithProject.activity;
+    const task = taskWithProject;
+    const userParticipation = taskWithProject.userParticipation;
     
-    const plannedHours = parseFloat(task.plannedHours) || 40;
-    const targetWeeklyHours = Math.min(plannedHours / 8, 20); // Spread over ~8 weeks, max 20h/week
+    console.log(`🔄 Transforming real task: ${task.name} in ${project.name}`, {
+      plannedHours: userParticipation.plannedHours,
+      isOwner: userParticipation.isOwner,
+      startDate: task.startDate,
+      endDate: task.endDate
+    });
+    
+    const plannedHours = parseFloat(userParticipation.plannedHours) || 0;
+    
+    // Calculate realistic weekly hours based on task duration
+    let targetWeeklyHours = 0;
+    if (plannedHours > 0 && task.startDate && task.endDate) {
+      const durationWeeks = this.calculateTaskDurationInWeeks(task.startDate, task.endDate);
+      targetWeeklyHours = durationWeeks > 0 ? Math.min(plannedHours / durationWeeks, 20) : 0;
+    } else if (plannedHours > 0) {
+      // Fallback: spread over 8 weeks if no dates
+      targetWeeklyHours = Math.min(plannedHours / 8, 20);
+    }
     
     return {
       id: task.id,
-      project: project.name,
-      projectId: project.name?.toLowerCase().replace(/\s+/g, '-') || `project-${index}`,
-      activity: task.activity?.name || 'General Work',
+      project: project.name || 'Unknown Project',
+      projectId: project.name?.toLowerCase().replace(/\s+/g, '-') || `project-${project.id}`,
+      activity: activity.name || 'General Work',
       task: task.name || `Task ${index + 1}`,
       color: this.getProjectColor(project.name),
       estimatedHours: plannedHours,
-      actualHours: 0, // Would need time tracking data
-      totalActivityHours: plannedHours,
-      totalProjectHours: plannedHours * 1.5, // Estimate
-      velocity: 6 + Math.random() * 3, // Placeholder
+      actualHours: 0, // Would need time tracking data from Workdeck
+      totalActivityHours: this.calculateActivityTotalHours(activity),
+      totalProjectHours: this.calculateProjectTotalHours(project),
+      velocity: targetWeeklyHours || 0, // Use actual planned velocity
       status: this.mapTaskStatus(task.flags),
       targetHoursPerWeek: targetWeeklyHours,
-      pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3), // Skip weekends
-      startWeek: this.parseWeekFromDate(task.startDate) || -4,
+      pattern: this.generateWorkPattern(task.startDate, task.endDate),
+      startWeek: this.parseWeekFromDate(task.startDate) || 0,
       endWeek: this.parseWeekFromDate(task.endDate) || 8,
       isLongTerm: plannedHours > 80,
       duration: this.calculateDuration(task.startDate, task.endDate),
-      // Initialize monthly hours for spreadsheet view
-      monthlyHours: Array.from({ length: 12 }, (_, month) => {
-        // Distribute hours based on task timeline
-        return this.isMonthInTaskRange(month, task.startDate, task.endDate) ? targetWeeklyHours : 0;
-      }),
-      intensityPhases: this.generateIntensityPhases(targetWeeklyHours, task.startDate, task.endDate)
+      // Initialize monthly hours for spreadsheet view based on real task dates
+      monthlyHours: this.distributeHoursAcrossMonths(targetWeeklyHours, task.startDate, task.endDate),
+      intensityPhases: this.generateIntensityPhases(targetWeeklyHours, task.startDate, task.endDate),
+      // Add real Workdeck task data
+      realWorkdeckTask: true,
+      workdeckTaskId: task.id,
+      workdeckProjectId: project.id,
+      workdeckActivityId: activity.id,
+      isTaskOwner: userParticipation.isOwner,
+      userPosition: userParticipation.position || 0
     };
   }
 
-  static createDefaultTasksForUser(user, projects) {
-    // Create default tasks when no tasks are found for a user
-    const availableProjects = projects.slice(0, Math.min(2, projects.length));
+  static calculateTaskDurationInWeeks(startDate, endDate) {
+    if (!startDate || !endDate) return 8; // Default fallback
     
-    if (availableProjects.length === 0) {
-      return [{
-        id: `${user.id}-default-task`,
-        project: 'General Work',
-        projectId: 'general-work',
-        activity: user.department || 'General',
-        task: 'Daily Operations',
-        color: 'bg-gray-500',
-        estimatedHours: 80,
-        actualHours: 20,
-        totalActivityHours: 80,
-        totalProjectHours: 160,
-        velocity: 6,
-        status: 'in-progress',
-        targetHoursPerWeek: 10,
-        pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3),
-        startWeek: -4,
-        endWeek: 8,
-        isLongTerm: false,
-        duration: '3 months',
-        monthlyHours: Array.from({ length: 12 }, (_, month) => month >= 5 && month <= 8 ? 10 : 0),
-        intensityPhases: []
-      }];
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = end.getTime() - start.getTime();
+      const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+      return Math.max(1, diffWeeks);
+    } catch {
+      return 8;
     }
+  }
 
-    return availableProjects.map((project, index) => ({
-      id: `${user.id}-project-${project.id}`,
-      project: project.name,
-      projectId: project.name?.toLowerCase().replace(/\s+/g, '-') || `project-${index}`,
-      activity: `${user.department || 'General'} Work`,
-      task: `${project.name} Development`,
-      color: this.getProjectColor(project.name),
-      estimatedHours: 60,
-      actualHours: 15,
-      totalActivityHours: 80,
-      totalProjectHours: 200,
-      velocity: 5 + Math.random() * 4,
-      status: 'in-progress',
-      targetHoursPerWeek: 8 + index * 4,
-      pattern: Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3),
-      startWeek: -2 - index * 2,
-      endWeek: 12 + index * 4,
-      isLongTerm: index === 0,
-      duration: index === 0 ? '6 months' : '3 months',
-      monthlyHours: Array.from({ length: 12 }, (_, month) => 
-        month >= 5 && month <= (8 + index * 2) ? 8 + index * 4 : 0
-      ),
-      intensityPhases: this.generateIntensityPhases(8 + index * 4)
-    }));
+  static calculateActivityTotalHours(activity) {
+    if (!activity.tasks) return 0;
+    return activity.tasks.reduce((total, task) => {
+      if (task.participants) {
+        const taskTotal = task.participants.reduce((sum, p) => sum + (parseFloat(p.plannedHours) || 0), 0);
+        return total + taskTotal;
+      }
+      return total;
+    }, 0);
+  }
+
+  static calculateProjectTotalHours(project) {
+    if (!project.activities) return 0;
+    return project.activities.reduce((total, activity) => {
+      return total + this.calculateActivityTotalHours(activity);
+    }, 0);
+  }
+
+  static generateWorkPattern(startDate, endDate) {
+    // Generate a realistic work pattern based on task dates
+    // For now, generate a standard Monday-Friday pattern
+    return Array.from({ length: 10 }, (_, i) => i !== 2 && i !== 3); // Skip weekends (Saturday, Sunday)
+  }
+
+  static distributeHoursAcrossMonths(weeklyHours, startDate, endDate) {
+    const months = Array.from({ length: 12 }, () => 0);
+    
+    if (!startDate || !endDate || weeklyHours === 0) {
+      return months;
+    }
+    
+    try {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const currentYear = new Date().getFullYear();
+      
+      for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+        const monthStart = new Date(currentYear, monthIndex, 1);
+        const monthEnd = new Date(currentYear, monthIndex + 1, 0);
+        
+        // Check if task is active in this month
+        if (monthStart <= end && monthEnd >= start) {
+          months[monthIndex] = weeklyHours;
+        }
+      }
+    } catch (e) {
+      console.warn('Error distributing hours across months:', e);
+      // Fallback: distribute in middle months
+      for (let i = 5; i <= 8; i++) {
+        months[i] = weeklyHours;
+      }
+    }
+    
+    return months;
   }
 
   static parseWeekFromDate(dateStr) {
@@ -480,7 +571,7 @@ const ResourcePlanner = () => {
     try {
       console.log('📊 Loading LIVE data from Workdeck API...');
       
-      // Fetch all required data
+      // Fetch all required data including detailed project information
       const [usersResponse, projectsResponse, companyResponse] = await Promise.allSettled([
         workdeckAPI.getUsers(),
         workdeckAPI.getProjects(),
@@ -512,20 +603,53 @@ const ResourcePlanner = () => {
         companyName: companyData.name || 'No company data'
       });
 
-      // Transform data for resource planning
-      const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, []);
+      // Fetch detailed project information with tasks and assignments
+      console.log('📋 Fetching detailed project information...');
+      let detailedProjects = [];
+      
+      try {
+        detailedProjects = await workdeckAPI.getAllProjectsWithDetails();
+        console.log(`📋 Loaded ${detailedProjects.length} detailed projects with task assignments`);
+        
+        // Log project details for debugging
+        detailedProjects.forEach(project => {
+          const totalTasks = project.activities?.reduce((sum, activity) => sum + (activity.tasks?.length || 0), 0) || 0;
+          const totalAssignments = project.activities?.reduce((sum, activity) => 
+            sum + (activity.tasks?.reduce((taskSum, task) => taskSum + (task.participants?.length || 0), 0) || 0), 0) || 0;
+          
+          console.log(`📋 Project "${project.name}": ${totalTasks} tasks, ${totalAssignments} assignments`);
+        });
+      } catch (projectError) {
+        console.warn('⚠️ Could not fetch detailed project data:', projectError.message);
+        // Continue with basic project data
+      }
+
+      // Transform data for resource planning using real assignments
+      const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, detailedProjects);
       setTeamData(teamMembers);
       setProjects(projectsData);
       setCompany(companyData);
 
+      // Log transformation results
+      const membersWithRealTasks = teamMembers.filter(m => m.hasRealAssignments);
+      const membersWithoutTasks = teamMembers.filter(m => !m.hasRealAssignments);
+      
       console.log('🎉 Successfully loaded and transformed Workdeck data!', {
-        teamMembersCount: teamMembers.length,
-        projectsCount: projectsData.length
+        totalMembers: teamMembers.length,
+        membersWithRealTasks: membersWithRealTasks.length,
+        membersWithoutTasks: membersWithoutTasks.length,
+        projectsCount: projectsData.length,
+        detailedProjectsCount: detailedProjects.length
       });
+
+      if (membersWithoutTasks.length > 0) {
+        console.log('⚠️ Team members without task assignments:', 
+          membersWithoutTasks.map(m => `${m.name} (${m.department})`));
+      }
       
     } catch (err) {
       console.error('💥 Failed to load Workdeck data:', err);
-      setError(`Failed to load data: ${err.message}`);
+      setError(`Failed to load data: ${err.message}\n\nPlease check your API connection and credentials.`);
     } finally {
       setLoading(false);
     }
