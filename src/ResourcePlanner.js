@@ -135,15 +135,15 @@ const ResourcePlanner = () => {
         );
 
         const teamMember = {
-          id: user.id,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-          avatar: user.avatar || getAvatarForUser(user),
-          department: user.department || 'General',
+          id: user?.id || `user-${Math.random()}`,
+          name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown User',
+          avatar: user?.avatar || getAvatarForUser(user),
+          department: user?.department || 'General',
           capacity: 40,
           scheduled: calculateScheduledHours(userProjects, userEvents),
           utilization: 0,
-          email: user.email,
-          role: user.rol || 'Team Member',
+          email: user?.email || '',
+          role: user?.rol || 'Team Member',
           tasks: transformProjectsToTasks(userProjects, userEvents, user)
         };
 
@@ -166,10 +166,13 @@ const ResourcePlanner = () => {
 
   const calculateScheduledHours = (projects, events) => {
     const projectHours = projects.reduce((total, project) => {
-      return total + (project.plannedHours || 0);
+      // Safely access plannedHours with fallbacks
+      const plannedHours = project?.plannedHours || project?.availableHours || 0;
+      return total + (typeof plannedHours === 'number' ? plannedHours : 0);
     }, 0);
 
     const currentWeekEvents = events.filter(event => {
+      if (!event?.startAt) return false;
       const eventDate = new Date(event.startAt);
       const now = new Date();
       const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
@@ -178,9 +181,14 @@ const ResourcePlanner = () => {
     });
 
     const eventHours = currentWeekEvents.reduce((total, event) => {
-      if (event.endAt && event.startAt) {
-        const duration = new Date(event.endAt) - new Date(event.startAt);
-        return total + (duration / (1000 * 60 * 60));
+      if (event?.endAt && event?.startAt) {
+        try {
+          const duration = new Date(event.endAt) - new Date(event.startAt);
+          return total + (duration / (1000 * 60 * 60));
+        } catch (error) {
+          console.log('Error calculating event duration:', error);
+          return total + 1;
+        }
       }
       return total + 1;
     }, 0);
@@ -191,68 +199,82 @@ const ResourcePlanner = () => {
   const transformProjectsToTasks = (projects, events, user) => {
     const tasks = [];
 
-    projects.forEach((project, index) => {
-      const projectEvents = events.filter(event => 
-        event.title?.toLowerCase().includes(project.name?.toLowerCase())
-      );
+    // Safely transform projects to tasks
+    if (Array.isArray(projects)) {
+      projects.forEach((project, index) => {
+        try {
+          // Safely filter events
+          const projectEvents = Array.isArray(events) ? events.filter(event => 
+            event?.title?.toLowerCase()?.includes(project?.name?.toLowerCase() || '')
+          ) : [];
 
-      const task = {
-        id: project.id || `project-${index}`,
-        project: project.name || 'Unnamed Project',
-        activity: project.client || 'General Work',
-        task: project.code || 'Project Tasks',
-        color: getProjectColor(project.name || `project-${index}`),
-        estimatedHours: project.plannedHours || project.availableHours || 0,
-        actualHours: calculateActualHours(projectEvents),
-        totalActivityHours: project.availableHours || 0,
-        totalProjectHours: project.plannedHours || 0,
-        velocity: calculateVelocity(projectEvents),
-        status: determineTaskStatus(project),
-        startWeek: -8,
-        endWeek: 24,
-        pattern: generateWorkPattern(),
-        isLongTerm: isLongTermProject(project),
-        targetHoursPerWeek: calculateTargetHours(project),
-        duration: calculateDuration(project),
-        projectId: (project.name || `project-${index}`).toLowerCase().replace(/\s+/g, '-'),
-        monthlyHours: generateMonthlyHours(project),
-        workdeckProjectId: project.id,
-        workdeckUserId: user.id
-      };
+          const task = {
+            id: project?.id || `project-${index}`,
+            project: project?.name || 'Unnamed Project',
+            activity: project?.client || 'General Work',
+            task: project?.code || 'Project Tasks',
+            color: getProjectColor(project?.name || `project-${index}`),
+            estimatedHours: project?.plannedHours || project?.availableHours || 0,
+            actualHours: calculateActualHours(projectEvents),
+            totalActivityHours: project?.availableHours || 0,
+            totalProjectHours: project?.plannedHours || 0,
+            velocity: calculateVelocity(projectEvents),
+            status: determineTaskStatus(project),
+            startWeek: -8,
+            endWeek: 24,
+            pattern: generateWorkPattern(),
+            isLongTerm: isLongTermProject(project),
+            targetHoursPerWeek: calculateTargetHours(project),
+            duration: calculateDuration(project),
+            projectId: (project?.name || `project-${index}`).toLowerCase().replace(/\s+/g, '-'),
+            monthlyHours: generateMonthlyHours(project),
+            workdeckProjectId: project?.id || `project-${index}`,
+            workdeckUserId: user?.id || 'unknown'
+          };
 
-      tasks.push(task);
-    });
-
-    if (projects.length === 0 && events.length > 0) {
-      const groupedEvents = groupEventsByProject(events);
-      
-      Object.entries(groupedEvents).forEach(([projectName, projectEvents], index) => {
-        const task = {
-          id: `event-${user.id}-${index}`,
-          project: projectName,
-          activity: 'Event-based Work',
-          task: 'Various Tasks',
-          color: getProjectColor(projectName),
-          estimatedHours: projectEvents.length * 2,
-          actualHours: calculateActualHours(projectEvents),
-          totalActivityHours: projectEvents.length * 2,
-          totalProjectHours: projectEvents.length * 2,
-          velocity: calculateVelocity(projectEvents),
-          status: 'in-progress',
-          startWeek: -4,
-          endWeek: 12,
-          pattern: generateWorkPattern(),
-          isLongTerm: false,
-          targetHoursPerWeek: 5,
-          duration: '3 months',
-          projectId: projectName.toLowerCase().replace(/\s+/g, '-'),
-          monthlyHours: generateMonthlyHours(),
-          workdeckProjectId: `event-${index}`,
-          workdeckUserId: user.id
-        };
-        
-        tasks.push(task);
+          tasks.push(task);
+        } catch (error) {
+          console.error('Error processing project:', project?.id, error);
+          // Continue with other projects
+        }
       });
+    }
+
+    // If no projects, create tasks from events
+    if (tasks.length === 0 && Array.isArray(events) && events.length > 0) {
+      try {
+        const groupedEvents = groupEventsByProject(events);
+        
+        Object.entries(groupedEvents).forEach(([projectName, projectEvents], index) => {
+          const task = {
+            id: `event-${user?.id || 'unknown'}-${index}`,
+            project: projectName || 'General Work',
+            activity: 'Event-based Work',
+            task: 'Various Tasks',
+            color: getProjectColor(projectName || 'General Work'),
+            estimatedHours: (projectEvents?.length || 0) * 2,
+            actualHours: calculateActualHours(projectEvents || []),
+            totalActivityHours: (projectEvents?.length || 0) * 2,
+            totalProjectHours: (projectEvents?.length || 0) * 2,
+            velocity: calculateVelocity(projectEvents || []),
+            status: 'in-progress',
+            startWeek: -4,
+            endWeek: 12,
+            pattern: generateWorkPattern(),
+            isLongTerm: false,
+            targetHoursPerWeek: 5,
+            duration: '3 months',
+            projectId: (projectName || 'general-work').toLowerCase().replace(/\s+/g, '-'),
+            monthlyHours: generateMonthlyHours(),
+            workdeckProjectId: `event-${index}`,
+            workdeckUserId: user?.id || 'unknown'
+          };
+          
+          tasks.push(task);
+        });
+      } catch (error) {
+        console.error('Error processing events for user:', user?.id, error);
+      }
     }
 
     return tasks;
@@ -724,7 +746,7 @@ const ResourcePlanner = () => {
                       <div className="text-xs text-gray-500">
                         {member.role} • {member.department} • {member.scheduled}h / {member.capacity}h
                       </div>
-                      <div className="text-xs text-blue-600">Workdeck ID: {member.id}</div>
+                      <div className="text-xs text-blue-600">Workdeck ID: {String(member.id).substring(0, 8)}...</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -761,7 +783,7 @@ const ResourcePlanner = () => {
                               <span>•</span>
                               <span className="text-green-600">{task.velocity}h/week velocity</span>
                             </div>
-                            <div className="text-xs text-blue-600">Project ID: {task.workdeckProjectId}</div>
+                            <div className="text-xs text-blue-600">Project ID: {String(task.workdeckProjectId).substring(0, 8)}...</div>
                             <span className={`inline-block px-1 py-0.5 text-xs rounded border ${getTaskStatusColor(task.status)}`}>
                               {task.status}
                             </span>
@@ -902,9 +924,9 @@ const ResourcePlanner = () => {
                 <div className="bg-gray-50 p-3 rounded border">
                   <div className="text-xs font-medium text-gray-900 mb-1">Workdeck IDs</div>
                   <div className="text-xs text-gray-600 space-y-1">
-                    <div><strong>Project ID:</strong> {selectedTask.workdeckProjectId}</div>
-                    <div><strong>User ID:</strong> {selectedTask.workdeckUserId}</div>
-                    <div><strong>Task ID:</strong> {selectedTask.id}</div>
+                    <div><strong>Project ID:</strong> {String(selectedTask.workdeckProjectId).substring(0, 16)}...</div>
+                    <div><strong>User ID:</strong> {String(selectedTask.workdeckUserId).substring(0, 16)}...</div>
+                    <div><strong>Task ID:</strong> {String(selectedTask.id).substring(0, 16)}...</div>
                   </div>
                 </div>
 
