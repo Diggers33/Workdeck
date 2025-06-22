@@ -786,19 +786,24 @@ const ResourcePlanner = () => {
     }
   };
 
-  // Sync function: Updates spreadsheet when task properties change
+  // Enhanced sync function: Updates spreadsheet when task properties change
   const syncTaskFromSpreadsheet = (memberId, projectId, monthIndex, hours) => {
-    console.log('syncTaskFromSpreadsheet called:', { memberId, projectId, monthIndex, hours });
+    console.log('🔄 syncTaskFromSpreadsheet called:', { memberId, projectId, monthIndex, hours });
     
     setTeamData(prevData => {
-      return prevData.map(member => {
+      const newData = prevData.map(member => {
         if (member.id === memberId) {
+          console.log('🔄 Found member:', member.name);
           const updatedMember = {
             ...member,
             tasks: member.tasks.map(task => {
+              console.log('🔄 Checking task:', task.project, 'with projectId:', task.projectId, 'against:', projectId);
               if (task.projectId === projectId) {
+                console.log('🔄 Updating task:', task.project);
                 const newMonthlyHours = [...(task.monthlyHours || Array(12).fill(0))];
                 newMonthlyHours[monthIndex] = hours;
+                
+                console.log('🔄 New monthly hours for', task.project, ':', newMonthlyHours);
                 
                 // Update targetHoursPerWeek based on average of non-zero months
                 const activeMonths = newMonthlyHours.filter(h => h > 0);
@@ -806,13 +811,18 @@ const ResourcePlanner = () => {
                   ? activeMonths.reduce((sum, h) => sum + h, 0) / activeMonths.length 
                   : 0;
                 
-                return {
+                const updatedTask = {
                   ...task,
                   monthlyHours: newMonthlyHours,
                   targetHoursPerWeek: avgWeeklyHours,
+                  estimatedHours: avgWeeklyHours * 8, // Rough estimate
+                  // Update task timeline based on allocated months
                   startWeek: newMonthlyHours.findIndex(h => h > 0) * 4.33,
                   endWeek: (newMonthlyHours.length - 1 - [...newMonthlyHours].reverse().findIndex(h => h > 0)) * 4.33
                 };
+                
+                console.log('🔄 Updated task result:', updatedTask);
+                return updatedTask;
               }
               return task;
             })
@@ -823,10 +833,19 @@ const ResourcePlanner = () => {
           updatedMember.scheduled = Math.round(totalScheduled);
           updatedMember.utilization = Math.round((totalScheduled / updatedMember.capacity) * 100);
           
+          console.log('🔄 Updated member totals:', {
+            name: updatedMember.name,
+            scheduled: updatedMember.scheduled,
+            utilization: updatedMember.utilization
+          });
+          
           return updatedMember;
         }
         return member;
       });
+      
+      console.log('🔄 Final team data update completed');
+      return newData;
     });
   };
 
@@ -1266,11 +1285,13 @@ const ResourcePlanner = () => {
     setSelectedMemberForAssignment(null);
   };
 
-  // Spreadsheet functionality
+  // Debug enhanced cell edit function
   const handleProjectCellEdit = (memberId, projectId, columnIndex, value) => {
-    console.log('handleProjectCellEdit called:', { memberId, projectId, columnIndex, value, spreadsheetView });
+    console.log('🔧 handleProjectCellEdit called:', { memberId, projectId, columnIndex, value, spreadsheetView });
     
+    // Allow empty string to clear the field
     if (value === '') {
+      console.log('🔧 Clearing cell value');
       syncTaskFromSpreadsheet(memberId, projectId, columnIndex, 0);
       return;
     }
@@ -1278,7 +1299,7 @@ const ResourcePlanner = () => {
     const numValue = parseFloat(value);
     
     if (isNaN(numValue) || numValue < 0) {
-      console.log('Invalid value, returning');
+      console.log('🔧 Invalid value, returning:', value);
       return;
     }
     
@@ -1290,17 +1311,26 @@ const ResourcePlanner = () => {
     };
     
     const clampedValue = Math.min(numValue, maxLimits[spreadsheetView] || 300);
+    console.log('🔧 Clamped value:', clampedValue);
     
+    // Convert the input value to weekly hours for storage
     let weeklyHours = clampedValue;
     
     if (spreadsheetView === 'month') {
+      // User entered total monthly hours, convert to weekly
       weeklyHours = clampedValue / 4.33;
+      console.log('🔧 Converting monthly to weekly:', clampedValue, '→', weeklyHours);
     } else if (spreadsheetView === 'quarter') {
+      // User entered total quarterly hours, convert to weekly  
       weeklyHours = clampedValue / (4.33 * 3);
     } else if (spreadsheetView === 'year') {
+      // User entered total yearly hours, convert to weekly
       weeklyHours = clampedValue / (4.33 * 12);
     }
     
+    console.log('🔧 Final weekly hours to store:', weeklyHours);
+    
+    // Update unified data structure with bi-directional sync
     syncTaskFromSpreadsheet(memberId, projectId, columnIndex, Math.max(0, weeklyHours));
   };
 
