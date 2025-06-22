@@ -20,6 +20,15 @@ const ResourcePlanner = () => {
   // Workdeck API configuration
   const WORKDECK_BASE_URL = 'https://test-api.workdeck.com';
 
+  // Safe helper function
+  const safeGet = (obj, path, defaultValue = null) => {
+    try {
+      return path.split('.').reduce((current, key) => current && current[key], obj) || defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  };
+
   // API Helper function
   const apiRequest = async (endpoint, options = {}) => {
     try {
@@ -115,83 +124,138 @@ const ResourcePlanner = () => {
     }
   };
 
-  // Transform Workdeck data to our format
+  // Ultra-safe transform function
   const transformWorkdeckToTeamData = async (users, projects) => {
     const teamMembers = [];
 
+    if (!Array.isArray(users)) {
+      console.log('Users is not an array:', users);
+      return teamMembers;
+    }
+
     for (const user of users) {
       try {
+        if (!user) {
+          console.log('Skipping null/undefined user');
+          continue;
+        }
+
+        // Safely get user events
         let userEvents = [];
         try {
           userEvents = await apiRequest('/queries/me/events?start=2024-01-01');
+          if (!Array.isArray(userEvents)) userEvents = [];
         } catch (eventError) {
-          console.log('Could not load events for user:', user.id, eventError.message);
+          console.log('Could not load events for user:', safeGet(user, 'id'), eventError.message);
           userEvents = [];
         }
 
-        const userProjects = projects.filter(project => 
-          project.members?.some(member => member.user?.id === user.id) ||
-          project.participants?.some(participant => participant.user?.id === user.id)
-        );
+        // Safely find user projects
+        const userProjects = Array.isArray(projects) ? projects.filter(project => {
+          if (!project) return false;
+          try {
+            return (project.members && Array.isArray(project.members) && 
+                   project.members.some(member => safeGet(member, 'user.id') === user.id)) ||
+                   (project.participants && Array.isArray(project.participants) && 
+                   project.participants.some(participant => safeGet(participant, 'user.id') === user.id));
+          } catch {
+            return false;
+          }
+        }) : [];
 
+        // Create safe team member object
         const teamMember = {
-          id: user?.id || `user-${Math.random()}`,
-          name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'Unknown User',
-          avatar: user?.avatar || getAvatarForUser(user),
-          department: user?.department || 'General',
+          id: safeGet(user, 'id') || `user-${Math.random()}`,
+          name: `${safeGet(user, 'firstName', '')} ${safeGet(user, 'lastName', '')}`.trim() || 
+                safeGet(user, 'email') || 'Unknown User',
+          avatar: safeGet(user, 'avatar') || getAvatarForUser(user),
+          department: safeGet(user, 'department') || 'General',
           capacity: 40,
           scheduled: calculateScheduledHours(userProjects, userEvents),
           utilization: 0,
-          email: user?.email || '',
-          role: user?.rol || 'Team Member',
+          email: safeGet(user, 'email') || '',
+          role: safeGet(user, 'rol') || 'Team Member',
           tasks: transformProjectsToTasks(userProjects, userEvents, user)
         };
 
+        // Calculate utilization safely
         teamMember.utilization = Math.round((teamMember.scheduled / teamMember.capacity) * 100);
         teamMembers.push(teamMember);
+        
       } catch (userError) {
-        console.error('Error processing user:', user.id, userError);
+        console.error('Error processing user:', safeGet(user, 'id'), userError);
+        // Continue with other users
       }
     }
 
     return teamMembers;
   };
 
-  // Helper functions
+  // Ultra-safe helper functions
   const getAvatarForUser = (user) => {
     const avatars = ['👨‍💻', '👩‍💻', '👨‍🎨', '👩‍🎨', '👨‍🔬', '👩‍🔬', '👨‍💼', '👩‍💼'];
-    const hash = (user.email || user.id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return avatars[hash % avatars.length];
+    try {
+      const identifier = safeGet(user, 'email') || safeGet(user, 'id') || 'default';
+      const hash = identifier.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      return avatars[hash % avatars.length];
+    } catch {
+      return avatars[0];
+    }
   };
 
   const calculateScheduledHours = (projects, events) => {
-    const projectHours = projects.reduce((total, project) => {
-      // Safely access plannedHours with fallbacks
-      const plannedHours = project?.plannedHours || project?.availableHours || 0;
-      return total + (typeof plannedHours === 'number' ? plannedHours : 0);
-    }, 0);
-
-    const currentWeekEvents = events.filter(event => {
-      if (!event?.startAt) return false;
-      const eventDate = new Date(event.startAt);
-      const now = new Date();
-      const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-      return eventDate >= weekStart && eventDate <= weekEnd;
-    });
-
-    const eventHours = currentWeekEvents.reduce((total, event) => {
-      if (event?.endAt && event?.startAt) {
-        try {
-          const duration = new Date(event.endAt) - new Date(event.startAt);
-          return total + (duration / (1000 * 60 * 60));
-        } catch (error) {
-          console.log('Error calculating event duration:', error);
-          return total + 1;
-        }
+    let projectHours = 0;
+    
+    // Safely calculate project hours
+    try {
+      if (Array.isArray(projects)) {
+        projectHours = projects.reduce((total, project) => {
+          if (!project) return total;
+          const plannedHours = safeGet(project, 'plannedHours') || safeGet(project, 'availableHours') || 0;
+          return total + (typeof plannedHours === 'number' ? plannedHours : 0);
+        }, 0);
       }
-      return total + 1;
-    }, 0);
+    } catch (error) {
+      console.log('Error calculating project hours:', error);
+      projectHours = 0;
+    }
+
+    // Safely calculate event hours
+    let eventHours = 0;
+    try {
+      if (Array.isArray(events)) {
+        const currentWeekEvents = events.filter(event => {
+          if (!event || !safeGet(event, 'startAt')) return false;
+          try {
+            const eventDate = new Date(event.startAt);
+            const now = new Date();
+            const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+            const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+            return eventDate >= weekStart && eventDate <= weekEnd;
+          } catch {
+            return false;
+          }
+        });
+
+        eventHours = currentWeekEvents.reduce((total, event) => {
+          const endAt = safeGet(event, 'endAt');
+          const startAt = safeGet(event, 'startAt');
+          
+          if (endAt && startAt) {
+            try {
+              const duration = new Date(endAt) - new Date(startAt);
+              return total + (duration / (1000 * 60 * 60));
+            } catch {
+              return total + 1;
+            }
+          }
+          return total + 1;
+        }, 0);
+      }
+    } catch (error) {
+      console.log('Error calculating event hours:', error);
+      eventHours = 0;
+    }
 
     return Math.round(Math.min(projectHours / 10, 40) + eventHours);
   };
@@ -199,129 +263,175 @@ const ResourcePlanner = () => {
   const transformProjectsToTasks = (projects, events, user) => {
     const tasks = [];
 
-    // Safely transform projects to tasks
-    if (Array.isArray(projects)) {
-      projects.forEach((project, index) => {
-        try {
-          // Safely filter events
-          const projectEvents = Array.isArray(events) ? events.filter(event => 
-            event?.title?.toLowerCase()?.includes(project?.name?.toLowerCase() || '')
-          ) : [];
+    try {
+      if (Array.isArray(projects)) {
+        projects.forEach((project, index) => {
+          try {
+            if (!project) return;
 
-          const task = {
-            id: project?.id || `project-${index}`,
-            project: project?.name || 'Unnamed Project',
-            activity: project?.client || 'General Work',
-            task: project?.code || 'Project Tasks',
-            color: getProjectColor(project?.name || `project-${index}`),
-            estimatedHours: project?.plannedHours || project?.availableHours || 0,
-            actualHours: calculateActualHours(projectEvents),
-            totalActivityHours: project?.availableHours || 0,
-            totalProjectHours: project?.plannedHours || 0,
-            velocity: calculateVelocity(projectEvents),
-            status: determineTaskStatus(project),
-            startWeek: -8,
-            endWeek: 24,
-            pattern: generateWorkPattern(),
-            isLongTerm: isLongTermProject(project),
-            targetHoursPerWeek: calculateTargetHours(project),
-            duration: calculateDuration(project),
-            projectId: (project?.name || `project-${index}`).toLowerCase().replace(/\s+/g, '-'),
-            monthlyHours: generateMonthlyHours(project),
-            workdeckProjectId: project?.id || `project-${index}`,
-            workdeckUserId: user?.id || 'unknown'
-          };
+            // Safely filter events
+            const projectEvents = Array.isArray(events) ? events.filter(event => {
+              try {
+                const eventTitle = safeGet(event, 'title', '').toLowerCase();
+                const projectName = safeGet(project, 'name', '').toLowerCase();
+                return eventTitle.includes(projectName);
+              } catch {
+                return false;
+              }
+            }) : [];
 
-          tasks.push(task);
-        } catch (error) {
-          console.error('Error processing project:', project?.id, error);
-          // Continue with other projects
-        }
-      });
-    }
+            const task = {
+              id: safeGet(project, 'id') || `project-${index}`,
+              project: safeGet(project, 'name') || 'Unnamed Project',
+              activity: safeGet(project, 'client') || 'General Work',
+              task: safeGet(project, 'code') || 'Project Tasks',
+              color: getProjectColor(safeGet(project, 'name') || `project-${index}`),
+              estimatedHours: safeGet(project, 'plannedHours') || safeGet(project, 'availableHours') || 0,
+              actualHours: calculateActualHours(projectEvents),
+              totalActivityHours: safeGet(project, 'availableHours') || 0,
+              totalProjectHours: safeGet(project, 'plannedHours') || 0,
+              velocity: calculateVelocity(projectEvents),
+              status: determineTaskStatus(project),
+              startWeek: -8,
+              endWeek: 24,
+              pattern: generateWorkPattern(),
+              isLongTerm: isLongTermProject(project),
+              targetHoursPerWeek: calculateTargetHours(project),
+              duration: calculateDuration(project),
+              projectId: (safeGet(project, 'name') || `project-${index}`).toLowerCase().replace(/\s+/g, '-'),
+              monthlyHours: generateMonthlyHours(project),
+              workdeckProjectId: safeGet(project, 'id') || `project-${index}`,
+              workdeckUserId: safeGet(user, 'id') || 'unknown'
+            };
 
-    // If no projects, create tasks from events
-    if (tasks.length === 0 && Array.isArray(events) && events.length > 0) {
-      try {
-        const groupedEvents = groupEventsByProject(events);
-        
-        Object.entries(groupedEvents).forEach(([projectName, projectEvents], index) => {
-          const task = {
-            id: `event-${user?.id || 'unknown'}-${index}`,
-            project: projectName || 'General Work',
-            activity: 'Event-based Work',
-            task: 'Various Tasks',
-            color: getProjectColor(projectName || 'General Work'),
-            estimatedHours: (projectEvents?.length || 0) * 2,
-            actualHours: calculateActualHours(projectEvents || []),
-            totalActivityHours: (projectEvents?.length || 0) * 2,
-            totalProjectHours: (projectEvents?.length || 0) * 2,
-            velocity: calculateVelocity(projectEvents || []),
-            status: 'in-progress',
-            startWeek: -4,
-            endWeek: 12,
-            pattern: generateWorkPattern(),
-            isLongTerm: false,
-            targetHoursPerWeek: 5,
-            duration: '3 months',
-            projectId: (projectName || 'general-work').toLowerCase().replace(/\s+/g, '-'),
-            monthlyHours: generateMonthlyHours(),
-            workdeckProjectId: `event-${index}`,
-            workdeckUserId: user?.id || 'unknown'
-          };
-          
-          tasks.push(task);
+            tasks.push(task);
+          } catch (error) {
+            console.error('Error processing project:', safeGet(project, 'id'), error);
+          }
         });
-      } catch (error) {
-        console.error('Error processing events for user:', user?.id, error);
       }
+
+      // If no projects, create tasks from events
+      if (tasks.length === 0 && Array.isArray(events) && events.length > 0) {
+        try {
+          const groupedEvents = groupEventsByProject(events);
+          
+          Object.entries(groupedEvents).forEach(([projectName, projectEvents], index) => {
+            try {
+              const task = {
+                id: `event-${safeGet(user, 'id', 'unknown')}-${index}`,
+                project: projectName || 'General Work',
+                activity: 'Event-based Work',
+                task: 'Various Tasks',
+                color: getProjectColor(projectName || 'General Work'),
+                estimatedHours: (Array.isArray(projectEvents) ? projectEvents.length : 0) * 2,
+                actualHours: calculateActualHours(projectEvents || []),
+                totalActivityHours: (Array.isArray(projectEvents) ? projectEvents.length : 0) * 2,
+                totalProjectHours: (Array.isArray(projectEvents) ? projectEvents.length : 0) * 2,
+                velocity: calculateVelocity(projectEvents || []),
+                status: 'in-progress',
+                startWeek: -4,
+                endWeek: 12,
+                pattern: generateWorkPattern(),
+                isLongTerm: false,
+                targetHoursPerWeek: 5,
+                duration: '3 months',
+                projectId: (projectName || 'general-work').toLowerCase().replace(/\s+/g, '-'),
+                monthlyHours: generateMonthlyHours(),
+                workdeckProjectId: `event-${index}`,
+                workdeckUserId: safeGet(user, 'id') || 'unknown'
+              };
+              
+              tasks.push(task);
+            } catch (error) {
+              console.error('Error processing event group:', projectName, error);
+            }
+          });
+        } catch (error) {
+          console.error('Error processing events for user:', safeGet(user, 'id'), error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in transformProjectsToTasks:', error);
     }
 
     return tasks;
   };
 
-  // Utility functions
+  // Safe utility functions
   const getProjectColor = (projectName) => {
     const colors = [
       'bg-purple-600', 'bg-blue-600', 'bg-green-600', 'bg-orange-500', 
       'bg-red-500', 'bg-indigo-500', 'bg-teal-500', 'bg-pink-500'
     ];
     
-    let hash = 0;
-    for (let i = 0; i < projectName.length; i++) {
-      hash = projectName.charCodeAt(i) + ((hash << 5) - hash);
+    try {
+      let hash = 0;
+      const name = projectName || 'default';
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    } catch {
+      return colors[0];
     }
-    return colors[Math.abs(hash) % colors.length];
   };
 
   const calculateActualHours = (events) => {
-    return events.reduce((total, event) => {
-      if (event.endAt && event.startAt) {
-        const duration = new Date(event.endAt) - new Date(event.startAt);
-        return total + (duration / (1000 * 60 * 60));
-      }
-      return total + 1;
-    }, 0);
+    try {
+      if (!Array.isArray(events)) return 0;
+      
+      return events.reduce((total, event) => {
+        try {
+          const endAt = safeGet(event, 'endAt');
+          const startAt = safeGet(event, 'startAt');
+          
+          if (endAt && startAt) {
+            const duration = new Date(endAt) - new Date(startAt);
+            return total + (duration / (1000 * 60 * 60));
+          }
+          return total + 1;
+        } catch {
+          return total + 1;
+        }
+      }, 0);
+    } catch {
+      return 0;
+    }
   };
 
   const calculateVelocity = (events) => {
-    if (events.length === 0) return 0;
-    const totalHours = calculateActualHours(events);
-    const weeks = Math.max(1, events.length / 5);
-    return Math.round((totalHours / weeks) * 10) / 10;
+    try {
+      if (!Array.isArray(events) || events.length === 0) return 0;
+      const totalHours = calculateActualHours(events);
+      const weeks = Math.max(1, events.length / 5);
+      return Math.round((totalHours / weeks) * 10) / 10;
+    } catch {
+      return 0;
+    }
   };
 
   const determineTaskStatus = (project) => {
-    if (!project.endDate) return 'in-progress';
-    
-    const endDate = new Date(project.endDate);
-    const now = new Date();
-    
-    if (endDate < now) return 'completed';
-    if (project.plannedHours && project.availableHours && 
-        project.plannedHours > project.availableHours * 1.1) return 'over-budget';
-    
-    return 'in-progress';
+    try {
+      const endDate = safeGet(project, 'endDate');
+      if (!endDate) return 'in-progress';
+      
+      const end = new Date(endDate);
+      const now = new Date();
+      
+      if (end < now) return 'completed';
+      
+      const plannedHours = safeGet(project, 'plannedHours');
+      const availableHours = safeGet(project, 'availableHours');
+      
+      if (plannedHours && availableHours && plannedHours > availableHours * 1.1) {
+        return 'over-budget';
+      }
+      
+      return 'in-progress';
+    } catch {
+      return 'in-progress';
+    }
   };
 
   const generateWorkPattern = () => {
@@ -329,70 +439,110 @@ const ResourcePlanner = () => {
   };
 
   const isLongTermProject = (project) => {
-    if (!project.startDate || !project.endDate) return false;
-    
-    const start = new Date(project.startDate);
-    const end = new Date(project.endDate);
-    const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
-                      (end.getMonth() - start.getMonth());
-    
-    return monthsDiff > 3;
+    try {
+      const startDate = safeGet(project, 'startDate');
+      const endDate = safeGet(project, 'endDate');
+      
+      if (!startDate || !endDate) return false;
+      
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + 
+                        (end.getMonth() - start.getMonth());
+      
+      return monthsDiff > 3;
+    } catch {
+      return false;
+    }
   };
 
   const calculateTargetHours = (project) => {
-    if (project.plannedHours && project.startDate && project.endDate) {
-      const start = new Date(project.startDate);
-      const end = new Date(project.endDate);
-      const weeks = Math.max(1, (end - start) / (1000 * 60 * 60 * 24 * 7));
-      return Math.round((project.plannedHours / weeks) * 10) / 10;
+    try {
+      const plannedHours = safeGet(project, 'plannedHours');
+      const startDate = safeGet(project, 'startDate');
+      const endDate = safeGet(project, 'endDate');
+      
+      if (plannedHours && startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const weeks = Math.max(1, (end - start) / (1000 * 60 * 60 * 24 * 7));
+        return Math.round((plannedHours / weeks) * 10) / 10;
+      }
+    } catch (error) {
+      console.log('Error calculating target hours:', error);
     }
     return 5;
   };
 
   const calculateDuration = (project) => {
-    if (!project.startDate || !project.endDate) return '3 months';
-    
-    const start = new Date(project.startDate);
-    const end = new Date(project.endDate);
-    const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
-    
-    return `${months} month${months !== 1 ? 's' : ''}`;
+    try {
+      const startDate = safeGet(project, 'startDate');
+      const endDate = safeGet(project, 'endDate');
+      
+      if (!startDate || !endDate) return '3 months';
+      
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+      
+      return `${months} month${months !== 1 ? 's' : ''}`;
+    } catch {
+      return '3 months';
+    }
   };
 
   const generateMonthlyHours = (project) => {
-    const targetWeekly = calculateTargetHours(project);
-    return Array.from({ length: 12 }, () => targetWeekly);
+    try {
+      const targetWeekly = calculateTargetHours(project);
+      return Array.from({ length: 12 }, () => targetWeekly);
+    } catch {
+      return Array.from({ length: 12 }, () => 5);
+    }
   };
 
   const groupEventsByProject = (events) => {
-    return events.reduce((groups, event) => {
-      const projectName = extractProjectFromTitle(event.title) || 'General Work';
+    try {
+      if (!Array.isArray(events)) return {};
       
-      if (!groups[projectName]) {
-        groups[projectName] = [];
-      }
-      groups[projectName].push(event);
-      
-      return groups;
-    }, {});
+      return events.reduce((groups, event) => {
+        try {
+          const projectName = extractProjectFromTitle(safeGet(event, 'title')) || 'General Work';
+          
+          if (!groups[projectName]) {
+            groups[projectName] = [];
+          }
+          groups[projectName].push(event);
+          
+          return groups;
+        } catch {
+          return groups;
+        }
+      }, {});
+    } catch {
+      return {};
+    }
   };
 
   const extractProjectFromTitle = (title) => {
-    if (!title) return null;
+    if (!title || typeof title !== 'string') return null;
     
-    const patterns = [
-      /^(\w+[-_]\w+)/,
-      /^\[([^\]]+)\]/,
-      /^([A-Z]+\d*)/,
-    ];
-    
-    for (const pattern of patterns) {
-      const match = title.match(pattern);
-      if (match) return match[1];
+    try {
+      const patterns = [
+        /^(\w+[-_]\w+)/,
+        /^\[([^\]]+)\]/,
+        /^([A-Z]+\d*)/,
+      ];
+      
+      for (const pattern of patterns) {
+        const match = title.match(pattern);
+        if (match) return match[1];
+      }
+      
+      const words = title.split(' ');
+      return words.slice(0, 2).join(' ');
+    } catch {
+      return null;
     }
-    
-    const words = title.split(' ');
-    return words.slice(0, 2).join(' ');
   };
 
   // Check for existing token on mount
@@ -401,7 +551,6 @@ const ResourcePlanner = () => {
     if (savedToken) {
       setToken(savedToken);
       setIsAuthenticated(true);
-      loadWorkdeckData();
     }
   }, []);
 
@@ -426,7 +575,13 @@ const ResourcePlanner = () => {
     }
   };
 
-  const getRemainingHours = (task) => Math.max(0, task.estimatedHours - task.actualHours);
+  const getRemainingHours = (task) => {
+    try {
+      return Math.max(0, (task.estimatedHours || 0) - (task.actualHours || 0));
+    } catch {
+      return 0;
+    }
+  };
 
   const getUtilizationColor = (utilization) => {
     if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
@@ -436,22 +591,26 @@ const ResourcePlanner = () => {
   };
 
   const getDateRangeLabel = () => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
-    
-    if (selectedView === 'year') return currentYear.toString();
-    if (selectedView === 'quarter') {
-      const quarterNumber = Math.floor(currentMonth / 3) + 1;
-      return `Q${quarterNumber} ${currentYear}`;
+    try {
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth();
+      
+      if (selectedView === 'year') return currentYear.toString();
+      if (selectedView === 'quarter') {
+        const quarterNumber = Math.floor(currentMonth / 3) + 1;
+        return `Q${quarterNumber} ${currentYear}`;
+      }
+      if (selectedView === 'month') {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        return `${monthNames[currentMonth]} ${currentYear}`;
+      }
+      
+      return `Week of ${currentMonth + 1}/${currentDate.getDate()}/${currentYear}`;
+    } catch {
+      return 'Current Period';
     }
-    if (selectedView === 'month') {
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                         'July', 'August', 'September', 'October', 'November', 'December'];
-      return `${monthNames[currentMonth]} ${currentYear}`;
-    }
-    
-    return `Week of ${currentMonth + 1}/${currentDate.getDate()}/${currentYear}`;
   };
 
   const handleLogout = () => {
@@ -699,6 +858,7 @@ const ResourcePlanner = () => {
                 <div>• <strong>Real-time Data:</strong> Connected to {WORKDECK_BASE_URL}</div>
                 <div>• <strong>Live Users:</strong> {teamData.length} team members loaded from Workdeck</div>
                 <div>• <strong>Live Projects:</strong> Active projects and tasks synced</div>
+                <div>• <strong>Error Handling:</strong> Ultra-safe data processing prevents crashes</div>
                 {departments.length > 0 && <div>• <strong>Departments:</strong> {departments.join(', ')}</div>}
               </div>
             </div>
@@ -917,7 +1077,7 @@ const ResourcePlanner = () => {
                     {selectedTask.targetHoursPerWeek || 0}h per week • {selectedTask.duration}
                   </div>
                   <div className="text-xs text-green-700 mt-1">
-                    🔗 Connected to Workdeck project: {selectedTask.workdeckProjectId}
+                    🔗 Connected to Workdeck project: {String(selectedTask.workdeckProjectId).substring(0, 8)}...
                   </div>
                 </div>
 
