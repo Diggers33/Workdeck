@@ -174,7 +174,25 @@ class WorkdeckAPI {
     return this.request(`/queries/projects/${projectId}`);
   }
 
-  // Get all projects with full details
+  // Get resource planning data - this should contain actual time allocations
+  async getResourcePlanningData() {
+    console.log('📅 Fetching resource planning data...');
+    return this.request('/queries/resource-planner');
+  }
+
+  // Get time tracking data for users
+  async getTimeTrackingData(startDate, endDate) {
+    console.log(`⏰ Fetching time tracking data from ${startDate} to ${endDate}...`);
+    return this.request(`/queries/time-tracking?start=${startDate}&end=${endDate}`);
+  }
+
+  // Get user's tasks with time allocations
+  async getUserTasks(userId) {
+    console.log(`📋 Fetching tasks for user ${userId}...`);
+    return this.request(`/queries/users/${userId}/tasks`);
+  }
+
+  // Get all projects with full details including time allocations
   async getAllProjectsWithDetails() {
     console.log('📋 Fetching all projects with details...');
     const projects = await this.getProjects();
@@ -196,11 +214,13 @@ class WorkdeckAPI {
 
 // Enhanced DataTransformer using real Workdeck data structure
 class DataTransformer {
-  static transformUsersToTeamMembers(users, projects = [], detailedProjects = []) {
+  static transformUsersToTeamMembers(users, projects = [], detailedProjects = [], resourcePlanningData = null, userTaskData = new Map()) {
     console.log('🔄 Transforming data:', { 
       users: users?.length || 0, 
       projects: projects?.length || 0,
-      detailedProjects: detailedProjects?.length || 0 
+      detailedProjects: detailedProjects?.length || 0,
+      hasResourcePlanning: !!resourcePlanningData,
+      userTaskDataCount: userTaskData.size
     });
     
     if (!users || users.length === 0) {
@@ -209,6 +229,10 @@ class DataTransformer {
     
     return users.map(user => {
       console.log(`🔄 Processing user: ${user.firstName} ${user.lastName} (${user.id})`);
+      
+      // Get user's individual task data if available
+      const individualTasks = userTaskData.get(user.id) || [];
+      console.log(`📋 User ${user.firstName} has ${individualTasks.length} individual tasks`);
       
       // Find actual tasks assigned to this user from detailed project data
       const userTasks = [];
@@ -221,13 +245,43 @@ class DataTransformer {
                 if (task.participants) {
                   const userParticipation = task.participants.find(p => p.user?.id === user.id);
                   if (userParticipation) {
+                    
+                    // Try to get more accurate time data from individual tasks or resource planning
+                    let actualPlannedHours = parseFloat(userParticipation.plannedHours) || 0;
+                    let scheduledHoursFromResourcePlanning = 0;
+                    
+                    // Check if we have more detailed scheduling data
+                    const matchingIndividualTask = individualTasks.find(indTask => 
+                      indTask.id === task.id || 
+                      (indTask.name === task.name && indTask.project?.id === project.id)
+                    );
+                    
+                    if (matchingIndividualTask) {
+                      console.log(`📋 Found matching individual task data for "${task.name}":`, matchingIndividualTask);
+                      // Use more detailed data if available
+                      if (matchingIndividualTask.plannedHours) {
+                        actualPlannedHours = parseFloat(matchingIndividualTask.plannedHours);
+                      }
+                      if (matchingIndividualTask.scheduledHours) {
+                        scheduledHoursFromResourcePlanning = parseFloat(matchingIndividualTask.scheduledHours);
+                      }
+                    }
+                    
+                    // Use the higher value between planned and scheduled
+                    const effectivePlannedHours = Math.max(actualPlannedHours, scheduledHoursFromResourcePlanning);
+                    
+                    console.log(`📋 Task "${task.name}" for ${user.firstName}: planned=${actualPlannedHours}h, scheduled=${scheduledHoursFromResourcePlanning}h, effective=${effectivePlannedHours}h`);
+                    
                     userTasks.push({
                       ...task,
                       project: project,
                       activity: activity,
                       userParticipation: userParticipation,
                       isOwner: userParticipation.isOwner,
-                      plannedHours: parseFloat(userParticipation.plannedHours) || 0
+                      plannedHours: effectivePlannedHours,
+                      originalPlannedHours: actualPlannedHours,
+                      scheduledHours: scheduledHoursFromResourcePlanning,
+                      individualTaskData: matchingIndividualTask
                     });
                   }
                 }
@@ -264,7 +318,9 @@ class DataTransformer {
         tasks: planningTasks,
         // Add real Workdeck user data
         realTasksCount: userTasks.length,
-        hasRealAssignments: userTasks.length > 0
+        hasRealAssignments: userTasks.length > 0,
+        totalPlannedHours: userTasks.reduce((sum, task) => sum + task.plannedHours, 0),
+        totalScheduledHours: userTasks.reduce((sum, task) => sum + (task.scheduledHours || 0), 0)
       };
     });
   }
@@ -276,22 +332,29 @@ class DataTransformer {
     const userParticipation = taskWithProject.userParticipation;
     
     console.log(`🔄 Transforming real task: ${task.name} in ${project.name}`, {
-      plannedHours: userParticipation.plannedHours,
+      plannedHours: taskWithProject.plannedHours,
+      originalPlannedHours: taskWithProject.originalPlannedHours,
+      scheduledHours: taskWithProject.scheduledHours,
       isOwner: userParticipation.isOwner,
       startDate: task.startDate,
       endDate: task.endDate
     });
     
-    const plannedHours = parseFloat(userParticipation.plannedHours) || 0;
+    const plannedHours = taskWithProject.plannedHours || 0; // Use the effective planned hours
     
     // Calculate realistic weekly hours based on task duration
     let targetWeeklyHours = 0;
     if (plannedHours > 0 && task.startDate && task.endDate) {
       const durationWeeks = this.calculateTaskDurationInWeeks(task.startDate, task.endDate);
-      targetWeeklyHours = durationWeeks > 0 ? Math.min(plannedHours / durationWeeks, 20) : 0;
+      targetWeeklyHours = durationWeeks > 0 ? Math.min(plannedHours / durationWeeks, 20) : plannedHours / 8;
     } else if (plannedHours > 0) {
       // Fallback: spread over 8 weeks if no dates
       targetWeeklyHours = Math.min(plannedHours / 8, 20);
+    }
+    
+    // If we have scheduled hours but no planned hours, derive weekly from scheduled
+    if (targetWeeklyHours === 0 && taskWithProject.scheduledHours > 0) {
+      targetWeeklyHours = Math.min(taskWithProject.scheduledHours / 8, 20);
     }
     
     return {
@@ -322,7 +385,11 @@ class DataTransformer {
       workdeckProjectId: project.id,
       workdeckActivityId: activity.id,
       isTaskOwner: userParticipation.isOwner,
-      userPosition: userParticipation.position || 0
+      userPosition: userParticipation.position || 0,
+      // Add debugging info
+      originalPlannedHours: taskWithProject.originalPlannedHours,
+      scheduledHours: taskWithProject.scheduledHours,
+      hasIndividualTaskData: !!taskWithProject.individualTaskData
     };
   }
 
@@ -571,7 +638,7 @@ const ResourcePlanner = () => {
     try {
       console.log('📊 Loading LIVE data from Workdeck API...');
       
-      // Fetch all required data including detailed project information
+      // Fetch all required data including detailed project information and resource planning
       const [usersResponse, projectsResponse, companyResponse] = await Promise.allSettled([
         workdeckAPI.getUsers(),
         workdeckAPI.getProjects(),
@@ -606,7 +673,18 @@ const ResourcePlanner = () => {
       // Fetch detailed project information with tasks and assignments
       console.log('📋 Fetching detailed project information...');
       let detailedProjects = [];
+      let resourcePlanningData = null;
       
+      try {
+        // Try to get resource planning data first
+        console.log('📅 Attempting to fetch resource planning data...');
+        const resourceResponse = await workdeckAPI.getResourcePlanningData();
+        resourcePlanningData = resourceResponse?.result || resourceResponse;
+        console.log('📅 Resource planning data received:', resourcePlanningData);
+      } catch (resourceError) {
+        console.warn('⚠️ Could not fetch resource planning data:', resourceError.message);
+      }
+
       try {
         detailedProjects = await workdeckAPI.getAllProjectsWithDetails();
         console.log(`📋 Loaded ${detailedProjects.length} detailed projects with task assignments`);
@@ -618,14 +696,39 @@ const ResourcePlanner = () => {
             sum + (activity.tasks?.reduce((taskSum, task) => taskSum + (task.participants?.length || 0), 0) || 0), 0) || 0;
           
           console.log(`📋 Project "${project.name}": ${totalTasks} tasks, ${totalAssignments} assignments`);
+          
+          // Log task details to see planned hours
+          project.activities?.forEach(activity => {
+            activity.tasks?.forEach(task => {
+              if (task.participants?.length > 0) {
+                console.log(`  📋 Task "${task.name}" in activity "${activity.name}":`, 
+                  task.participants.map(p => `${p.user?.firstName} ${p.user?.lastName}: ${p.plannedHours}h`));
+              }
+            });
+          });
         });
       } catch (projectError) {
         console.warn('⚠️ Could not fetch detailed project data:', projectError.message);
         // Continue with basic project data
       }
 
-      // Transform data for resource planning using real assignments
-      const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, detailedProjects);
+      // Try to fetch individual user task data for better time allocation info
+      console.log('👥 Fetching individual user task data...');
+      const userTaskData = new Map();
+      
+      await Promise.all(users.map(async (user) => {
+        try {
+          const userTasks = await workdeckAPI.getUserTasks(user.id);
+          const tasks = userTasks?.result || userTasks || [];
+          userTaskData.set(user.id, tasks);
+          console.log(`📋 User ${user.firstName} ${user.lastName}: ${tasks.length} tasks with allocations`);
+        } catch (userTaskError) {
+          console.warn(`⚠️ Could not fetch tasks for user ${user.firstName} ${user.lastName}:`, userTaskError.message);
+        }
+      }));
+
+      // Transform data for resource planning using real assignments and time allocations
+      const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, detailedProjects, resourcePlanningData, userTaskData);
       setTeamData(teamMembers);
       setProjects(projectsData);
       setCompany(companyData);
@@ -633,11 +736,13 @@ const ResourcePlanner = () => {
       // Log transformation results
       const membersWithRealTasks = teamMembers.filter(m => m.hasRealAssignments);
       const membersWithoutTasks = teamMembers.filter(m => !m.hasRealAssignments);
+      const membersWithHours = teamMembers.filter(m => m.scheduled > 0);
       
       console.log('🎉 Successfully loaded and transformed Workdeck data!', {
         totalMembers: teamMembers.length,
         membersWithRealTasks: membersWithRealTasks.length,
         membersWithoutTasks: membersWithoutTasks.length,
+        membersWithHours: membersWithHours.length,
         projectsCount: projectsData.length,
         detailedProjectsCount: detailedProjects.length
       });
@@ -645,6 +750,11 @@ const ResourcePlanner = () => {
       if (membersWithoutTasks.length > 0) {
         console.log('⚠️ Team members without task assignments:', 
           membersWithoutTasks.map(m => `${m.name} (${m.department})`));
+      }
+
+      if (membersWithHours.length > 0) {
+        console.log('✅ Team members with scheduled hours:', 
+          membersWithHours.map(m => `${m.name}: ${m.scheduled}h`));
       }
       
     } catch (err) {
