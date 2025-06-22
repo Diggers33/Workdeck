@@ -177,19 +177,34 @@ class WorkdeckAPI {
   // Get resource planning data - this should contain actual time allocations
   async getResourcePlanningData() {
     console.log('📅 Fetching resource planning data...');
-    return this.request('/queries/resource-planner');
+    try {
+      return this.request('/queries/resource-planner');
+    } catch (error) {
+      console.warn('⚠️ Resource planning endpoint may not exist:', error.message);
+      throw error;
+    }
   }
 
   // Get time tracking data for users
   async getTimeTrackingData(startDate, endDate) {
     console.log(`⏰ Fetching time tracking data from ${startDate} to ${endDate}...`);
-    return this.request(`/queries/time-tracking?start=${startDate}&end=${endDate}`);
+    try {
+      return this.request(`/queries/time-tracking?start=${startDate}&end=${endDate}`);
+    } catch (error) {
+      console.warn('⚠️ Time tracking endpoint may not exist:', error.message);
+      throw error;
+    }
   }
 
   // Get user's tasks with time allocations
   async getUserTasks(userId) {
     console.log(`📋 Fetching tasks for user ${userId}...`);
-    return this.request(`/queries/users/${userId}/tasks`);
+    try {
+      return this.request(`/queries/users/${userId}/tasks`);
+    } catch (error) {
+      console.warn(`⚠️ User tasks endpoint may not exist for user ${userId}:`, error.message);
+      throw error;
+    }
   }
 
   // Get all projects with full details including time allocations
@@ -232,18 +247,20 @@ class DataTransformer {
       
       // Get user's individual task data if available
       const individualTasks = userTaskData.get(user.id) || [];
-      console.log(`📋 User ${user.firstName} has ${individualTasks.length} individual tasks`);
+      // Ensure it's always an array
+      const safeIndividualTasks = Array.isArray(individualTasks) ? individualTasks : [];
+      console.log(`📋 User ${user.firstName} has ${safeIndividualTasks.length} individual tasks`);
       
       // Find actual tasks assigned to this user from detailed project data
       const userTasks = [];
       
       detailedProjects.forEach(project => {
-        if (project.activities) {
+        if (project && project.activities && Array.isArray(project.activities)) {
           project.activities.forEach(activity => {
-            if (activity.tasks) {
+            if (activity && activity.tasks && Array.isArray(activity.tasks)) {
               activity.tasks.forEach(task => {
-                if (task.participants) {
-                  const userParticipation = task.participants.find(p => p.user?.id === user.id);
+                if (task && task.participants && Array.isArray(task.participants)) {
+                  const userParticipation = task.participants.find(p => p && p.user && p.user.id === user.id);
                   if (userParticipation) {
                     
                     // Try to get more accurate time data from individual tasks or resource planning
@@ -251,9 +268,9 @@ class DataTransformer {
                     let scheduledHoursFromResourcePlanning = 0;
                     
                     // Check if we have more detailed scheduling data
-                    const matchingIndividualTask = individualTasks.find(indTask => 
-                      indTask.id === task.id || 
-                      (indTask.name === task.name && indTask.project?.id === project.id)
+                    const matchingIndividualTask = safeIndividualTasks.find(indTask => 
+                      indTask && indTask.id === task.id || 
+                      (indTask && indTask.name === task.name && indTask.project?.id === project.id)
                     );
                     
                     if (matchingIndividualTask) {
@@ -716,16 +733,20 @@ const ResourcePlanner = () => {
       console.log('👥 Fetching individual user task data...');
       const userTaskData = new Map();
       
-      await Promise.all(users.map(async (user) => {
+      for (const user of users) {
         try {
           const userTasks = await workdeckAPI.getUserTasks(user.id);
           const tasks = userTasks?.result || userTasks || [];
-          userTaskData.set(user.id, tasks);
-          console.log(`📋 User ${user.firstName} ${user.lastName}: ${tasks.length} tasks with allocations`);
+          // Ensure tasks is an array
+          const tasksArray = Array.isArray(tasks) ? tasks : [];
+          userTaskData.set(user.id, tasksArray);
+          console.log(`📋 User ${user.firstName} ${user.lastName}: ${tasksArray.length} tasks with allocations`);
         } catch (userTaskError) {
           console.warn(`⚠️ Could not fetch tasks for user ${user.firstName} ${user.lastName}:`, userTaskError.message);
+          // Set empty array for this user
+          userTaskData.set(user.id, []);
         }
-      }));
+      }
 
       // Transform data for resource planning using real assignments and time allocations
       const teamMembers = DataTransformer.transformUsersToTeamMembers(users, projectsData, detailedProjects, resourcePlanningData, userTaskData);
