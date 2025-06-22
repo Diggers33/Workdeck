@@ -1302,12 +1302,15 @@ const ResourcePlanner = () => {
     const member = teamData.find(m => m.id === memberId);
     if (!member) return [];
     
+    // Show ALL tasks (including those with 0 hours) in spreadsheet view for editing
     return member.tasks.map(task => ({
       id: task.project.toLowerCase().replace(/\s+/g, '-'),
       name: task.project,
       activity: task.activity,
       task: task.task,
-      color: task.color
+      color: task.color,
+      hasHours: task.targetHoursPerWeek > 0 || task.estimatedHours > 0,
+      isRealWorkdeckTask: task.realWorkdeckTask || false
     }));
   };
 
@@ -1789,15 +1792,32 @@ const ResourcePlanner = () => {
                           </td>
                         </tr>
                         
-                        {/* Project Breakdown Rows */}
+                        {/* Project Breakdown Rows - Show ALL tasks for editing */}
                         {memberProjects.map((project, projectIdx) => (
                           <tr key={`${member.id}-${project.id}`} className="hover:bg-gray-25">
                             <td className="px-4 py-2 border-r bg-white">
                               <div className="flex items-center space-x-3 ml-8">
                                 <div className={`w-3 h-3 rounded-full ${project.color}`}></div>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-800">{project.name}</div>
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="text-sm font-medium text-gray-800">{project.name}</div>
+                                    {project.isRealWorkdeckTask && (
+                                      <span className="px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded border">
+                                        Live
+                                      </span>
+                                    )}
+                                    {!project.hasHours && (
+                                      <span className="px-1 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded border">
+                                        0h
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="text-xs text-gray-600">{project.activity} → {project.task}</div>
+                                  {!project.hasHours && (
+                                    <div className="text-xs text-yellow-600 font-medium">
+                                      Click cells below to add hours
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1832,9 +1852,12 @@ const ResourcePlanner = () => {
                                   ) : (
                                     <div
                                       onClick={() => setEditingCell({ memberId: member.id, column: columnIdx, projectId: project.id })}
-                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${getCellColor(hours)}`}
+                                      className={`w-full h-8 px-2 py-1.5 text-center text-sm font-medium cursor-pointer hover:ring-1 hover:ring-blue-300 rounded flex items-center justify-center ${
+                                        hours > 0 ? getCellColor(hours) : 'bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:border-blue-300'
+                                      }`}
+                                      title={hours === 0 ? 'Click to add hours' : `${Math.round(hours)}h planned`}
                                     >
-                                      {hours > 0 ? `${Math.round(hours)}h` : '—'}
+                                      {hours > 0 ? `${Math.round(hours)}h` : '+'}
                                     </div>
                                   )}
                                 </td>
@@ -1844,9 +1867,32 @@ const ResourcePlanner = () => {
                               <div className="text-sm font-medium text-gray-800">
                                 {Math.round(getProjectRowTotal(member.id, project.id))}h
                               </div>
+                              {!project.hasHours && (
+                                <div className="text-xs text-yellow-600">
+                                  No hours
+                                </div>
+                              )}
                             </td>
                           </tr>
                         ))}
+
+                        {/* Show message if user has no tasks at all */}
+                        {memberProjects.length === 0 && (
+                          <tr>
+                            <td colSpan={getSpreadsheetColumns().length + 2} className="px-4 py-8 text-center">
+                              <div className="text-gray-500">
+                                <div className="text-sm font-medium mb-1">No Workdeck Tasks</div>
+                                <div className="text-xs">This user has no task assignments in Workdeck</div>
+                                <button 
+                                  onClick={() => handleAssignTask(member)}
+                                  className="mt-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                >
+                                  Assign Task
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     );
                   })}
