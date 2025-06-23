@@ -348,14 +348,23 @@ const ResourcePlanner = ({ workdeckToken }) => {
     }
   };
 
-  // Use teamData for the component
-  const teamMembers = teamData;
-
-  // Rest of your existing functions...
+  // Navigation functions
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
   const goToToday = () => setCurrentWeekOffset(0);
 
+  // Use teamData for the component
+  const teamMembers = teamData;
+
+  // Navigation functions
+  const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
+  const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
+  const goToToday = () => setCurrentWeekOffset(0);
+
+  // Use teamData for the component
+  const teamMembers = teamData;
+
+  // Utility functions
   const getTaskStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'text-green-700 bg-green-100 border-green-200';
