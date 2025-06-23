@@ -351,7 +351,133 @@ const ResourcePlanner = ({ workdeckToken }) => {
   // Use teamData for the component
   const teamMembers = teamData;
 
-  // Rest of your existing functions remain the same...
+  // Rest of your existing functions...
+  const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
+  const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
+  const goToToday = () => setCurrentWeekOffset(0);
+
+  const getTaskStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'text-green-700 bg-green-100 border-green-200';
+      case 'in-progress': return 'text-blue-700 bg-blue-100 border-blue-200';
+      case 'over-budget': return 'text-red-700 bg-red-100 border-red-200';
+      case 'planned': return 'text-gray-600 bg-gray-100 border-gray-200';
+      default: return 'text-gray-600 bg-gray-100 border-gray-200';
+    }
+  };
+
+  const getRemainingHours = (task) => Math.max(0, task.estimatedHours - task.actualHours);
+
+  const getUtilizationColor = (utilization) => {
+    if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
+    if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
+    return 'text-green-600 bg-green-50 border-green-200';
+  };
+
+  const isTaskActive = (task, weekOffset) => {
+    if (!task.startWeek && !task.endWeek) return true;
+    const startWeek = task.startWeek || -Infinity;
+    const endWeek = task.endWeek || Infinity;
+    return weekOffset >= startWeek && weekOffset <= endWeek;
+  };
+
+  const getCurrentPhaseFromDates = (task, currentWeek) => {
+    if (!task.intensityPhases) return null;
+    return task.intensityPhases.find(phase => {
+      return currentWeek >= phase.startWeek && currentWeek <= phase.endWeek;
+    });
+  };
+
+  const getWorkloadColor = (hours, viewType) => {
+    if (hours === 0) return 'bg-gray-100 text-gray-400';
+    
+    if (viewType === 'year' || viewType === 'quarter') {
+      if (hours > 160) return 'bg-red-500 text-white';
+      if (hours > 120) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else if (viewType === 'month') {
+      if (hours > 40) return 'bg-red-500 text-white';
+      if (hours > 30) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    } else {
+      if (hours > 8) return 'bg-red-500 text-white';
+      if (hours > 6) return 'bg-orange-500 text-white';
+      return 'bg-green-500 text-white';
+    }
+  };
+
+  const getPeriodsForView = () => {
+    switch (selectedView) {
+      case 'year': return 1;
+      case 'quarter': return 3;
+      case 'month': return 4;
+      default: return 9;
+    }
+  };
+
+  const getDateRangeLabel = () => {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const currentDay = currentDate.getDate();
+    
+    if (selectedView === 'year') return currentYear.toString();
+    if (selectedView === 'quarter') {
+      const quarterNumber = Math.floor(currentMonth / 3) + 1;
+      const quarterMonths = [
+        ['Jan', 'Feb', 'Mar'],
+        ['Apr', 'May', 'Jun'], 
+        ['Jul', 'Aug', 'Sep'],
+        ['Oct', 'Nov', 'Dec']
+      ];
+      return `Q${quarterNumber} ${currentYear} (${quarterMonths[quarterNumber - 1].join('-')})`;
+    }
+    if (selectedView === 'month') {
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${monthNames[currentMonth]} ${currentYear}`;
+    }
+    
+    const weekStart = currentDay - currentDate.getDay() + (currentWeekOffset * 7);
+    const weekEnd = weekStart + 6;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    if (currentWeekOffset === 0) {
+      return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear}`;
+    }
+    return `${monthNames[currentMonth]} ${weekStart}-${Math.min(weekEnd, 30)}, ${currentYear} (${currentWeekOffset > 0 ? '+' : ''}${currentWeekOffset})`;
+  };
+
+  const handleAssignTask = (member) => {
+    setSelectedMemberForAssignment(member);
+    setShowAssignTaskModal(true);
+  };
+
+  const handleEditTask = (task, member) => {
+    setSelectedTask({
+      ...task, 
+      memberName: member.name, 
+      isEditing: true,
+      onSave: (updates) => {
+        syncSpreadsheetFromTask(member.id, task.id, updates);
+        setSelectedTask(null);
+      }
+    });
+  };
+
+  const submitTaskAssignment = async (taskData) => {
+    console.log('Assigning task:', taskData, 'to:', selectedMemberForAssignment.name);
+    
+    try {
+      await createTaskInWorkdeck(taskData);
+      setShowAssignTaskModal(false);
+      setSelectedMemberForAssignment(null);
+    } catch (error) {
+      console.error('Failed to assign task:', error);
+    }
+  };
   const goToPreviousWeek = () => setCurrentWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setCurrentWeekOffset(prev => prev + 1);
   const goToToday = () => setCurrentWeekOffset(0);
