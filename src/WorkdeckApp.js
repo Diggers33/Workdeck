@@ -1,62 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, User, Eye, EyeOff, Lock, AlertTriangle } from 'lucide-react';
-import ResourcePlanner from './ResourcePlanner';
-// Debug logging
-console.log('WorkdeckApp is loading...');
-
-const WorkdeckApp = () => {
-  console.log('WorkdeckApp component rendered');
-  
-  const [authToken, setAuthToken] = useState(null);
-  console.log('Current authToken state:', authToken);
-  
-  // ... rest of your component
 
 const WorkdeckApp = () => {
   const [authToken, setAuthToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Check for existing token on mount and validate it
-  useEffect(() => {
-    const validateToken = async () => {
-      const savedToken = localStorage.getItem('workdeck_token');
-      if (savedToken) {
-        // Test the token by making a simple API call
-        try {
-          const response = await fetch('https://cors-anywhere.herokuapp.com/https://test-api.workdeck.com/queries/users', {
-            headers: {
-              'Authorization': `Bearer ${savedToken}`,
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-          });
-
-          if (response.ok) {
-            setAuthToken(savedToken);
-          } else {
-            // Token is invalid, remove it
-            localStorage.removeItem('workdeck_token');
-          }
-        } catch (error) {
-          // Network error or invalid token, remove it
-          console.log('Token validation failed:', error);
-          localStorage.removeItem('workdeck_token');
-        }
-      }
-      setIsLoading(false);
-    };
-
-    validateToken();
-  }, []);
 
   const handleLogin = async (email, password) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use a CORS proxy for GitHub Pages
       const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
       const response = await fetch(`${proxyUrl}https://test-api.workdeck.com/auth/login`, {
         method: 'POST',
@@ -97,24 +52,28 @@ const WorkdeckApp = () => {
     localStorage.removeItem('workdeck_token');
   };
 
-  // Show loading spinner while validating token
-  if (isLoading && !error) {
+  // If authenticated, show success message for now
+  if (authToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600">Checking authentication...</p>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full space-y-8 text-center">
+          <div className="mx-auto h-12 w-12 bg-green-600 rounded-lg flex items-center justify-center">
+            <Calendar className="h-6 w-6 text-white" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900">Login Successful!</h2>
+          <p className="text-sm text-gray-600">Your Workdeck token: {authToken.substring(0, 20)}...</p>
+          <button 
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     );
   }
 
-  // If authenticated, show the Resource Planner
-  if (authToken) {
-    return <ResourcePlanner workdeckToken={authToken} onLogout={handleLogout} />;
-  }
-
-  // Otherwise, show login form
+  // Show login form
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
@@ -126,7 +85,7 @@ const WorkdeckApp = () => {
             Workdeck Resource Planner
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your Workdeck account to see live team data
+            Sign in to your Workdeck account
           </p>
         </div>
 
@@ -154,18 +113,11 @@ const WorkdeckApp = () => {
             setShowPassword={setShowPassword} 
           />
         </div>
-
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            By signing in, you'll see your live Workdeck team members, projects, and tasks
-          </p>
-        </div>
       </div>
     </div>
   );
 };
 
-// Login Form Component
 const LoginForm = ({ onLogin, isLoading, showPassword, setShowPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -243,31 +195,9 @@ const LoginForm = ({ onLogin, isLoading, showPassword, setShowPassword }) => {
               Connecting to Workdeck...
             </>
           ) : (
-            'Sign In & Load Resource Planner'
+            'Sign In'
           )}
         </button>
-      </div>
-
-      <div className="mt-6">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
-          </div>
-        </div>
-
-        <div className="mt-4 p-4 bg-gray-50 rounded-md">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">For testing:</h4>
-          <div className="space-y-1 text-xs text-gray-600">
-            <div><strong>Email:</strong> demo@workdeck.com</div>
-            <div><strong>Password:</strong> demo123</div>
-            <div className="text-xs text-gray-500 mt-2">
-              * Use your actual Workdeck credentials to see real team data
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
