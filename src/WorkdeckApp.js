@@ -21,10 +21,13 @@ const WorkdeckApp = () => {
     setError(null);
 
     try {
-      const response = await fetch('https://test-api.workdeck.com/auth/login', {
+      // Use a CORS proxy for GitHub Pages
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const response = await fetch(`${proxyUrl}https://test-api.workdeck.com/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({
           mail: email,
@@ -107,7 +110,7 @@ const WorkdeckApp = () => {
 
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            By signing in, you'll see your live Workdeck team members, projects, and tasks in the Resource Planner
+            By signing in, you'll see your live Workdeck team members, projects, and tasks
           </p>
         </div>
       </div>
@@ -209,12 +212,12 @@ const LoginForm = ({ onLogin, isLoading, showPassword, setShowPassword }) => {
         </div>
 
         <div className="mt-4 p-4 bg-gray-50 rounded-md">
-          <h4 className="text-sm font-medium text-gray-900 mb-2">Try with test account:</h4>
+          <h4 className="text-sm font-medium text-gray-900 mb-2">For testing:</h4>
           <div className="space-y-1 text-xs text-gray-600">
             <div><strong>Email:</strong> demo@workdeck.com</div>
             <div><strong>Password:</strong> demo123</div>
             <div className="text-xs text-gray-500 mt-2">
-              * Replace with your actual Workdeck credentials to see your real team data
+              * Use your actual Workdeck credentials to see real team data
             </div>
           </div>
         </div>
