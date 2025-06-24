@@ -4,16 +4,41 @@ import ResourcePlanner from './ResourcePlanner';
 
 const WorkdeckApp = () => {
   const [authToken, setAuthToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Check for existing token on mount
+  // Check for existing token on mount and validate it
   useEffect(() => {
-    const savedToken = localStorage.getItem('workdeck_token');
-    if (savedToken) {
-      setAuthToken(savedToken);
-    }
+    const validateToken = async () => {
+      const savedToken = localStorage.getItem('workdeck_token');
+      if (savedToken) {
+        // Test the token by making a simple API call
+        try {
+          const response = await fetch('https://cors-anywhere.herokuapp.com/https://test-api.workdeck.com/queries/users', {
+            headers: {
+              'Authorization': `Bearer ${savedToken}`,
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+          });
+
+          if (response.ok) {
+            setAuthToken(savedToken);
+          } else {
+            // Token is invalid, remove it
+            localStorage.removeItem('workdeck_token');
+          }
+        } catch (error) {
+          // Network error or invalid token, remove it
+          console.log('Token validation failed:', error);
+          localStorage.removeItem('workdeck_token');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    validateToken();
   }, []);
 
   const handleLogin = async (email, password) => {
@@ -61,6 +86,18 @@ const WorkdeckApp = () => {
     setAuthToken(null);
     localStorage.removeItem('workdeck_token');
   };
+
+  // Show loading spinner while validating token
+  if (isLoading && !error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If authenticated, show the Resource Planner
   if (authToken) {
