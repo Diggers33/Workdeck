@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, Eye, EyeOff, Lock, AlertTriangle } from 'lucide-react';
 import ResourcePlanner from './ResourcePlanner';
+// Debug logging
+console.log('WorkdeckApp is loading...');
+
+const WorkdeckApp = () => {
+  console.log('WorkdeckApp component rendered');
+  
+  const [authToken, setAuthToken] = useState(null);
+  console.log('Current authToken state:', authToken);
+  
+  // ... rest of your component
 
 const WorkdeckApp = () => {
   const [authToken, setAuthToken] = useState(null);
