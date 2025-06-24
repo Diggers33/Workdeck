@@ -7,19 +7,18 @@ const WorkdeckApp = () => {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center',
-      backgroundColor: '#f0f9ff',
+      backgroundColor: '#ff0000',  // Bright red background
+      color: 'white',
       fontFamily: 'Arial, sans-serif'
     }}>
       <div style={{ textAlign: 'center', padding: '2rem' }}>
-        <h1 style={{ color: '#1e40af', marginBottom: '1rem' }}>
-          🎉 SUCCESS! 🎉
+        <h1 style={{ fontSize: '3rem' }}>
+          🔥 TESTING 123 🔥
         </h1>
-        <p style={{ color: '#374151', fontSize: '1.2rem' }}>
-          Your WorkdeckApp is now loading correctly!
+        <p style={{ fontSize: '2rem' }}>
+          Current time: {new Date().toLocaleTimeString()}
         </p>
-        <p style={{ color: '#6b7280', marginTop: '1rem' }}>
-          This proves the build pipeline and component routing works.
-        </p>
+        <p>If you see this red screen, the update worked!</p>
       </div>
     </div>
   );
