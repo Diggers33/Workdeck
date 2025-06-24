@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/workdeck/static/css/main.63be93a2.css",
-    "main.js": "/workdeck/static/js/main.f1c6001f.js",
+    "main.js": "/workdeck/static/js/main.0fb501b5.js",
     "index.html": "/workdeck/index.html",
     "main.63be93a2.css.map": "/workdeck/static/css/main.63be93a2.css.map",
-    "main.f1c6001f.js.map": "/workdeck/static/js/main.f1c6001f.js.map"
+    "main.0fb501b5.js.map": "/workdeck/static/js/main.0fb501b5.js.map"
   },
   "entrypoints": [
     "static/css/main.63be93a2.css",
-    "static/js/main.f1c6001f.js"
+    "static/js/main.0fb501b5.js"
   ]
 }
