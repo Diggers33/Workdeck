@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // Import your Workdeck API helpers
-import { getUsersSummary, getProjects, getTasks } from './workdeckApi';
+import { getUsersSummary, getProjects, getTasks } from './services/workdeckApi';
 
 const ResourcePlanner = () => {
   const [teamData, setTeamData] = useState([]);
