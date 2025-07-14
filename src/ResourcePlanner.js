@@ -1,31 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, AlertTriangle } from 'lucide-react';
-// Import your Workdeck API wrappers
+// You must implement or adjust these imports to match your API wrappers
 import { getUsersSummary, getProjects, getTasks } from './workdeckApi';
-// If you use transformers, you can import them too
 
 const ResourcePlanner = () => {
   const [teamData, setTeamData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Views
-  const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
-  const [selectedView, setSelectedView] = useState('week');
-  const [selectedDepartment, setSelectedDepartment] = useState('all');
-  const [showTaskDetails, setShowTaskDetails] = useState(true);
-  const [selectedTask, setSelectedTask] = useState(null);
-
-  // Fetch all Workdeck data on load
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Get users, projects, and tasks from Workdeck
+        // Fetch users, projects, and tasks
         const users = await getUsersSummary();
         const projects = await getProjects();
         const tasks = await getTasks();
 
-        // Build member/task structure (adjust property names to your API as needed)
+        // Map data to the expected shape for each user
         const mappedTeam = users.map(user => {
           const memberTasks = tasks
             .filter(task => task.assignedTo === user.id)
@@ -48,9 +38,9 @@ const ResourcePlanner = () => {
             name: `${user.firstName} ${user.lastName}`,
             avatar: user.avatar || "🧑‍💻",
             department: user.department || "",
-            capacity: 40, // Set dynamically if API provides it
+            capacity: 40, // Use actual value from API if available
             scheduled,
-            utilization: Math.round((scheduled / 40) * 100), // Or use real capacity
+            utilization: Math.round((scheduled / 40) * 100), // Adjust if actual capacity
             tasks: memberTasks,
           };
         });
@@ -62,25 +52,27 @@ const ResourcePlanner = () => {
       }
       setLoading(false);
     };
+
     fetchData();
   }, []);
 
-  // UI helpers (these are unchanged, you can adapt as you wish)
-  const getUtilizationColor = (utilization) => {
+  const getUtilizationColor = (utilization: number) => {
     if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
     if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
     if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
     return 'text-green-600 bg-green-50 border-green-200';
   };
 
-  // ... Add other helpers if needed, or remove features you do not want ...
-
-  if (loading) return <div className="p-8 text-lg">Loading team data...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <span className="text-lg font-medium">Loading team data...</span>
+    </div>
+  );
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <Users className="inline w-7 h-7" /> Resource Planner
+        Resource Planner
       </h1>
       <div className="flex flex-col gap-8">
         {teamData.map(member => (
