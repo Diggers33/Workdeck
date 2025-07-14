@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// Import your Workdeck API helpers
-import { getUsersSummary, getProjects, getTasks } from './services/workdeckApi';
+import workdeckAPI from './services/workdeckApi';
 
 const ResourcePlanner = () => {
   const [teamData, setTeamData] = useState([]);
@@ -10,30 +9,39 @@ const ResourcePlanner = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const users = await getUsersSummary();
-        const projects = await getProjects();
-        const tasks = await getTasks();
+        // Fetch all users
+        const users = await workdeckAPI.getUsers();
+        // Fetch all projects
+        const projects = await workdeckAPI.getProjects();
+        // Fetch all events (used as tasks)
+        const events = await workdeckAPI.getEvents();
 
+        // Build team member structure
         const mappedTeam = users.map(user => {
-          const memberTasks = tasks
-            .filter(task => task.assignedTo === user.id)
-            .map(task => {
-              const project = projects.find(p => p.id === task.projectId);
+          // Events assigned to this user
+          const memberTasks = events
+            .filter(event =>
+              event.assignedTo === user.id ||
+              event.userId === user.id ||
+              (event.participants && event.participants.includes(user.id))
+            )
+            .map(event => {
+              const project = projects.find(p => p.id === event.projectId);
               return {
-                id: task.id,
+                id: event.id,
                 project: project ? project.name : "Unknown Project",
-                activity: task.activity || "",
-                task: task.name,
-                estimatedHours: task.estimatedHours ?? 0,
-                actualHours: task.actualHours ?? 0,
-                status: task.status,
+                activity: event.activity || "",
+                task: event.name || event.title || "",
+                estimatedHours: event.estimatedHours ?? 0,
+                actualHours: event.actualHours ?? 0,
+                status: event.status || "",
               };
             });
 
           const scheduled = memberTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
           return {
             id: user.id,
-            name: `${user.firstName} ${user.lastName}`,
+            name: `${user.firstName || user.name || ""} ${user.lastName || ""}`.trim(),
             avatar: user.avatar || "🧑‍💻",
             department: user.department || "",
             capacity: 40,
