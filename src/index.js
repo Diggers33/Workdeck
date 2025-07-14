@@ -1,11 +1,10 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
+import ReactDOM from 'react-dom';
 import WorkdeckApp from './WorkdeckApp';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
+ReactDOM.render(
   <React.StrictMode>
     <WorkdeckApp />
-  </React.StrictMode>
+  </React.StrictMode>,
+  document.getElementById('root')
 );
