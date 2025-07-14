@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// You must implement or adjust these imports to match your API wrappers
+// Import your Workdeck API helpers
 import { getUsersSummary, getProjects, getTasks } from './workdeckApi';
 
 const ResourcePlanner = () => {
@@ -10,12 +10,10 @@ const ResourcePlanner = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch users, projects, and tasks
         const users = await getUsersSummary();
         const projects = await getProjects();
         const tasks = await getTasks();
 
-        // Map data to the expected shape for each user
         const mappedTeam = users.map(user => {
           const memberTasks = tasks
             .filter(task => task.assignedTo === user.id)
@@ -38,9 +36,9 @@ const ResourcePlanner = () => {
             name: `${user.firstName} ${user.lastName}`,
             avatar: user.avatar || "🧑‍💻",
             department: user.department || "",
-            capacity: 40, // Use actual value from API if available
+            capacity: 40,
             scheduled,
-            utilization: Math.round((scheduled / 40) * 100), // Adjust if actual capacity
+            utilization: Math.round((scheduled / 40) * 100),
             tasks: memberTasks,
           };
         });
@@ -56,7 +54,7 @@ const ResourcePlanner = () => {
     fetchData();
   }, []);
 
-  const getUtilizationColor = (utilization: number) => {
+  const getUtilizationColor = (utilization) => {
     if (utilization > 100) return 'text-red-600 bg-red-50 border-red-200';
     if (utilization > 85) return 'text-orange-600 bg-orange-50 border-orange-200';
     if (utilization < 60) return 'text-blue-600 bg-blue-50 border-blue-200';
