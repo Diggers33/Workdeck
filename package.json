@@ -1,6 +1,6 @@
 {
   "name": "workdeck-resource-planner",
-  "homepage": "https://diggers33.github.io/workdeck",
+  "homepage": "https://diggers33.github.io/Workdeck",
   "scripts": {
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
