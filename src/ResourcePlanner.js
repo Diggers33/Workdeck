@@ -6,7 +6,7 @@ const ResourcePlanner = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-     workdeckAPI.setToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImVkM2MwNTkzLTVkNTktNDgwMS05NzhjLTcwYWRkMDEzOGUyZiIsImVtYWlsIjoianBlZHJlbm9AaXJpcy1lbmcuY29tIiwiZGlzcGxheU5hbWUiOiJKb2FuICBQZWRyZcOxbyIsImlhdCI6MTc1MjUxNzEyMywiZXhwIjoxNzUyNjAzNTIzfQ._PgSlwwvFDH2wTlBbDVEMb8DA2R6dMxNCclQHNJcNUw');
+     workdeckAPI.setToken('');
     const fetchData = async () => {
       setLoading(true);
       try {
