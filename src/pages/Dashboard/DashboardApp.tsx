@@ -17,6 +17,7 @@ function App() {
   const [activeWorkSubTab, setActiveWorkSubTab] = useState('Projects');
   const [activeTimeSubTab, setActiveTimeSubTab] = useState('My Calendar');
   const [activeFinanceSubTab, setActiveFinanceSubTab] = useState('Expenses');
+  const [activePeopleSubTab, setActivePeopleSubTab] = useState('Directory');
   const [activeAnalyticsSubTab, setActiveAnalyticsSubTab] = useState('Reports');
   const [showWidgetConfig, setShowWidgetConfig] = useState(false);
 
@@ -26,6 +27,7 @@ function App() {
     Work: ['Projects', 'My Tasks', 'Resource Planner', 'Manager View', 'Client Board'],
     Time: ['My Calendar', 'Timesheets', 'Leave', 'Team Leave', 'Approvals'],
     Finance: ['Expenses', 'Purchases', 'Invoices', 'Billing'],
+    People: ['Directory', 'Org Chart', 'Team Profiles', 'Skills Matrix'],
     Analytics: ['Reports', 'AI Insights', 'Utilization', 'Forecasting']
   };
 
@@ -40,13 +42,59 @@ function App() {
         navigate('/projects');
       } else if (subTab === 'Resource Planner') {
         navigate('/planner');
+      } else if (subTab === 'My Tasks') {
+        navigate('/work/my-tasks');
+      } else if (subTab === 'Manager View') {
+        navigate('/work/manager-view');
+      } else if (subTab === 'Client Board') {
+        navigate('/work/client-board');
       }
     } else if (menu === 'Time') {
       setActiveTimeSubTab(subTab);
+      if (subTab === 'My Calendar') {
+        navigate('/time/my-calendar');
+      } else if (subTab === 'Timesheets') {
+        navigate('/time/timesheets');
+      } else if (subTab === 'Leave') {
+        navigate('/time/leave');
+      } else if (subTab === 'Team Leave') {
+        navigate('/time/team-leave');
+      } else if (subTab === 'Approvals') {
+        navigate('/time/approvals');
+      }
     } else if (menu === 'Finance') {
       setActiveFinanceSubTab(subTab);
+      if (subTab === 'Expenses') {
+        navigate('/finance/expenses');
+      } else if (subTab === 'Purchases') {
+        navigate('/finance/purchases');
+      } else if (subTab === 'Invoices') {
+        navigate('/finance/invoices');
+      } else if (subTab === 'Billing') {
+        navigate('/finance/billing');
+      }
+    } else if (menu === 'People') {
+      setActivePeopleSubTab(subTab);
+      if (subTab === 'Directory') {
+        navigate('/people/directory');
+      } else if (subTab === 'Org Chart') {
+        navigate('/people/org-chart');
+      } else if (subTab === 'Team Profiles') {
+        navigate('/people/profiles');
+      } else if (subTab === 'Skills Matrix') {
+        navigate('/people/skills');
+      }
     } else if (menu === 'Analytics') {
       setActiveAnalyticsSubTab(subTab);
+      if (subTab === 'Reports') {
+        navigate('/analytics/reports');
+      } else if (subTab === 'AI Insights') {
+        navigate('/analytics/insights');
+      } else if (subTab === 'Utilization') {
+        navigate('/analytics/utilization');
+      } else if (subTab === 'Forecasting') {
+        navigate('/analytics/forecasting');
+      }
     }
   };
 
@@ -207,6 +255,29 @@ function App() {
                   onClick={() => handleSubMenuClick('Finance', subTab)}
                   className={`px-3 py-1.5 rounded-md text-sm transition-all ${
                     activeFinanceSubTab === subTab
+                      ? 'bg-[#EFF6FF] text-[#3B82F6] font-medium'
+                      : 'text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]'
+                  }`}
+                >
+                  {subTab}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* PEOPLE SUBMENU */}
+      {activeTab === 'People' && (
+        <div className="bg-white border-b" style={{ borderBottomColor: '#E5E7EB' }}>
+          <div className="mx-auto px-6 py-3" style={{ maxWidth: '1440px' }}>
+            <nav className="flex items-center gap-2">
+              {subMenus.People.map((subTab) => (
+                <button
+                  key={subTab}
+                  onClick={() => handleSubMenuClick('People', subTab)}
+                  className={`px-3 py-1.5 rounded-md text-sm transition-all ${
+                    activePeopleSubTab === subTab
                       ? 'bg-[#EFF6FF] text-[#3B82F6] font-medium'
                       : 'text-[#6B7280] hover:text-[#111827] hover:bg-[#F9FAFB]'
                   }`}
