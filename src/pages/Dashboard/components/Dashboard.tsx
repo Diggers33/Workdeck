@@ -168,20 +168,12 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
   const getProjectPortfolioPosition = () => {
     const ppWidget = widgetConfigs.find(w => w.id === 'project-portfolio');
     const position = ppWidget?.gridPosition || 'Row 1, Col 1';
-    console.log('Project Portfolio position:', position, 'Visible:', ppWidget?.visible);
     return position;
   };
 
   const renderWidgetInPosition = (position: string, widgetId: string, component: React.ReactNode) => {
     const ppPosition = getProjectPortfolioPosition();
     const ppVisible = getWidgetVisible('project-portfolio');
-    
-    console.log(`Checking position ${position} for widget ${widgetId}:`, {
-      ppPosition,
-      ppVisible,
-      shouldHideDefault: ppVisible && ppPosition === position && widgetId !== 'project-portfolio',
-      shouldShowPP: widgetId === 'project-portfolio' && ppVisible && ppPosition === position
-    });
     
     // If Project Portfolio is visible and wants this position, don't render the default widget
     if (ppVisible && ppPosition === position && widgetId !== 'project-portfolio') {
