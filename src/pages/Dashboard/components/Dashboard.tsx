@@ -193,7 +193,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
     <div style={{ background: '#FAFBFC', height: 'calc(100vh - 60px)', padding: '16px', position: 'relative' }}>
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: '1fr 1fr 340px 340px',
+        gridTemplateColumns: '1fr 1fr 1fr 1fr',
         gridTemplateRows: '1fr 1fr',
         gap: '12px',
         height: '100%',
