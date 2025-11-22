@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, ChevronDown, MoreVertical, ArrowRight } from 'lucide-react';
 
-export function ProjectTriageBoard({ onGanttClick }: { onGanttClick?: () => void }) {
+export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttClick?: () => void; onCreateProject?: () => void }) {
   const [activeFilter, setActiveFilter] = useState('All Projects');
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
@@ -428,27 +428,7 @@ export function ProjectTriageBoard({ onGanttClick }: { onGanttClick?: () => void
             )}
           </div>
 
-          {/* New Project Button */}
-          <button
-            style={{
-              width: '140px',
-              height: '40px',
-              background: '#60A5FA',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 500,
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <Plus style={{ width: '16px', height: '16px' }} />
-            New Project
-          </button>
+
         </div>
 
         {/* CONTEXT LINE */}
