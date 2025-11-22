@@ -4,6 +4,7 @@ import ResourcePlannerApp from './pages/ResourcePlanner/ResourcePlannerApp';
 import ProjectsApp from './pages/Projects/ProjectsApp';
 import ProjectWizardPage from './pages/Projects/ProjectWizardPage';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
+import { AppLayout } from './components/layout/AppLayout';
 
 function App() {
   return (
@@ -16,174 +17,114 @@ function App() {
         <Route path="/projects/edit/:id" element={<ProjectWizardPage />} />
 
         {/* WORK TAB PENDING SCREENS */}
-        <Route path="/work/my-tasks" element={
-          <PendingScreen
-            title="My Tasks"
+        <Route path="/work/my-tasks" element={<AppLayout><PendingScreen title="My Tasks"
             category="WORK MANAGEMENT"
             description="Personal task list with priorities, due dates, and project associations."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/work/manager-view" element={
-          <PendingScreen
-            title="Manager View"
+          /></AppLayout>} />
+        <Route path="/work/manager-view" element={<AppLayout><PendingScreen title="Manager View"
             category="WORK MANAGEMENT"
             description="Team oversight with workload balancing, performance tracking, and resource allocation."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/work/client-board" element={
-          <PendingScreen
-            title="Client Board"
+          /></AppLayout>} />
+        <Route path="/work/client-board" element={<AppLayout><PendingScreen title="Client Board"
             category="WORK MANAGEMENT"
             description="Client-facing project status board with milestones and deliverables."
             onBack={() => window.history.back()}
-          />
-        } />
+          /></AppLayout>} />
 
         {/* TIME TAB PENDING SCREENS */}
-        <Route path="/time/my-calendar" element={
-          <PendingScreen
-            title="My Calendar"
+        <Route path="/time/my-calendar" element={<AppLayout><PendingScreen title="My Calendar"
             category="TIME MANAGEMENT"
             description="Your personal calendar with meeting scheduling, availability management, and integration with project timelines."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/time/timesheets" element={
-          <PendingScreen
-            title="Timesheets"
+          /></AppLayout>} />
+        <Route path="/time/timesheets" element={<AppLayout><PendingScreen title="Timesheets"
             category="TIME MANAGEMENT"
             description="Track time spent on projects and tasks with easy entry and reporting."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/time/leave" element={
-          <PendingScreen
-            title="Leave Management"
+          /></AppLayout>} />
+        <Route path="/time/leave" element={<AppLayout><PendingScreen title="Leave Management"
             category="TIME MANAGEMENT"
             description="Request time off, view balances, and manage vacation days."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/time/team-leave" element={
-          <PendingScreen
-            title="Team Leave Calendar"
+          /></AppLayout>} />
+        <Route path="/time/team-leave" element={<AppLayout><PendingScreen title="Team Leave Calendar"
             category="TIME MANAGEMENT"
             description="See who's out and plan around team availability."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/time/approvals" element={
-          <PendingScreen
-            title="Time Approvals"
+          /></AppLayout>} />
+        <Route path="/time/approvals" element={<AppLayout><PendingScreen title="Time Approvals"
             category="TIME MANAGEMENT"
             description="Review and approve timesheets and leave requests from your team."
             onBack={() => window.history.back()}
-          />
-        } />
+          /></AppLayout>} />
 
         {/* FINANCE TAB PENDING SCREENS */}
-        <Route path="/finance/expenses" element={
-          <PendingScreen
-            title="Expenses"
+        <Route path="/finance/expenses" element={<AppLayout><PendingScreen title="Expenses"
             category="FINANCE MANAGEMENT"
             description="Submit and track expense reports with receipt management."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/finance/purchases" element={
-          <PendingScreen
-            title="Purchase Orders"
+          /></AppLayout>} />
+        <Route path="/finance/purchases" element={<AppLayout><PendingScreen title="Purchase Orders"
             category="FINANCE MANAGEMENT"
             description="Create and manage purchase orders with approval workflows."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/finance/invoices" element={
-          <PendingScreen
-            title="Invoices"
+          /></AppLayout>} />
+        <Route path="/finance/invoices" element={<AppLayout><PendingScreen title="Invoices"
             category="FINANCE MANAGEMENT"
             description="Generate client invoices and track payment status."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/finance/billing" element={
-          <PendingScreen
-            title="Billing Dashboard"
+          /></AppLayout>} />
+        <Route path="/finance/billing" element={<AppLayout><PendingScreen title="Billing Dashboard"
             category="FINANCE MANAGEMENT"
             description="Overview of billing cycles, revenue tracking, and financial metrics."
             onBack={() => window.history.back()}
-          />
-        } />
+          /></AppLayout>} />
 
         {/* PEOPLE TAB PENDING SCREENS */}
-        <Route path="/people/directory" element={
-          <PendingScreen
-            title="People Directory"
+        <Route path="/people/directory" element={<AppLayout><PendingScreen title="People Directory"
             category="PEOPLE MANAGEMENT"
             description="Company directory with contact information, roles, and team structures."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/people/org-chart" element={
-          <PendingScreen
-            title="Organization Chart"
+          /></AppLayout>} />
+        <Route path="/people/org-chart" element={<AppLayout><PendingScreen title="Organization Chart"
             category="PEOPLE MANAGEMENT"
             description="Visual representation of company hierarchy and reporting relationships."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/people/profiles" element={
-          <PendingScreen
-            title="Team Profiles"
+          /></AppLayout>} />
+        <Route path="/people/profiles" element={<AppLayout><PendingScreen title="Team Profiles"
             category="PEOPLE MANAGEMENT"
             description="Detailed team member profiles with skills, experience, and projects."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/people/skills" element={
-          <PendingScreen
-            title="Skills Matrix"
+          /></AppLayout>} />
+        <Route path="/people/skills" element={<AppLayout><PendingScreen title="Skills Matrix"
             category="PEOPLE MANAGEMENT"
             description="Track team competencies and identify skill gaps for training needs."
             onBack={() => window.history.back()}
-          />
-        } />
+          /></AppLayout>} />
 
         {/* ANALYTICS TAB PENDING SCREENS */}
-        <Route path="/analytics/reports" element={
-          <PendingScreen
-            title="Reports"
+        <Route path="/analytics/reports" element={<AppLayout><PendingScreen title="Reports"
             category="ANALYTICS"
             description="Custom reports and data visualization for project and business metrics."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/analytics/insights" element={
-          <PendingScreen
-            title="AI Insights"
+          /></AppLayout>} />
+        <Route path="/analytics/insights" element={<AppLayout><PendingScreen title="AI Insights"
             category="ANALYTICS"
             description="AI-powered analysis of trends, predictions, and optimization recommendations."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/analytics/utilization" element={
-          <PendingScreen
-            title="Utilization Metrics"
+          /></AppLayout>} />
+        <Route path="/analytics/utilization" element={<AppLayout><PendingScreen title="Utilization Metrics"
             category="ANALYTICS"
             description="Team capacity utilization, billable vs non-billable time analysis."
             onBack={() => window.history.back()}
-          />
-        } />
-        <Route path="/analytics/forecasting" element={
-          <PendingScreen
-            title="Forecasting"
+          /></AppLayout>} />
+        <Route path="/analytics/forecasting" element={<AppLayout><PendingScreen title="Forecasting"
             category="ANALYTICS"
             description="Project completion predictions, resource demand forecasting, and capacity planning."
             onBack={() => window.history.back()}
-          />
-        } />
+          /></AppLayout>} />
       </Routes>
     </Router>
   );
