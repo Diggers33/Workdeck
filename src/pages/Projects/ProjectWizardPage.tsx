@@ -2,7 +2,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Plus, Clock, Receipt, Bell, Settings as SettingsIcon, X } from 'lucide-react';
 import { ProjectWorkspace } from './wizard/ProjectWorkspace';
 import workdeckLogo from '../Dashboard/assets/6f22f481b9cda400eddbba38bd4678cd9b214998.png';
-import './wizard/wizard.css';
 
 export default function ProjectWizardPage() {
   const navigate = useNavigate();

@@ -33,6 +33,13 @@ function App() {
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
+
+    // Navigate to default view for each tab
+    if (tab === 'Work') {
+      navigate('/projects');
+    } else if (tab === 'Dashboard') {
+      navigate('/');
+    }
   };
 
   const handleSubMenuClick = (menu: string, subTab: string) => {
