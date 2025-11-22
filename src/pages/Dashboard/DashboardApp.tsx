@@ -39,6 +39,14 @@ function App() {
       navigate('/projects');
     } else if (tab === 'Dashboard') {
       navigate('/');
+    } else if (tab === 'Time') {
+      navigate('/time/my-calendar');
+    } else if (tab === 'Finance') {
+      navigate('/finance/expenses');
+    } else if (tab === 'People') {
+      navigate('/people/directory');
+    } else if (tab === 'Analytics') {
+      navigate('/analytics/reports');
     }
   };
 
