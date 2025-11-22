@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Plus, Clock, Receipt, Bell, Settings as SettingsIcon } from 'lucide-react';
 import workdeckLogo from '../../pages/Dashboard/assets/6f22f481b9cda400eddbba38bd4678cd9b214998.png';
+import { QuickAccessDropdown } from './QuickAccessDropdown';
+import { UserProfileDropdown } from './UserProfileDropdown';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -203,6 +205,8 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
 
           {/* Right section */}
           <div className="flex items-center gap-2">
+            <QuickAccessDropdown />
+
             <button
               className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#F9FAFB] text-[#6B7280] transition-all hover:scale-105"
               title="Add task (T)"
@@ -236,12 +240,7 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
               <span className="absolute top-0 right-0 w-4 h-4 bg-[#EF4444] text-white text-[9px] rounded-full flex items-center justify-center animate-pulse">3</span>
             </button>
 
-            <div className="relative ml-2">
-              <div className="w-10 h-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white text-sm">
-                SM
-              </div>
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#10B981] border-2 border-white rounded-full"></div>
-            </div>
+            <UserProfileDropdown />
 
             <button
               className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#F9FAFB] text-[#6B7280]"
