@@ -19,10 +19,19 @@ export default function ProjectsApp() {
   };
 
   const handleTabClick = (tab: string) => {
+    setActiveTab(tab);
     if (tab === 'Dashboard') {
       navigate('/');
-    } else {
-      setActiveTab(tab);
+    } else if (tab === 'Work') {
+      // Stay on current Work page
+    } else if (tab === 'Time') {
+      navigate('/time/my-calendar');
+    } else if (tab === 'Finance') {
+      navigate('/finance/expenses');
+    } else if (tab === 'People') {
+      navigate('/people/directory');
+    } else if (tab === 'Analytics') {
+      navigate('/analytics/reports');
     }
   };
 
