@@ -9,7 +9,7 @@ import { QuickAccessWidget } from './widgets/QuickAccessWidget';
 import { ProjectPortfolioWidget } from './ProjectPortfolioWidget';
 import { WidgetConfigModal } from './WidgetConfigModal';
 import { AlertModal } from './AlertModal';
-import { TaskDetailModal } from './gantt/TaskDetailModal';
+import { TaskDetailModal } from '../../Projects/gantt/TaskDetailModal';
 
 interface DashboardProps {
   userRole?: 'project_manager' | 'team_member' | 'executive';
