@@ -98,6 +98,10 @@ export function GanttFlag({ taskId, flagWeek, weekOffset, columnWidth, onUpdate,
       <div
         id={`flag-${taskId}`}
         onPointerDown={handlePointerDown}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{

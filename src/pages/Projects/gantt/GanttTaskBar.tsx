@@ -203,6 +203,10 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
       <div
         ref={barRef}
         onPointerDown={handlePointerDown}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onClick={handleClick}
         style={{
           position: 'absolute',
@@ -268,6 +272,10 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
         <div
           className="resize-handle"
           onPointerDown={handleResizePointerDown}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           style={{
             position: 'absolute',
             right: '-4px',

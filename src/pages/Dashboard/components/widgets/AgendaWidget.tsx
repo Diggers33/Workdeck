@@ -353,6 +353,10 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
                   touchAction: 'none'
                 }}
                 onPointerDown={(e) => handleDragStart(event.id, e)}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <div className="text-[11px] font-medium text-white leading-tight overflow-hidden">
                   {event.title}
@@ -366,6 +370,10 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
                   className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ background: 'rgba(0,0,0,0.2)' }}
                   onPointerDown={(e) => handleResizeStart(event.id, e)}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                 />
               </div>
             );

@@ -123,6 +123,10 @@ export function GanttMilestone({
       <div
         id={`milestone-${milestone.id}`}
         onPointerDown={handlePointerDown}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{
