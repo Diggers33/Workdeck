@@ -149,8 +149,10 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   };
 
   const handleResizeStart = (eventId: string, e: React.PointerEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     setResizingEvent(eventId);
   };
 
@@ -179,9 +181,10 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   };
 
   const handleDragStart = (eventId: string, e: React.PointerEvent) => {
-    e.stopPropagation();
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     setDraggingEvent(eventId);
   };
 

@@ -37,11 +37,13 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
 
   // Handle resize
   const handleResizePointerDown = (e: React.PointerEvent) => {
+    // Prevent default to stop text selection and context menus on touch
     e.preventDefault();
     e.stopPropagation();
     
     // Capture pointer for consistent tracking across mouse and touch
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     
     setIsResizing(true);
     setHasDragged(false); // Reset drag flag

@@ -61,3 +61,14 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
+
+/* Prevent text selection and context menus on touch devices for Gantt */
+.gantt-timeline,
+.gantt-task-bar,
+.gantt-milestone,
+.gantt-flag {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}

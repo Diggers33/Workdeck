@@ -92,8 +92,11 @@ export function GanttMilestone({
   }, [isDragging, dragStartX, originalWeek, columnWidth, weekOffset, milestone.id, activityId, onUpdate]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Prevent default to stop text selection and context menus on touch
+    e.preventDefault();
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     setIsDragging(true);
     setDragStartX(e.clientX);
     setOriginalWeek(milestone.week);
