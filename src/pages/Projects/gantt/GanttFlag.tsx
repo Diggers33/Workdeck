@@ -33,7 +33,7 @@ export function GanttFlag({ taskId, flagWeek, weekOffset, columnWidth, onUpdate,
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const deltaX = e.clientX - dragStartX;
       const weeksDelta = Math.round(deltaX / columnWidth);
       const newWeek = originalWeek + weeksDelta;
@@ -46,7 +46,10 @@ export function GanttFlag({ taskId, flagWeek, weekOffset, columnWidth, onUpdate,
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
+    const handlePointerUp = (e: PointerEvent) => {
+      if (e.target && 'releasePointerCapture' in e.target) {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      }
       const deltaX = e.clientX - dragStartX;
       const weeksDelta = Math.round(deltaX / columnWidth);
       const newWeek = originalWeek + weeksDelta;
@@ -60,17 +63,18 @@ export function GanttFlag({ taskId, flagWeek, weekOffset, columnWidth, onUpdate,
       document.body.style.cursor = 'default';
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
     };
   }, [isDragging, dragStartX, originalWeek, columnWidth, weekOffset, taskId, onUpdate]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsDragging(true);
     setDragStartX(e.clientX);
     setOriginalWeek(flagWeek);
@@ -90,7 +94,7 @@ export function GanttFlag({ taskId, flagWeek, weekOffset, columnWidth, onUpdate,
     <>
       <div
         id={`flag-${taskId}`}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{

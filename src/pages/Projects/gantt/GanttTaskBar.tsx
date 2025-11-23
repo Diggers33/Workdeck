@@ -20,11 +20,15 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
   const barRef = useRef<HTMLDivElement>(null);
 
   // Handle drag to move task
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).classList.contains('resize-handle')) return;
     
     e.preventDefault();
     e.stopPropagation();
+    
+    // Capture pointer for consistent tracking across mouse and touch
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
     setIsDragging(true);
     setHasDragged(false); // Reset drag flag
     setDragStartX(e.clientX);
@@ -32,9 +36,13 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
   };
 
   // Handle resize
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
+  const handleResizePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Capture pointer for consistent tracking across mouse and touch
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
     setIsResizing(true);
     setHasDragged(false); // Reset drag flag
     setDragStartX(e.clientX);
@@ -42,7 +50,7 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
   };
 
   // Handle click (only if not dragged)
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.PointerEvent) => {
     e.stopPropagation();
     if (!hasDragged && !isResizing && !isDragging) {
       onTaskClick(task);
@@ -50,7 +58,7 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       if (isDragging) {
         const deltaX = e.clientX - dragStartX;
         const weeksDelta = Math.round(deltaX / columnWidth);
@@ -82,20 +90,24 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
+      // Release pointer capture
+      if (e.target && 'releasePointerCapture' in e.target) {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      }
       setIsDragging(false);
       setIsResizing(false);
     };
 
     if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('pointermove', handlePointerMove);
+      document.addEventListener('pointerup', handlePointerUp);
       document.body.style.cursor = isDragging ? 'grabbing' : 'ew-resize';
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
       document.body.style.cursor = 'default';
     };
   }, [isDragging, isResizing, dragStartX, originalStartWeek, originalDuration, task, onUpdateTask]);
@@ -188,7 +200,7 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
 
       <div
         ref={barRef}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         onClick={handleClick}
         style={{
           position: 'absolute',
@@ -253,7 +265,7 @@ export function GanttTaskBar({ task, onUpdateTask, onTaskClick, hoveredTask, wee
         {/* Resize Handle */}
         <div
           className="resize-handle"
-          onMouseDown={handleResizeMouseDown}
+          onPointerDown={handleResizePointerDown}
           style={{
             position: 'absolute',
             right: '-4px',

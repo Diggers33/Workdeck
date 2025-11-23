@@ -38,3 +38,26 @@
     background: #9CA3AF;
   }
 }
+
+/* Touch optimization for draggable elements */
+.draggable-item {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  cursor: grab;
+  transition: transform 0.2s ease;
+}
+
+.draggable-item:active {
+  cursor: grabbing;
+  transform: scale(1.02);
+}
+
+/* Touch-specific visual feedback */
+@media (hover: none) and (pointer: coarse) {
+  .draggable-item:active {
+    opacity: 0.9;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}

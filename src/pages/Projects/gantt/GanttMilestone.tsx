@@ -52,7 +52,7 @@ export function GanttMilestone({
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const deltaX = e.clientX - dragStartX;
       const weeksDelta = Math.round(deltaX / columnWidth);
       const newWeek = originalWeek + weeksDelta;
@@ -65,7 +65,10 @@ export function GanttMilestone({
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
+    const handlePointerUp = (e: PointerEvent) => {
+      if (e.target && 'releasePointerCapture' in e.target) {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      }
       const deltaX = e.clientX - dragStartX;
       const weeksDelta = Math.round(deltaX / columnWidth);
       const newWeek = originalWeek + weeksDelta;
@@ -79,17 +82,18 @@ export function GanttMilestone({
       document.body.style.cursor = 'default';
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
     };
   }, [isDragging, dragStartX, originalWeek, columnWidth, weekOffset, milestone.id, activityId, onUpdate]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setIsDragging(true);
     setDragStartX(e.clientX);
     setOriginalWeek(milestone.week);
@@ -115,7 +119,7 @@ export function GanttMilestone({
     <>
       <div
         id={`milestone-${milestone.id}`}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{
@@ -135,7 +139,10 @@ export function GanttMilestone({
           transition: isDragging ? 'none' : 'all 150ms ease',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          touchAction: 'none'
         }}
       >
         <span style={{
