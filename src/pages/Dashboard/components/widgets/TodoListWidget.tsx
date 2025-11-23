@@ -353,22 +353,22 @@ export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoList
         
         {/* Main task row */}
         <div
-          draggable={!task.completed}
-          onDragStart={(e) => {
-            if (!task.completed) {
-              onDragStart(task);
-            }
-          }}
-          onDragEnd={onDragEnd}
           onPointerDown={(e) => {
-            if (!task.completed && e.pointerType === 'touch') {
+            if (!task.completed) {
               e.preventDefault();
+              e.stopPropagation();
               e.currentTarget.style.opacity = '0.5';
               onDragStart(task);
             }
           }}
           onPointerUp={(e) => {
-            if (!task.completed && e.pointerType === 'touch') {
+            if (!task.completed) {
+              e.currentTarget.style.opacity = '1';
+              onDragEnd();
+            }
+          }}
+          onPointerCancel={(e) => {
+            if (!task.completed) {
               e.currentTarget.style.opacity = '1';
               onDragEnd();
             }
