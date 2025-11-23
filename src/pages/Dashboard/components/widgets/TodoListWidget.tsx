@@ -356,6 +356,18 @@ export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoList
           draggable={!task.completed}
           onDragStart={() => !task.completed && onDragStart(task)}
           onDragEnd={onDragEnd}
+          onTouchStart={(e) => {
+            if (!task.completed) {
+              e.currentTarget.style.opacity = '0.5';
+              onDragStart(task);
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (!task.completed) {
+              e.currentTarget.style.opacity = '1';
+              onDragEnd();
+            }
+          }}
           className={`flex items-center gap-2 px-2.5 py-2 transition-all ${
             task.completed 
               ? '' 

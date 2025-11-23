@@ -90,7 +90,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     return result;
   };
 
-  const getTimeFromMousePosition = (e: React.MouseEvent): number | null => {
+  const getTimeFromMousePosition = (e: React.PointerEvent): number | null => {
     if (!timelineRef.current) return null;
     
     const rect = timelineRef.current.getBoundingClientRect();
@@ -109,7 +109,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     e.preventDefault();
     setIsDragOver(true);
     
-    const time = getTimeFromMousePosition(e as any);
+    const time = getTimeFromPointerPosition(e as any);
     if (time !== null && time >= 0 && time <= 24) {
       setDragOverTime(time);
     }
@@ -139,27 +139,28 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     setDragOverTime(null);
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (isDragOver) {
-      const time = getTimeFromMousePosition(e);
+      const time = getTimeFromPointerPosition(e);
       if (time !== null && time >= 0 && time <= 24) {
         setDragOverTime(time);
       }
     }
   };
 
-  const handleResizeStart = (eventId: string, e: React.MouseEvent) => {
+  const handleResizeStart = (eventId: string, e: React.PointerEvent) => {
     e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setResizingEvent(eventId);
   };
 
-  const handleResizeMove = (e: React.MouseEvent) => {
+  const handleResizeMove = (e: React.PointerEvent) => {
     if (!resizingEvent || !timelineRef.current) return;
     
     const event = events.find(ev => ev.id === resizingEvent);
     if (!event) return;
     
-    const time = getTimeFromMousePosition(e);
+    const time = getTimeFromPointerPosition(e);
     if (time === null) return;
     
     // Calculate new duration (minimum 15 minutes = 0.25 hours)
@@ -170,23 +171,27 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     ));
   };
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = (e?: PointerEvent) => {
+    if (e && e.target && 'releasePointerCapture' in e.target) {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    }
     setResizingEvent(null);
   };
 
-  const handleDragStart = (eventId: string, e: React.MouseEvent) => {
+  const handleDragStart = (eventId: string, e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggingEvent(eventId);
   };
 
-  const handleDragMove = (e: React.MouseEvent) => {
+  const handleDragMove = (e: React.PointerEvent) => {
     if (!draggingEvent || !timelineRef.current) return;
     
     const event = events.find(ev => ev.id === draggingEvent);
     if (!event) return;
     
-    const time = getTimeFromMousePosition(e);
+    const time = getTimeFromPointerPosition(e);
     if (time === null) return;
     
     // Calculate new start time (snap to 15 minute increments)
@@ -197,7 +202,10 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     ));
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e?: PointerEvent) => {
+    if (e && e.target && 'releasePointerCapture' in e.target) {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    }
     setDraggingEvent(null);
   };
 
@@ -218,9 +226,9 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
         display: 'flex', 
         flexDirection: 'column'
       }}
-      onMouseMove={resizingEvent ? handleResizeMove : (draggingEvent ? handleDragMove : undefined)}
-      onMouseUp={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
-      onMouseLeave={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
+      onPointerMove={resizingEvent ? handleResizeMove : (draggingEvent ? handleDragMove : undefined)}
+      onPointerUp={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
+      onPointerLeave={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
     >
       {/* Colored top accent */}
       <div className="absolute left-0 right-0 top-0 h-1" style={{ background: 'linear-gradient(90deg, #FBBF24 0%, #FDE68A 100%)' }}></div>
@@ -252,7 +260,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onMouseMove={handleMouseMove}
+        onMouseMove={handlePointerMove}
       >
         <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
           {/* Hour grid */}
@@ -336,9 +344,12 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
                   padding: '6px 8px',
                   zIndex: draggingEvent === event.id ? 15 : 5,
                   minHeight: '30px',
-                  opacity: draggingEvent === event.id ? 0.7 : 1
+                  opacity: draggingEvent === event.id ? 0.7 : 1,
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  touchAction: 'none'
                 }}
-                onMouseDown={(e) => handleDragStart(event.id, e)}
+                onPointerDown={(e) => handleDragStart(event.id, e)}
               >
                 <div className="text-[11px] font-medium text-white leading-tight overflow-hidden">
                   {event.title}
@@ -351,7 +362,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
                 <div
                   className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
                   style={{ background: 'rgba(0,0,0,0.2)' }}
-                  onMouseDown={(e) => handleResizeStart(event.id, e)}
+                  onPointerDown={(e) => handleResizeStart(event.id, e)}
                 />
               </div>
             );
