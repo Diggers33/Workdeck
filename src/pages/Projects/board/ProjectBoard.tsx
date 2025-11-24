@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Settings, X, ChevronLeft, MoreVertical, Tag, Filter, Users } from 'lucide-react';
 import {
   DndContext,
@@ -61,6 +61,7 @@ export interface Column {
 }
 
 export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoardProps) {
+  const isInitialMount = useRef(true);
   const [boardExists, setBoardExists] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,10 +141,12 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     if (savedViews) {
       try {
         const parsed = JSON.parse(savedViews);
-        // Merge with system views to preserve them
-        const systemViews = savedViews.filter((v: any) => v.isSystem);
+        // Only load custom views, keep existing system views from initial state
         const customViews = parsed.filter((v: any) => !v.isSystem);
-        setSavedViews([...systemViews, ...customViews]);
+        setSavedViews((current) => {
+          const systemViews = current.filter(v => v.isSystem);
+          return [...systemViews, ...customViews];
+        });
       } catch (e) {
         console.error('Failed to parse saved views:', e);
       }
@@ -152,27 +155,38 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     if (savedCardSize) {
       setCardSize(savedCardSize as 'small' | 'medium' | 'large');
     }
+
+    // Mark that initial load is complete
+    isInitialMount.current = false;
   }, [projectName]);
 
-  // Save columns to localStorage whenever they change
+  // Save columns to localStorage whenever they change (skip initial mount)
   useEffect(() => {
-    localStorage.setItem(getStorageKey(projectName, 'columns'), JSON.stringify(columns));
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'columns'), JSON.stringify(columns));
+    }
   }, [columns, projectName]);
 
-  // Save labels to localStorage whenever they change
+  // Save labels to localStorage whenever they change (skip initial mount)
   useEffect(() => {
-    localStorage.setItem(getStorageKey(projectName, 'labels'), JSON.stringify(boardLabels));
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'labels'), JSON.stringify(boardLabels));
+    }
   }, [boardLabels, projectName]);
 
-  // Save views to localStorage whenever they change (only custom views)
+  // Save views to localStorage whenever they change (only custom views, skip initial mount)
   useEffect(() => {
-    const customViews = savedViews.filter(v => !v.isSystem);
-    localStorage.setItem(getStorageKey(projectName, 'views'), JSON.stringify(customViews));
+    if (!isInitialMount.current) {
+      const customViews = savedViews.filter(v => !v.isSystem);
+      localStorage.setItem(getStorageKey(projectName, 'views'), JSON.stringify(customViews));
+    }
   }, [savedViews, projectName]);
 
-  // Save card size preference
+  // Save card size preference (skip initial mount)
   useEffect(() => {
-    localStorage.setItem(getStorageKey(projectName, 'cardSize'), cardSize);
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'cardSize'), cardSize);
+    }
   }, [cardSize, projectName]);
 
   const generateTasks = (columnId: string, color: string, count: number): Task[] => {
