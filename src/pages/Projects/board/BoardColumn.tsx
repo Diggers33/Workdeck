@@ -222,9 +222,9 @@ export function BoardColumn({
         >
 
 
-        {/* Task cards with drop zones */}
-        {column.tasks.map((task, index) => (
-          <div key={task.id} style={{ marginBottom: '4px' }}>
+        {/* Task cards */}
+        {column.tasks.map((task) => (
+          <div key={task.id} style={{ marginBottom: '8px' }}>
             <ImprovedTaskCard
               task={task}
               columnId={column.id}
@@ -236,136 +236,25 @@ export function BoardColumn({
               onUpdateTask={onUpdateTask}
               onTaskClick={onTaskClick}
             />
-            
-            {/* Drop zone after each task */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDropIndicator({ type: 'between', index });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const nextTask = column.tasks[index + 1];
-                handleTaskDrop(nextTask?.id);
-              }}
-              style={{
-                height: dropIndicator?.type === 'between' && dropIndicator.index === index ? '48px' : '12px',
-                transition: 'height 100ms ease',
-                position: 'relative',
-                marginTop: '4px',
-                marginBottom: '4px',
-                flexShrink: 0
-              }}
-            >
-              {dropIndicator?.type === 'between' && dropIndicator.index === index && (
-                <>
-                  {/* Blue line indicator */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: 0,
-                    right: 0,
-                    height: '3px',
-                    background: '#0066FF',
-                    transform: 'translateY(-50%)',
-                    borderRadius: '2px',
-                    boxShadow: '0 0 12px rgba(0, 102, 255, 0.5)'
-                  }}>
-                    {/* Left circle */}
-                    <div style={{
-                      position: 'absolute',
-                      left: '-6px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: '#0066FF',
-                      boxShadow: '0 0 8px rgba(0, 102, 255, 0.6)'
-                    }} />
-                    {/* Right circle */}
-                    <div style={{
-                      position: 'absolute',
-                      right: '-6px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: '#0066FF',
-                      boxShadow: '0 0 8px rgba(0, 102, 255, 0.6)'
-                    }} />
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         ))}
 
-        {/* Bottom drop zone */}
-        {column.tasks.length > 0 && (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDropIndicator({ type: 'bottom' });
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleTaskDrop(); // No insertBeforeTaskId = append to end
-            }}
-            style={{
-              height: dropIndicator?.type === 'bottom' ? '48px' : '16px',
-              background: dropIndicator?.type === 'bottom' ? '#EFF6FF' : 'transparent',
-              border: dropIndicator?.type === 'bottom' ? '2px dashed #0066FF' : 'none',
-              borderRadius: '6px',
-              transition: 'all 100ms ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              color: '#0066FF',
-              fontWeight: 600,
-              marginTop: '4px',
-              flexShrink: 0
-            }}
-          >
-            {dropIndicator?.type === 'bottom' && '↓ Drop here to insert at bottom'}
-          </div>
-        )}
-
         {/* Empty state */}
         {column.tasks.length === 0 && (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDropIndicator({ type: 'bottom' });
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleTaskDrop();
-            }}
-            style={{
-              flex: 1,
-              minHeight: '100px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              color: '#9CA3AF',
-              fontSize: '13px',
-              background: dropIndicator?.type === 'bottom' ? '#EFF6FF' : 'transparent',
-              border: dropIndicator?.type === 'bottom' ? '2px dashed #0066FF' : 'none',
-              borderRadius: '6px',
-              transition: 'all 100ms ease'
-            }}
-          >
-            {dropIndicator?.type === 'bottom' ? '↓ Drop here' : 'No tasks yet'}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '48px 24px',
+            color: '#9CA3AF',
+            fontSize: '13px',
+            textAlign: 'center'
+          }}>
+            <div style={{ marginBottom: '8px', fontSize: '32px', opacity: 0.3 }}>📋</div>
+            <div style={{ fontWeight: 500 }}>No tasks yet</div>
+            <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.7 }}>Drag tasks here to get started</div>
           </div>
         )}
         </div>
