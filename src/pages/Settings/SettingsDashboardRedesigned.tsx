@@ -49,13 +49,13 @@ export function SettingsDashboardRedesigned({
       <div className="min-h-screen bg-[#F9FAFB]">
         {/* Header */}
         <div className="bg-white border-b border-[#E5E7EB]">
-          <div className="max-w-7xl mx-auto px-8 py-4">
-            <div className="flex items-start justify-between mb-6">
+          <div className="max-w-7xl mx-auto px-8 py-3">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <h1 className="text-[22px] font-medium text-[#1F2937] mb-2">
+                <h1 className="text-[20px] font-medium text-[#1F2937] mb-2">
                   Welcome back, {userName}
                 </h1>
-                <p className="text-[15px] text-[#6B7280]">
+                <p className="text-[12px] text-[#6B7280]">
                   {essentialsCompleted < essentialsTotal ? (
                     <>Let's finish setting up <span className="font-medium text-[#1F2937]">{companyName}</span></>
                   ) : (
@@ -83,20 +83,20 @@ export function SettingsDashboardRedesigned({
         </div>
 
         {/* Main content */}
-        <div className="max-w-7xl mx-auto px-8 py-6 pb-32">
+        <div className="max-w-7xl mx-auto px-8 py-4 pb-32">
           {/* Essentials Section */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-[#0066FF] flex items-center justify-center">
-                <span className="text-[14px] font-medium text-white">1</span>
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-full bg-[#0066FF] flex items-center justify-center">
+                <span className="text-[13px] font-medium text-white">1</span>
               </div>
-              <h2 className="text-[18px] font-medium text-[#1F2937]">Essentials</h2>
-              <span className="text-[13px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
+              <h2 className="text-[16px] font-medium text-[#1F2937]">Essentials</h2>
+              <span className="text-[12px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
                 Complete these first
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {essentialCategories.map((category, index) => (
                 <EssentialCategoryCard
                   key={category.id}
@@ -114,11 +114,11 @@ export function SettingsDashboardRedesigned({
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex items-center gap-2 mb-4 hover:bg-[#F3F4F6] px-4 py-2 rounded-lg transition-colors w-full md:w-auto"
             >
-              <div className="w-8 h-8 rounded-full bg-[#9CA3AF] flex items-center justify-center">
-                <span className="text-[14px] font-medium text-white">2</span>
+              <div className="w-7 h-7 rounded-full bg-[#9CA3AF] flex items-center justify-center">
+                <span className="text-[13px] font-medium text-white">2</span>
               </div>
-              <h2 className="text-[18px] font-medium text-[#1F2937]">Configure when ready</h2>
-              <span className="text-[13px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
+              <h2 className="text-[16px] font-medium text-[#1F2937]">Configure when ready</h2>
+              <span className="text-[12px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
                 {advancedCategories.length} optional features
               </span>
               {showAdvanced ? (
@@ -129,7 +129,7 @@ export function SettingsDashboardRedesigned({
             </button>
 
             {showAdvanced ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {advancedCategories.map((category) => (
                   <AdvancedCategoryCard
                     key={category.id}
@@ -139,7 +139,7 @@ export function SettingsDashboardRedesigned({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {/* Teaser card - show first advanced feature */}
                 <AdvancedCategoryCard
                   category={advancedCategories[0]}
