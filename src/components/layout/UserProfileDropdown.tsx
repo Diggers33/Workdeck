@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, User, Layout, Settings, HelpCircle, LogOut } from 'lucide-react';
 
 export function UserProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const user = {
     name: 'Sarah Martinez',
@@ -26,7 +28,8 @@ export function UserProfileDropdown() {
     {
       icon: <Settings style={{ width: '16px', height: '16px' }} />,
       label: 'Settings',
-      color: '#0A0A0A'
+      color: '#0A0A0A',
+      onClick: () => { setIsOpen(false); navigate('/settings'); }
     },
     {
       icon: <HelpCircle style={{ width: '16px', height: '16px' }} />,
@@ -151,6 +154,7 @@ export function UserProfileDropdown() {
               {menuItems.map((item, index) => (
                 <button
                   key={index}
+                  onClick={() => item.onClick && item.onClick()}
                   style={{
                     width: '100%',
                     height: '44px',

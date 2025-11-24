@@ -5,6 +5,7 @@ import ProjectsApp from './pages/Projects/ProjectsApp';
 import ProjectWizardPage from './pages/Projects/ProjectWizardPage';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
 import { AppLayout } from './components/layout/AppLayout';
+import { SettingsDashboard } from './pages/Settings/SettingsDashboard';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/projects" element={<ProjectsApp />} />
         <Route path="/projects/new" element={<ProjectWizardPage />} />
         <Route path="/projects/edit/:id" element={<ProjectWizardPage />} />
+        <Route path="/settings" element={<SettingsDashboard />} />
 
         {/* WORK TAB PENDING SCREENS */}
         <Route path="/work/my-tasks" element={<AppLayout><PendingScreen title="My Tasks"
