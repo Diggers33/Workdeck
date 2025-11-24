@@ -17,6 +17,7 @@ interface BoardColumnProps {
   onMarkAsDone: (columnId: string, taskId: string) => void;
   onUpdateTask?: (columnId: string, taskId: string, updates: any) => void;
   onTaskClick: (task: Task) => void;
+  onTagClick?: (tagId: string, tagName: string) => void;
 }
 
 export function BoardColumn({
@@ -29,7 +30,8 @@ export function BoardColumn({
   onDeleteTask,
   onMarkAsDone,
   onUpdateTask,
-  onTaskClick
+  onTaskClick,
+  onTagClick
 }: BoardColumnProps) {
   // Make column itself draggable
   const {
@@ -271,6 +273,7 @@ export function BoardColumn({
               onMarkAsDone={onMarkAsDone}
               onUpdateTask={onUpdateTask}
               onTaskClick={onTaskClick}
+              onTagClick={onTagClick}
             />
           </div>
         ))}

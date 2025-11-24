@@ -16,6 +16,7 @@ interface ImprovedTaskCardProps {
   onDelete: (columnId: string, taskId: string) => void;
   onMarkAsDone: (columnId: string, taskId: string) => void;
   onUpdateTask?: (columnId: string, taskId: string, updates: any) => void;
+  onTagClick?: (tagId: string, tagName: string) => void;
   isSelected?: boolean;
   onToggleSelect?: (taskId: string) => void;
 }
@@ -31,6 +32,7 @@ export function ImprovedTaskCard({
   onDelete,
   onMarkAsDone,
   onUpdateTask,
+  onTagClick,
   isSelected = false,
   onToggleSelect
 }: ImprovedTaskCardProps) {
@@ -343,14 +345,22 @@ export function ImprovedTaskCard({
               {task.labels.slice(0, 2).map(label => (
                 <div
                   key={label.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onTagClick) onTagClick(label.id, label.name);
+                  }}
                   style={{
                     padding: '3px 8px',
                     background: label.color,
                     color: 'white',
                     borderRadius: '10px',
                     fontSize: '11px',
-                    fontWeight: 500
+                    fontWeight: 500,
+                    cursor: onTagClick ? 'pointer' : 'default',
+                    transition: 'opacity 150ms ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   {label.name}
                 </div>
@@ -481,14 +491,22 @@ export function ImprovedTaskCard({
               {task.labels.map(label => (
                 <div
                   key={label.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onTagClick) onTagClick(label.id, label.name);
+                  }}
                   style={{
                     padding: '4px 10px',
                     background: label.color,
                     color: 'white',
                     borderRadius: '12px',
                     fontSize: '11px',
-                    fontWeight: 500
+                    fontWeight: 500,
+                    cursor: onTagClick ? 'pointer' : 'default',
+                    transition: 'opacity 150ms ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   {label.name}
                 </div>

@@ -555,6 +555,21 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     setSelectedTask(ganttTask);
   };
 
+  const handleTagClick = (tagId: string, tagName: string) => {
+    // Check if tag is already in filters
+    const existingFilter = activeFilters.find(f => f.type === 'tag' && f.value === tagId);
+
+    if (!existingFilter) {
+      // Add tag to filters
+      setActiveFilters([...activeFilters, {
+        type: 'tag',
+        value: tagId,
+        label: tagName
+      }]);
+      setShowFilterBar(true);
+    }
+  };
+
   const handleUpdateTask = (taskId: string, updates: Partial<GanttTask>) => {
     // Update the task in the columns
     setColumns(prev => prev.map(col => ({
@@ -576,14 +591,29 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   const filteredColumns = columns.map(col => ({
     ...col,
     tasks: col.tasks.filter(task => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        task.title.toLowerCase().includes(query) ||
-        task.description?.toLowerCase().includes(query) ||
-        task.activityName.toLowerCase().includes(query) ||
-        task.labels?.some(label => label.name.toLowerCase().includes(query))
-      );
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = (
+          task.title.toLowerCase().includes(query) ||
+          task.description?.toLowerCase().includes(query) ||
+          task.activityName.toLowerCase().includes(query) ||
+          task.labels?.some(label => label.name.toLowerCase().includes(query))
+        );
+        if (!matchesSearch) return false;
+      }
+
+      // Tag filters (AND logic - task must have ALL selected tags)
+      const tagFilters = activeFilters.filter(f => f.type === 'tag');
+      if (tagFilters.length > 0) {
+        const taskLabelIds = task.labels?.map(l => l.id) || [];
+        const hasAllTags = tagFilters.every(filter =>
+          taskLabelIds.includes(filter.value)
+        );
+        if (!hasAllTags) return false;
+      }
+
+      return true;
     })
   }));
 
@@ -1034,6 +1064,7 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
                   onMarkAsDone={handleMarkAsDone}
                   onUpdateTask={handleCardUpdateTask}
                   onTaskClick={handleTaskClick}
+                  onTagClick={handleTagClick}
                 />
               ))}
           
