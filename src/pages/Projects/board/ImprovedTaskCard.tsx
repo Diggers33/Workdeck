@@ -41,6 +41,7 @@ export function ImprovedTaskCard({
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: task.id });
 
   const style = {
@@ -132,14 +133,55 @@ export function ImprovedTaskCard({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={() => onTaskClick(task)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
+    <div style={{ position: 'relative' }}>
+      {/* Drop Indicator Line */}
+      {isOver && (
+        <div style={{
+          position: 'absolute',
+          top: '-4px',
+          left: 0,
+          right: 0,
+          height: '3px',
+          background: '#0066FF',
+          borderRadius: '2px',
+          boxShadow: '0 0 8px rgba(0, 102, 255, 0.6)',
+          zIndex: 10
+        }}>
+          {/* Left circle */}
+          <div style={{
+            position: 'absolute',
+            left: '-6px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            background: '#0066FF',
+            boxShadow: '0 0 6px rgba(0, 102, 255, 0.8)'
+          }} />
+          {/* Right circle */}
+          <div style={{
+            position: 'absolute',
+            right: '-6px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '12px',
+            height: '12px',
+            borderRadius: '50%',
+            background: '#0066FF',
+            boxShadow: '0 0 6px rgba(0, 102, 255, 0.8)'
+          }} />
+        </div>
+      )}
+
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        onClick={() => onTaskClick(task)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
         background: getBackgroundColor(),
         border: '1px solid #E5E7EB',
         borderLeft: `4px solid ${getLeftBorderColor()}`,
@@ -817,6 +859,7 @@ export function ImprovedTaskCard({
           onCancel={() => setShowBlockedModal(false)}
         />
       )}
+      </div>
     </div>
   );
 }
