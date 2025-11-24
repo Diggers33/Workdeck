@@ -136,11 +136,6 @@ export function ImprovedTaskCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      draggable={false}
-      onDragStart={() => onDragStart(task, columnId)}
-      onDragEnd={() => {
-        // Ensure any drag states are cleared
-      }}
       onClick={() => onTaskClick(task)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

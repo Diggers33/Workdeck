@@ -231,7 +231,6 @@ export function BoardColumn({
               size={cardSize}
               showDescription={showDescription}
               showParticipants={showParticipants}
-              onDragStart={onDragStart}
               onDelete={onDeleteTask}
               onMarkAsDone={onMarkAsDone}
               onUpdateTask={onUpdateTask}
