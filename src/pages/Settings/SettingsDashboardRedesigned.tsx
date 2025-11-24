@@ -49,10 +49,10 @@ export function SettingsDashboardRedesigned({
       <div className="min-h-screen bg-[#F9FAFB]">
         {/* Header */}
         <div className="bg-white border-b border-[#E5E7EB]">
-          <div className="max-w-7xl mx-auto px-8 py-6">
+          <div className="max-w-7xl mx-auto px-8 py-4">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h1 className="text-[24px] font-medium text-[#1F2937] mb-2">
+                <h1 className="text-[22px] font-medium text-[#1F2937] mb-2">
                   Welcome back, {userName}
                 </h1>
                 <p className="text-[15px] text-[#6B7280]">
@@ -83,20 +83,20 @@ export function SettingsDashboardRedesigned({
         </div>
 
         {/* Main content */}
-        <div className="max-w-7xl mx-auto px-8 py-8 pb-32">
+        <div className="max-w-7xl mx-auto px-8 py-6 pb-32">
           {/* Essentials Section */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 rounded-full bg-[#0066FF] flex items-center justify-center">
                 <span className="text-[14px] font-medium text-white">1</span>
               </div>
-              <h2 className="text-[20px] font-medium text-[#1F2937]">Essentials</h2>
+              <h2 className="text-[18px] font-medium text-[#1F2937]">Essentials</h2>
               <span className="text-[13px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
                 Complete these first
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {essentialCategories.map((category, index) => (
                 <EssentialCategoryCard
                   key={category.id}
@@ -117,7 +117,7 @@ export function SettingsDashboardRedesigned({
               <div className="w-8 h-8 rounded-full bg-[#9CA3AF] flex items-center justify-center">
                 <span className="text-[14px] font-medium text-white">2</span>
               </div>
-              <h2 className="text-[20px] font-medium text-[#1F2937]">Configure when ready</h2>
+              <h2 className="text-[18px] font-medium text-[#1F2937]">Configure when ready</h2>
               <span className="text-[13px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
                 {advancedCategories.length} optional features
               </span>

@@ -36,23 +36,23 @@ export function EssentialCategoryCard({ category, isNextAction, onClick }: Essen
   return (
     <button
       onClick={onClick}
-      className={`bg-white rounded-lg p-6 text-left hover:shadow-lg transition-all border-2 group relative ${borderClass}`}
+      className={`bg-white rounded-lg p-4 text-left hover:shadow-lg transition-all border-2 group relative ${borderClass}`}
     >
       {/* Priority Badge */}
-      <div className="absolute top-4 right-4 flex items-center gap-2">
+      <div className="absolute top-3 right-3 flex items-center gap-2">
         {category.completed ? (
-          <div className="flex items-center gap-1 text-[11px] font-medium text-[#34D399] bg-[#D1FAE5] px-2 py-1 rounded-full">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-[#34D399] bg-[#D1FAE5] px-2 py-0.5 rounded-full">
             <CheckCircle2 className="w-3 h-3" />
             Done
           </div>
         ) : isNextAction ? (
-          <div className="flex items-center gap-1 text-[11px] font-medium text-[#0066FF] bg-[#F0F4FF] px-2 py-1 rounded-full animate-pulse">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-[#0066FF] bg-[#F0F4FF] px-2 py-0.5 rounded-full animate-pulse">
             <ArrowRight className="w-3 h-3" />
             Do this next
           </div>
         ) : (
-          <div className="w-6 h-6 rounded-full border-2 border-[#E5E7EB] bg-white flex items-center justify-center">
-            <span className="text-[11px] font-medium text-[#9CA3AF]">{category.priority}</span>
+          <div className="w-5 h-5 rounded-full border-2 border-[#E5E7EB] bg-white flex items-center justify-center">
+            <span className="text-[10px] font-medium text-[#9CA3AF]">{category.priority}</span>
           </div>
         )}
       </div>
@@ -82,14 +82,14 @@ export function EssentialCategoryCard({ category, isNextAction, onClick }: Essen
       </div>
 
       {/* CTA */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 text-[12px] text-[#9CA3AF]">
+      <div className="flex items-center justify-between ml-13">
+        <div className="flex items-center gap-1 text-[11px] text-[#9CA3AF]">
           <Clock className="w-3 h-3" />
           {category.timeEstimate}
         </div>
-        <div className={`flex items-center gap-1 text-[13px] font-medium ${actionColorClass} ${isNextAction ? 'group-hover:gap-2' : ''} transition-all`}>
+        <div className={`flex items-center gap-1 text-[12px] font-medium ${actionColorClass} ${isNextAction ? 'group-hover:gap-2' : ''} transition-all`}>
           {category.action}
-          <ArrowRight className="w-4 h-4" />
+          <ArrowRight className="w-3.5 h-3.5" />
         </div>
       </div>
     </button>
