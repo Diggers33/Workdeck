@@ -375,49 +375,97 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     setShowCreateDialog(false);
   };
 
-  const handleDragStart = (task: Task, columnId: string) => {
-    setDraggedTask({ task, fromColumnId: columnId });
-  };
+  // @dnd-kit drag handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveTaskId(active.id as string);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (toColumnId: string, insertBeforeTaskId?: string) => {
-    if (!draggedTask) return;
-
-    setColumns(prevColumns => {
-      const newColumns = [...prevColumns];
-      const fromColumn = newColumns.find(col => col.id === draggedTask.fromColumnId);
-      const toColumn = newColumns.find(col => col.id === toColumnId);
-
-      if (fromColumn && toColumn) {
-        // Remove task from source column
-        fromColumn.tasks = fromColumn.tasks.filter(t => t.id !== draggedTask.task.id);
-        
-        // Add task to target column with updated color
-        const updatedTask = { ...draggedTask.task, color: toColumn.color };
-        
-        // If insertBeforeTaskId is provided, insert at that position
-        if (insertBeforeTaskId) {
-          const insertIndex = toColumn.tasks.findIndex(t => t.id === insertBeforeTaskId);
-          if (insertIndex !== -1) {
-            toColumn.tasks.splice(insertIndex, 0, updatedTask);
-          } else {
-            toColumn.tasks.push(updatedTask);
-          }
-        } else {
-          toColumn.tasks.push(updatedTask);
-        }
+    // Find which column this task belongs to
+    for (const col of columns) {
+      if (col.tasks.some(t => t.id === active.id)) {
+        setActiveColumn(col.id);
+        break;
       }
+    }
+  };
 
-      return newColumns;
-    });
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
 
-    setDraggedTask(null);
-    setDragOverTask(null);
-    setDraggedColumn(null);
-    setDragOverColumn(null);
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find source and target columns
+    const activeColumn = columns.find(col => col.tasks.some(t => t.id === activeId));
+    const overColumn = columns.find(col => col.id === overId || col.tasks.some(t => t.id === overId));
+
+    if (!activeColumn || !overColumn) return;
+
+    // If moving to a different column
+    if (activeColumn.id !== overColumn.id) {
+      setColumns(prevColumns => {
+        const newColumns = [...prevColumns];
+        const sourceCol = newColumns.find(c => c.id === activeColumn.id);
+        const targetCol = newColumns.find(c => c.id === overColumn.id);
+
+        if (sourceCol && targetCol) {
+          const taskToMove = sourceCol.tasks.find(t => t.id === activeId);
+          if (taskToMove) {
+            // Remove from source
+            sourceCol.tasks = sourceCol.tasks.filter(t => t.id !== activeId);
+
+            // Add to target with updated color
+            const updatedTask = { ...taskToMove, color: targetCol.color };
+
+            // If dropped on a task, insert before it; otherwise append
+            if (targetCol.tasks.some(t => t.id === overId)) {
+              const overIndex = targetCol.tasks.findIndex(t => t.id === overId);
+              targetCol.tasks.splice(overIndex, 0, updatedTask);
+            } else {
+              targetCol.tasks.push(updatedTask);
+            }
+          }
+        }
+
+        return newColumns;
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    setActiveTaskId(null);
+    setActiveColumn(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find the column that contains the active task
+    const activeColumn = columns.find(col => col.tasks.some(t => t.id === activeId));
+    if (!activeColumn) return;
+
+    // If dropped on the same column, reorder within it
+    if (activeColumn.tasks.some(t => t.id === overId)) {
+      setColumns(prevColumns => {
+        const newColumns = [...prevColumns];
+        const col = newColumns.find(c => c.id === activeColumn.id);
+
+        if (col) {
+          const oldIndex = col.tasks.findIndex(t => t.id === activeId);
+          const newIndex = col.tasks.findIndex(t => t.id === overId);
+
+          if (oldIndex !== -1 && newIndex !== -1) {
+            col.tasks = arrayMove(col.tasks, oldIndex, newIndex);
+          }
+        }
+
+        return newColumns;
+      });
+    }
   };
 
   const handleAddColumn = () => {
@@ -966,33 +1014,40 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
       )}
 
       {/* Board Columns */}
-      <div style={{
-        flex: 1,
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        padding: '20px'
-      }}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        collisionDetection={closestCorners}
+      >
         <div style={{
-          display: 'flex',
-          gap: '16px',
-          height: '100%',
-          minWidth: 'fit-content'
+          flex: 1,
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          padding: '20px'
         }}>
-          {filteredColumns.map((column) => (
-            <BoardColumn
-              key={column.id}
-              column={column}
-              cardSize={cardSize}
-              showDescription={showDescription}
-              showParticipants={showParticipants}
-              onDeleteColumn={handleDeleteColumn}
-              onEditColumn={() => setShowColumnSettings(column.id)}
-              onDeleteTask={handleDeleteTask}
-              onMarkAsDone={handleMarkAsDone}
-              onUpdateTask={handleCardUpdateTask}
-              onTaskClick={handleTaskClick}
-            />
-          ))}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            height: '100%',
+            minWidth: 'fit-content'
+          }}>
+            {filteredColumns.map((column) => (
+              <BoardColumn
+                key={column.id}
+                column={column}
+                cardSize={cardSize}
+                showDescription={showDescription}
+                showParticipants={showParticipants}
+                onDeleteColumn={handleDeleteColumn}
+                onEditColumn={() => setShowColumnSettings(column.id)}
+                onDeleteTask={handleDeleteTask}
+                onMarkAsDone={handleMarkAsDone}
+                onUpdateTask={handleCardUpdateTask}
+                onTaskClick={handleTaskClick}
+              />
+            ))}
           
           {/* Add Column Button */}
           <button
@@ -1019,6 +1074,7 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
           </button>
         </div>
       </div>
+    </DndContext>
 
       {/* Column Settings Dialog */}
       {showColumnSettings && (
