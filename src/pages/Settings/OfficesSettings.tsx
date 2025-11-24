@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, Plus, MapPin, Edit2, Trash2, Copy, Clock, Calendar, CalendarDays } from 'lucide-react';
-import { OfficeBuilderNew } from './OfficeBuilderNew';
+import { OfficeBuilder } from './OfficeBuilder';
 import { HolidayCalendarDetail } from './HolidayCalendarDetail';
 import { getRegionalCalendar, RegionalCalendar } from './HolidayCalendarData';
 
@@ -172,7 +172,7 @@ export function OfficesSettings({ onBack }: OfficesSettingsProps) {
       </div>
 
       {showBuilder && (
-        <OfficeBuilderNew
+        <OfficeBuilder
           onClose={() => {
             setShowBuilder(false);
             setEditingOffice(null);

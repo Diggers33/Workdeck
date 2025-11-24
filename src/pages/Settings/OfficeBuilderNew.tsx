@@ -22,7 +22,7 @@ interface Office {
   companyClosures: any[];
 }
 
-interface OfficeBuilderNewProps {
+interface OfficeBuilderProps {
   onClose: () => void;
   onSave: (office: Office) => void;
   editingOffice?: Office;
@@ -41,7 +41,7 @@ const CURRENCIES = [
   { code: 'INR', name: 'Indian Rupee', symbol: '₹' }
 ];
 
-export function OfficeBuilderNew({ onClose, onSave, editingOffice }: OfficeBuilderNewProps) {
+export function OfficeBuilder({ onClose, onSave, editingOffice }: OfficeBuilderProps) {
   // State for multi-step form
   const [step, setStep] = useState(1); // 1: Basic Info, 2: Location, 3: Holiday Calendar, 4: Done
 
