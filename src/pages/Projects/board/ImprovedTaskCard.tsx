@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Paperclip, MessageSquare, CheckSquare, AlertCircle, Clock, User, MoreVertical, Calendar, X, MessageCircle } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Task } from './ProjectBoard';
 import { BlockedModal } from './BlockedModal';
 
@@ -10,14 +12,12 @@ interface ImprovedTaskCardProps {
   showDescription: boolean;
   showParticipants: boolean;
   showProjectReference?: boolean; // For My Work board
-  onDragStart: (task: Task, columnId: string) => void;
   onTaskClick: (task: Task) => void;
   onDelete: (columnId: string, taskId: string) => void;
   onMarkAsDone: (columnId: string, taskId: string) => void;
   onUpdateTask?: (columnId: string, taskId: string, updates: any) => void;
   isSelected?: boolean;
   onToggleSelect?: (taskId: string) => void;
-  onDragOverTask?: (taskId: string) => void;
 }
 
 export function ImprovedTaskCard({
@@ -27,15 +27,27 @@ export function ImprovedTaskCard({
   showDescription,
   showParticipants,
   showProjectReference = false,
-  onDragStart,
   onTaskClick,
   onDelete,
   onMarkAsDone,
   onUpdateTask,
   isSelected = false,
-  onToggleSelect,
-  onDragOverTask
+  onToggleSelect
 }: ImprovedTaskCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
   const [showMenu, setShowMenu] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [showBlockedModal, setShowBlockedModal] = useState(false);
@@ -121,7 +133,10 @@ export function ImprovedTaskCard({
 
   return (
     <div
-      draggable
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      draggable={false}
       onDragStart={() => onDragStart(task, columnId)}
       onDragEnd={() => {
         // Ensure any drag states are cleared

@@ -1,5 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, MoreVertical, Edit2, Trash2, GripVertical, AlertTriangle, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, MoreVertical, Edit2, Trash2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ImprovedTaskCard } from './ImprovedTaskCard';
 import { Column, Task } from './ProjectBoard';
 
@@ -8,20 +10,12 @@ interface BoardColumnProps {
   cardSize: 'small' | 'medium' | 'large';
   showDescription: boolean;
   showParticipants: boolean;
-  onDragStart: (task: Task, columnId: string) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (columnId: string, insertBeforeTaskId?: string) => void;
   onDeleteColumn: (columnId: string) => void;
   onEditColumn: () => void;
   onDeleteTask: (columnId: string, taskId: string) => void;
   onMarkAsDone: (columnId: string, taskId: string) => void;
   onUpdateTask?: (columnId: string, taskId: string, updates: any) => void;
   onTaskClick: (task: Task) => void;
-  onColumnDragStart: (columnId: string) => void;
-  onColumnDragOver: (e: React.DragEvent, columnId: string) => void;
-  onColumnDrop: (columnId: string) => void;
-  draggedColumn: string | null;
-  dragOverColumn: string | null;
 }
 
 export function BoardColumn({
@@ -29,97 +23,20 @@ export function BoardColumn({
   cardSize,
   showDescription,
   showParticipants,
-  onDragStart,
-  onDragOver,
-  onDrop,
   onDeleteColumn,
   onEditColumn,
   onDeleteTask,
   onMarkAsDone,
   onUpdateTask,
-  onTaskClick,
-  onColumnDragStart,
-  onColumnDragOver,
-  onColumnDrop,
-  draggedColumn,
-  dragOverColumn
+  onTaskClick
 }: BoardColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+  });
+
+  const taskIds = column.tasks.map(task => task.id);
   const [showMenu, setShowMenu] = useState(false);
-  const [dropIndicator, setDropIndicator] = useState<{ type: 'top' | 'between' | 'bottom'; index?: number } | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const scrollIntervalRef = useRef<number | null>(null);
-  const isDraggingOverRef = useRef(false);
-
   const canDelete = column.id !== 'open' && column.id !== 'completed';
-  const canDrag = column.id !== 'open' && !column.isCompleted;
-  const isBeingDragged = draggedColumn === column.id;
-  const isDropTarget = dragOverColumn === column.id;
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-      }
-    };
-  }, []);
-
-  // Auto-scroll logic
-  const handleAutoScroll = (e: React.DragEvent) => {
-    if (!scrollContainerRef.current) return;
-
-    const container = scrollContainerRef.current;
-    const rect = container.getBoundingClientRect();
-    const mouseY = e.clientY - rect.top;
-    const scrollZone = 80;
-    const scrollSpeed = 20;
-
-    // Clear existing scroll
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-
-    // Scroll up
-    if (mouseY < scrollZone && container.scrollTop > 0) {
-      scrollIntervalRef.current = window.setInterval(() => {
-        if (container.scrollTop > 0) {
-          container.scrollTop = Math.max(0, container.scrollTop - scrollSpeed);
-        } else if (scrollIntervalRef.current) {
-          clearInterval(scrollIntervalRef.current);
-          scrollIntervalRef.current = null;
-        }
-      }, 50);
-    }
-    // Scroll down
-    else if (mouseY > rect.height - scrollZone && container.scrollTop < container.scrollHeight - container.clientHeight) {
-      scrollIntervalRef.current = window.setInterval(() => {
-        if (container.scrollTop < container.scrollHeight - container.clientHeight) {
-          container.scrollTop = Math.min(container.scrollHeight - container.clientHeight, container.scrollTop + scrollSpeed);
-        } else if (scrollIntervalRef.current) {
-          clearInterval(scrollIntervalRef.current);
-          scrollIntervalRef.current = null;
-        }
-      }, 50);
-    }
-  };
-
-  const stopAutoScroll = () => {
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
-    }
-  };
-
-  const clearDropIndicator = () => {
-    setDropIndicator(null);
-    stopAutoScroll();
-  };
-
-  const handleTaskDrop = (insertBeforeTaskId?: string) => {
-    onDrop(column.id, insertBeforeTaskId);
-    clearDropIndicator();
-  };
 
   const getColumnWidth = () => {
     switch (cardSize) {
@@ -132,63 +49,17 @@ export function BoardColumn({
 
   return (
     <div
-      draggable={canDrag}
-      onDragStart={(e) => {
-        if (canDrag) {
-          onColumnDragStart(column.id);
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('columnId', column.id);
-        }
-      }}
-      onDragEnd={() => {
-        clearDropIndicator();
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (canDrag && draggedColumn) {
-          onColumnDragOver(e, column.id);
-        } else {
-          onDragOver(e);
-          handleAutoScroll(e);
-        }
-      }}
-      onDragLeave={(e) => {
-        // Only clear if leaving the column entirely
-        if (e.currentTarget === e.target) {
-          isDraggingOverRef.current = false;
-          setTimeout(() => {
-            if (!isDraggingOverRef.current) {
-              stopAutoScroll();
-            }
-          }, 50);
-        }
-      }}
-      onDragEnter={() => {
-        isDraggingOverRef.current = true;
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (draggedColumn) {
-          onColumnDrop(column.id);
-        } else {
-          // Drop at end if no specific position
-          handleTaskDrop();
-        }
-      }}
+      ref={setNodeRef}
       style={{
         width: getColumnWidth(),
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: '#FAFAFA',
+        background: isOver ? '#F0F9FF' : '#FAFAFA',
         borderRadius: '8px',
-        border: isDropTarget ? '2px solid #0066FF' : '1px solid #E5E7EB',
-        transition: 'border 150ms ease, opacity 150ms ease',
+        border: isOver ? '2px solid #0066FF' : '1px solid #E5E7EB',
+        transition: 'all 150ms ease',
         maxHeight: '100%',
-        opacity: isBeingDragged ? 0.5 : 1,
-        cursor: canDrag ? 'grab' : 'default',
         position: 'relative'
       }}
     >
@@ -205,16 +76,6 @@ export function BoardColumn({
           marginBottom: '8px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {canDrag && (
-              <GripVertical 
-                size={16} 
-                style={{ 
-                  color: '#D1D5DB',
-                  cursor: 'grab',
-                  flexShrink: 0
-                }} 
-              />
-            )}
             <div style={{
               width: '4px',
               height: '20px',
@@ -347,49 +208,19 @@ export function BoardColumn({
       </div>
 
       {/* Tasks Scrollable Area */}
-      <div
-        ref={scrollContainerRef}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: '12px',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        {/* Top drop zone */}
-        {column.tasks.length > 0 && (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setDropIndicator({ type: 'top' });
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleTaskDrop(column.tasks[0].id);
-            }}
-            style={{
-              height: dropIndicator?.type === 'top' ? '48px' : '8px',
-              background: dropIndicator?.type === 'top' ? '#EFF6FF' : 'transparent',
-              border: dropIndicator?.type === 'top' ? '2px dashed #0066FF' : 'none',
-              borderRadius: '6px',
-              transition: 'all 100ms ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              color: '#0066FF',
-              fontWeight: 600,
-              marginBottom: '4px',
-              flexShrink: 0
-            }}
-          >
-            {dropIndicator?.type === 'top' && '↓ Drop here to insert at top'}
-          </div>
-        )}
+      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+        <div
+  
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+
 
         {/* Task cards with drop zones */}
         {column.tasks.map((task, index) => (
@@ -538,7 +369,8 @@ export function BoardColumn({
             {dropIndicator?.type === 'bottom' ? '↓ Drop here' : 'No tasks yet'}
           </div>
         )}
-      </div>
+        </div>
+      </SortableContext>
 
       {/* Add Task Button */}
       <div style={{ padding: '12px', borderTop: '1px solid #E5E7EB', flexShrink: 0 }}>

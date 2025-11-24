@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
 import { Search, Plus, Settings, X, ChevronLeft, MoreVertical, Tag, Filter, Users } from 'lucide-react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  closestCorners
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { BoardColumn } from './BoardColumn';
 import { CreateBoardDialog } from './CreateBoardDialog';
 import { ColumnSettingsDialog } from './ColumnSettingsDialog';
@@ -48,8 +60,7 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   const [boardExists, setBoardExists] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [draggedTask, setDraggedTask] = useState<{ task: Task; fromColumnId: string } | null>(null);
-  const [dragOverTask, setDragOverTask] = useState<{ taskId: string; position: 'before' | 'after' } | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [showColumnSettings, setShowColumnSettings] = useState<string | null>(null);
   const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [showDescription, setShowDescription] = useState(true);
@@ -62,9 +73,8 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   const [showFilterBar, setShowFilterBar] = useState(false);
   const [groupBy, setGroupBy] = useState<'none' | 'workPackage' | 'assignee' | 'priority'>('none');
 
-  // Drag state for columns
-  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  // Active drag item
+  const [activeColumn, setActiveColumn] = useState<string | null>(null);
 
   // Saved views
   const [savedViews, setSavedViews] = useState([
@@ -75,6 +85,15 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     { id: 'blocked-overdue', name: 'Blocked & Overdue', filters: [], groupBy: 'none', cardSize: 'medium' as const, isSystem: true, hasAlert: true }
   ]);
   const [currentView, setCurrentView] = useState(savedViews[0]);
+  // Configure @dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required to start drag
+      },
+    })
+  );
+
 
   // Board labels state
   const [boardLabels, setBoardLabels] = useState([
