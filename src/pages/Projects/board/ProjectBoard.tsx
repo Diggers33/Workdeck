@@ -538,54 +538,6 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     setSelectedTask(null);
   };
 
-  // Column drag handlers
-  const handleColumnDragStart = (columnId: string) => {
-    const column = columns.find(c => c.id === columnId);
-    if (column?.isCompleted || columnId === 'open') return; // Prevent dragging Open and Completed columns
-    setDraggedColumn(columnId);
-  };
-
-  const handleColumnDragOver = (e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    const column = columns.find(c => c.id === columnId);
-    if (column?.isCompleted || columnId === 'open') return; // Prevent dropping on Open and Completed
-    setDragOverColumn(columnId);
-  };
-
-  const handleColumnDrop = (targetColumnId: string) => {
-    if (!draggedColumn || draggedColumn === targetColumnId) {
-      setDraggedColumn(null);
-      setDragOverColumn(null);
-      return;
-    }
-
-    const targetColumn = columns.find(c => c.id === targetColumnId);
-    if (targetColumn?.isCompleted || targetColumnId === 'open') {
-      setDraggedColumn(null);
-      setDragOverColumn(null);
-      return;
-    }
-
-    setColumns(prev => {
-      const newColumns = [...prev];
-      const draggedIndex = newColumns.findIndex(c => c.id === draggedColumn);
-      const targetIndex = newColumns.findIndex(c => c.id === targetColumnId);
-
-      if (draggedIndex === -1 || targetIndex === -1) return prev;
-
-      // Remove dragged column
-      const [removed] = newColumns.splice(draggedIndex, 1);
-      
-      // Insert at new position
-      newColumns.splice(targetIndex, 0, removed);
-
-      return newColumns;
-    });
-
-    setDraggedColumn(null);
-    setDragOverColumn(null);
-  };
-
   const filteredColumns = columns.map(col => ({
     ...col,
     tasks: col.tasks.filter(task => {
@@ -1033,20 +985,12 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
               cardSize={cardSize}
               showDescription={showDescription}
               showParticipants={showParticipants}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
               onDeleteColumn={handleDeleteColumn}
               onEditColumn={() => setShowColumnSettings(column.id)}
               onDeleteTask={handleDeleteTask}
               onMarkAsDone={handleMarkAsDone}
               onUpdateTask={handleCardUpdateTask}
               onTaskClick={handleTaskClick}
-              onColumnDragStart={handleColumnDragStart}
-              onColumnDragOver={handleColumnDragOver}
-              onColumnDrop={handleColumnDrop}
-              draggedColumn={draggedColumn}
-              dragOverColumn={dragOverColumn}
             />
           ))}
           
