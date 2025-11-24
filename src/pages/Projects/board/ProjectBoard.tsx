@@ -11,7 +11,7 @@ import {
   DragOverlay,
   closestCorners
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { BoardColumn } from './BoardColumn';
 import { CreateBoardDialog } from './CreateBoardDialog';
 import { ColumnSettingsDialog } from './ColumnSettingsDialog';
@@ -378,14 +378,14 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   // @dnd-kit drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveTaskId(active.id as string);
+    const activeData = active.data.current;
 
-    // Find which column this task belongs to
-    for (const col of columns) {
-      if (col.tasks.some(t => t.id === active.id)) {
-        setActiveColumn(col.id);
-        break;
-      }
+    if (activeData?.type === 'column') {
+      setActiveColumn(active.id as string);
+      setActiveTaskId(null);
+    } else if (activeData?.type === 'task') {
+      setActiveTaskId(active.id as string);
+      setActiveColumn(activeData.columnId);
     }
   };
 
@@ -404,7 +404,21 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
 
     const activeId = active.id as string;
     const overId = over.id as string;
+    const activeData = active.data.current;
 
+    // Handle column reordering
+    if (activeData?.type === 'column') {
+      if (activeId !== overId) {
+        setColumns(prevColumns => {
+          const oldIndex = prevColumns.findIndex(col => col.id === activeId);
+          const newIndex = prevColumns.findIndex(col => col.id === overId);
+          return arrayMove(prevColumns, oldIndex, newIndex);
+        });
+      }
+      return;
+    }
+
+    // Handle task movement
     setColumns(prevColumns => {
       const newColumns = [...prevColumns];
 
@@ -1000,27 +1014,28 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
           overflowY: 'hidden',
           padding: '20px'
         }}>
-          <div style={{
-            display: 'flex',
-            gap: '16px',
-            height: '100%',
-            minWidth: 'fit-content'
-          }}>
-            {filteredColumns.map((column) => (
-              <BoardColumn
-                key={column.id}
-                column={column}
-                cardSize={cardSize}
-                showDescription={showDescription}
-                showParticipants={showParticipants}
-                onDeleteColumn={handleDeleteColumn}
-                onEditColumn={() => setShowColumnSettings(column.id)}
-                onDeleteTask={handleDeleteTask}
-                onMarkAsDone={handleMarkAsDone}
-                onUpdateTask={handleCardUpdateTask}
-                onTaskClick={handleTaskClick}
-              />
-            ))}
+          <SortableContext items={filteredColumns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+            <div style={{
+              display: 'flex',
+              gap: '16px',
+              height: '100%',
+              minWidth: 'fit-content'
+            }}>
+              {filteredColumns.map((column) => (
+                <BoardColumn
+                  key={column.id}
+                  column={column}
+                  cardSize={cardSize}
+                  showDescription={showDescription}
+                  showParticipants={showParticipants}
+                  onDeleteColumn={handleDeleteColumn}
+                  onEditColumn={() => setShowColumnSettings(column.id)}
+                  onDeleteTask={handleDeleteTask}
+                  onMarkAsDone={handleMarkAsDone}
+                  onUpdateTask={handleCardUpdateTask}
+                  onTaskClick={handleTaskClick}
+                />
+              ))}
           
           {/* Add Column Button */}
           <button
@@ -1045,12 +1060,14 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
             <Plus size={18} />
             Add Column
           </button>
+            </div>
+          </SortableContext>
         </div>
-      </div>
 
-      {/* Drag Overlay - shows floating card while dragging */}
+      {/* Drag Overlay - shows floating card/column while dragging */}
       <DragOverlay>
-        {activeTaskId ? (
+        {activeTaskId && !activeColumn?.startsWith('col-') ? (
+          // Dragging a task
           <div style={{
             cursor: 'grabbing',
             transform: 'rotate(3deg)',
@@ -1064,6 +1081,26 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
               showDescription={showDescription}
               showParticipants={showParticipants}
               onDelete={() => {}}
+              onMarkAsDone={() => {}}
+              onTaskClick={() => {}}
+            />
+          </div>
+        ) : activeColumn ? (
+          // Dragging a column
+          <div style={{
+            cursor: 'grabbing',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            opacity: 0.9,
+            transform: 'rotate(2deg)'
+          }}>
+            <BoardColumn
+              column={columns.find(c => c.id === activeColumn)!}
+              cardSize={cardSize}
+              showDescription={showDescription}
+              showParticipants={showParticipants}
+              onDeleteColumn={() => {}}
+              onEditColumn={() => {}}
+              onDeleteTask={() => {}}
               onMarkAsDone={() => {}}
               onTaskClick={() => {}}
             />

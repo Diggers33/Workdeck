@@ -42,7 +42,10 @@ export function ImprovedTaskCard({
     transition,
     isDragging,
     isOver,
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: task.id,
+    data: { type: 'task', columnId }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

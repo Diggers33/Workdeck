@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Plus, MoreVertical, Edit2, Trash2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ImprovedTaskCard } from './ImprovedTaskCard';
 import { Column, Task } from './ProjectBoard';
 
@@ -30,13 +31,34 @@ export function BoardColumn({
   onUpdateTask,
   onTaskClick
 }: BoardColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
+  // Make column itself draggable
+  const {
+    attributes: columnAttributes,
+    listeners: columnListeners,
+    setNodeRef: setColumnNodeRef,
+    transform: columnTransform,
+    transition: columnTransition,
+    isDragging: isColumnDragging,
+  } = useSortable({
     id: column.id,
+    data: { type: 'column' }
+  });
+
+  // Also make it droppable for tasks
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
+    id: column.id,
+    data: { type: 'column', columnId: column.id }
   });
 
   const taskIds = column.tasks.map(task => task.id);
   const [showMenu, setShowMenu] = useState(false);
   const canDelete = column.id !== 'open' && column.id !== 'completed';
+
+  const columnStyle = {
+    transform: CSS.Transform.toString(columnTransform),
+    transition: columnTransition,
+    opacity: isColumnDragging ? 0.5 : 1,
+  };
 
   const getColumnWidth = () => {
     switch (cardSize) {
@@ -49,8 +71,12 @@ export function BoardColumn({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setColumnNodeRef(node);
+        setDroppableNodeRef(node);
+      }}
       style={{
+        ...columnStyle,
         width: getColumnWidth(),
         flexShrink: 0,
         display: 'flex',
@@ -75,7 +101,17 @@ export function BoardColumn({
           justifyContent: 'space-between',
           marginBottom: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div
+            {...columnAttributes}
+            {...columnListeners}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: isColumnDragging ? 'grabbing' : 'grab',
+              flex: 1
+            }}
+          >
             <div style={{
               width: '4px',
               height: '20px',
