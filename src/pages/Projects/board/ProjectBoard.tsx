@@ -1074,6 +1074,24 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
           </button>
         </div>
       </div>
+
+      {/* Drag Overlay - shows floating card while dragging */}
+      <DragOverlay>
+        {activeTaskId ? (
+          <div style={{ cursor: 'grabbing', transform: 'rotate(3deg)' }}>
+            <ImprovedTaskCard
+              task={columns.flatMap(col => col.tasks).find(t => t.id === activeTaskId)!}
+              columnId={activeColumn || ''}
+              size={cardSize}
+              showDescription={showDescription}
+              showParticipants={showParticipants}
+              onDelete={() => {}}
+              onMarkAsDone={() => {}}
+              onTaskClick={() => {}}
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
 
       {/* Column Settings Dialog */}
