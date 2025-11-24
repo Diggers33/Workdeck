@@ -113,82 +113,6 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     { id: 'l8', name: 'Urgent', color: '#F87171' }
   ]);
 
-  // Load board data from localStorage on mount
-  useEffect(() => {
-    const savedColumns = localStorage.getItem(getStorageKey(projectName, 'columns'));
-    const savedLabels = localStorage.getItem(getStorageKey(projectName, 'labels'));
-    const savedViews = localStorage.getItem(getStorageKey(projectName, 'views'));
-    const savedCardSize = localStorage.getItem(getStorageKey(projectName, 'cardSize'));
-
-    if (savedColumns) {
-      try {
-        const parsed = JSON.parse(savedColumns);
-        setColumns(parsed);
-      } catch (e) {
-        console.error('Failed to parse saved columns:', e);
-      }
-    }
-
-    if (savedLabels) {
-      try {
-        const parsed = JSON.parse(savedLabels);
-        setBoardLabels(parsed);
-      } catch (e) {
-        console.error('Failed to parse saved labels:', e);
-      }
-    }
-
-    if (savedViews) {
-      try {
-        const parsed = JSON.parse(savedViews);
-        // Only load custom views, keep existing system views from initial state
-        const customViews = parsed.filter((v: any) => !v.isSystem);
-        setSavedViews((current) => {
-          const systemViews = current.filter(v => v.isSystem);
-          return [...systemViews, ...customViews];
-        });
-      } catch (e) {
-        console.error('Failed to parse saved views:', e);
-      }
-    }
-
-    if (savedCardSize) {
-      setCardSize(savedCardSize as 'small' | 'medium' | 'large');
-    }
-
-    // Mark that initial load is complete
-    isInitialMount.current = false;
-  }, [projectName]);
-
-  // Save columns to localStorage whenever they change (skip initial mount)
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      localStorage.setItem(getStorageKey(projectName, 'columns'), JSON.stringify(columns));
-    }
-  }, [columns, projectName]);
-
-  // Save labels to localStorage whenever they change (skip initial mount)
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      localStorage.setItem(getStorageKey(projectName, 'labels'), JSON.stringify(boardLabels));
-    }
-  }, [boardLabels, projectName]);
-
-  // Save views to localStorage whenever they change (only custom views, skip initial mount)
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      const customViews = savedViews.filter(v => !v.isSystem);
-      localStorage.setItem(getStorageKey(projectName, 'views'), JSON.stringify(customViews));
-    }
-  }, [savedViews, projectName]);
-
-  // Save card size preference (skip initial mount)
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      localStorage.setItem(getStorageKey(projectName, 'cardSize'), cardSize);
-    }
-  }, [cardSize, projectName]);
-
   const generateTasks = (columnId: string, color: string, count: number): Task[] => {
     const taskTitles = [
       'User authentication flow design', 'Database schema optimization', 'API documentation update',
@@ -367,6 +291,84 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
       tasks: generateTasks('completed-v2', '#34D399', 25)
     }
   ]);
+
+  // Load board data from localStorage on mount
+  useEffect(() => {
+    const savedColumns = localStorage.getItem(getStorageKey(projectName, 'columns'));
+    const savedLabels = localStorage.getItem(getStorageKey(projectName, 'labels'));
+    const savedViews = localStorage.getItem(getStorageKey(projectName, 'views'));
+    const savedCardSize = localStorage.getItem(getStorageKey(projectName, 'cardSize'));
+
+    if (savedColumns) {
+      try {
+        const parsed = JSON.parse(savedColumns);
+        setColumns(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved columns:', e);
+      }
+    }
+
+    if (savedLabels) {
+      try {
+        const parsed = JSON.parse(savedLabels);
+        setBoardLabels(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved labels:', e);
+      }
+    }
+
+    if (savedViews) {
+      try {
+        const parsed = JSON.parse(savedViews);
+        // Only load custom views, keep existing system views from initial state
+        const customViews = parsed.filter((v: any) => !v.isSystem);
+        setSavedViews((current) => {
+          const systemViews = current.filter(v => v.isSystem);
+          return [...systemViews, ...customViews];
+        });
+      } catch (e) {
+        console.error('Failed to parse saved views:', e);
+      }
+    }
+
+    if (savedCardSize) {
+      setCardSize(savedCardSize as 'small' | 'medium' | 'large');
+    }
+
+    // Mark that initial load is complete
+    isInitialMount.current = false;
+  }, [projectName]);
+
+  // Save columns to localStorage whenever they change (skip initial mount)
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'columns'), JSON.stringify(columns));
+    }
+  }, [columns, projectName]);
+
+  // Save labels to localStorage whenever they change (skip initial mount)
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'labels'), JSON.stringify(boardLabels));
+    }
+  }, [boardLabels, projectName]);
+
+  // Save views to localStorage whenever they change (only custom views, skip initial mount)
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      const customViews = savedViews.filter(v => !v.isSystem);
+      localStorage.setItem(getStorageKey(projectName, 'views'), JSON.stringify(customViews));
+    }
+  }, [savedViews, projectName]);
+
+  // Save card size preference (skip initial mount)
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      localStorage.setItem(getStorageKey(projectName, 'cardSize'), cardSize);
+    }
+  }, [cardSize, projectName]);
+
+
 
   const handleCreateBoard = () => {
     setBoardExists(true);
