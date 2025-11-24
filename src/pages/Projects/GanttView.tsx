@@ -11,7 +11,7 @@ import { ProjectInfoPanel } from './gantt/ProjectInfoPanel';
 import { WEEKS, INITIAL_TASKS } from './gantt/data';
 import { GanttActivity } from './gantt/types';
 import { Plus } from 'lucide-react';
-export function GanttView({ onEditProject, onBackToTriage }: { onEditProject?: (id: string) => void; onBackToTriage: () => void }) {
+export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set(['WP1']));
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
   const [timeResolution, setTimeResolution] = useState('Week');
@@ -337,7 +337,8 @@ export function GanttView({ onEditProject, onBackToTriage }: { onEditProject?: (
   return (
     <div style={{ width: '100%', height: '100vh', background: '#FFFFFF', position: 'relative', overflow: 'visible' }}>
       {/* TOP BAR - 60px */}
-      <GanttTopBar 
+      <GanttTopBar
+        onBoardClick={onBoardClick} 
         onBack={onBackToTriage}
         onOpenComments={() => {
           setProjectPanelTab('comments');

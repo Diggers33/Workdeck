@@ -6,9 +6,19 @@ interface GanttTopBarProps {
   onOpenComments?: () => void;
   onOpenFiles?: () => void;
   onEditProject?: () => void;
+  onBoardClick?: () => void;
 }
 
-export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject }: GanttTopBarProps) {
+export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject, onBoardClick }: GanttTopBarProps) {
+  const [currentView, setCurrentView] = React.useState<'Gantt' | 'Board' | 'Financial'>('Gantt');
+
+  const handleViewClick = (view: 'Gantt' | 'Board' | 'Financial') => {
+    setCurrentView(view);
+    if (view === 'Board' && onBoardClick) {
+      onBoardClick();
+    }
+  };
+
   return (
     <div style={{ 
       height: '60px', 
@@ -76,20 +86,21 @@ export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject
         display: 'flex',
         gap: '4px'
       }}>
-        {['Gantt', 'Board', 'Financial'].map((view) => (
+        {(['Gantt', 'Board', 'Financial'] as const).map((view) => (
           <button
             key={view}
+            onClick={() => handleViewClick(view)}
             style={{
               flex: 1,
               height: '36px',
-              background: view === 'Gantt' ? 'white' : 'transparent',
+              background: view === currentView ? 'white' : 'transparent',
               border: 'none',
               borderRadius: '6px',
               fontSize: '15px',
-              fontWeight: view === 'Gantt' ? 600 : 400,
-              color: view === 'Gantt' ? '#0A0A0A' : '#6B7280',
+              fontWeight: view === currentView ? 600 : 400,
+              color: view === currentView ? '#0A0A0A' : '#6B7280',
               cursor: 'pointer',
-              boxShadow: view === 'Gantt' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              boxShadow: view === currentView ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 150ms ease',
               display: 'flex',
               alignItems: 'center',
@@ -97,10 +108,10 @@ export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject
               textAlign: 'center'
             }}
             onMouseEnter={(e) => {
-              if (view !== 'Gantt') e.currentTarget.style.background = 'rgba(255,255,255,0.6)';
+              if (view !== currentView) e.currentTarget.style.background = 'rgba(255,255,255,0.6)';
             }}
             onMouseLeave={(e) => {
-              if (view !== 'Gantt') e.currentTarget.style.background = 'transparent';
+              if (view !== currentView) e.currentTarget.style.background = 'transparent';
             }}
           >
             {view}

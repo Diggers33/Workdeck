@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { ProjectTriageBoard } from './ProjectTriageBoard';
 import { GanttView } from './GanttView';
+import { ProjectBoard } from './board/ProjectBoard';
 
 export default function ProjectsApp() {
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<'triage' | 'gantt'>('triage');
+  const [activeView, setActiveView] = useState<'triage' | 'gantt' | 'board'>('triage');
+  const [currentProjectName, setCurrentProjectName] = useState<string>('BIOGEMSE');
 
   const handleCreateProject = () => {
     navigate('/projects/new');
@@ -35,6 +37,13 @@ export default function ProjectsApp() {
           <GanttView
             onEditProject={handleEditProject}
             onBackToTriage={handleBackToTriage}
+            onBoardClick={() => setActiveView('board')}
+          />
+        )}
+        {activeView === 'board' && (
+          <ProjectBoard
+            onClose={() => setActiveView('gantt')}
+            projectName={currentProjectName}
           />
         )}
       </div>
