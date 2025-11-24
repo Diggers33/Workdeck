@@ -36,23 +36,23 @@ export function EssentialCategoryCard({ category, isNextAction, onClick }: Essen
   return (
     <button
       onClick={onClick}
-      className={`bg-white rounded-lg p-3 text-left hover:shadow-lg transition-all border-2 group relative ${borderClass}`}
+      className={`bg-white rounded-lg p-2 text-left hover:shadow-lg transition-all border-2 group relative ${borderClass}`}
     >
       {/* Priority Badge */}
-      <div className="absolute top-2 right-2 flex items-center gap-2">
+      <div className="absolute top-1.5 right-1.5 flex items-center gap-2">
         {category.completed ? (
-          <div className="flex items-center gap-1 text-[9px] font-medium text-[#34D399] bg-[#D1FAE5] px-1.5 py-0.5 rounded-full">
-            <CheckCircle2 className="w-3 h-3" />
+          <div className="flex items-center gap-1 text-[8px] font-medium text-[#34D399] bg-[#D1FAE5] px-1.5 py-0 rounded-full">
+            <CheckCircle2 className="w-2.5 h-2.5" />
             Done
           </div>
         ) : isNextAction ? (
-          <div className="flex items-center gap-1 text-[9px] font-medium text-[#0066FF] bg-[#F0F4FF] px-1.5 py-0.5 rounded-full animate-pulse">
-            <ArrowRight className="w-3 h-3" />
+          <div className="flex items-center gap-1 text-[8px] font-medium text-[#0066FF] bg-[#F0F4FF] px-1.5 py-0 rounded-full animate-pulse">
+            <ArrowRight className="w-2.5 h-2.5" />
             Do this next
           </div>
         ) : (
-          <div className="w-4 h-4 rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center">
-            <span className="text-[9px] font-medium text-[#9CA3AF]">{category.priority}</span>
+          <div className="w-3.5 h-3.5 rounded-full border border-[#E5E7EB] bg-white flex items-center justify-center">
+            <span className="text-[8px] font-medium text-[#9CA3AF]">{category.priority}</span>
           </div>
         )}
       </div>
@@ -75,21 +75,21 @@ export function EssentialCategoryCard({ category, isNextAction, onClick }: Essen
           <p className={`text-[13px] font-medium text-[#1F2937] mb-1 ${category.completed ? '' : ''}`}>
             {category.summary}
           </p>
-          <p className="text-[10px] text-[#6B7280]">
+          <p className="text-[9px] text-[#6B7280]">
             {category.details}
           </p>
         </div>
       </div>
 
       {/* CTA */}
-      <div className="flex items-center justify-between ml-10">
-        <div className="flex items-center gap-1 text-[10px] text-[#9CA3AF]">
-          <Clock className="w-3 h-3" />
+      <div className="flex items-center justify-between ml-8.5">
+        <div className="flex items-center gap-1 text-[9px] text-[#9CA3AF]">
+          <Clock className="w-2.5 h-2.5" />
           {category.timeEstimate}
         </div>
-        <div className={`flex items-center gap-1 text-[11px] font-medium ${actionColorClass} ${isNextAction ? 'group-hover:gap-2' : ''} transition-all`}>
+        <div className={`flex items-center gap-1 text-[10px] font-medium ${actionColorClass} ${isNextAction ? 'group-hover:gap-2' : ''} transition-all`}>
           {category.action}
-          <ArrowRight className="w-3 h-3" />
+          <ArrowRight className="w-2.5 h-2.5" />
         </div>
       </div>
     </button>
