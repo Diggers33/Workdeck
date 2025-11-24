@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, Settings, X, ChevronLeft, MoreVertical, Tag, Filter, Users } from 'lucide-react';
 import {
   DndContext,
@@ -23,6 +23,10 @@ import { ImprovedTaskCard } from './ImprovedTaskCard';
 import { TaskDetailModal } from '../gantt/TaskDetailModal';
 import { GanttTask } from '../gantt/types';
 import { BoardLegend } from './BoardLegend';
+// LocalStorage keys
+const STORAGE_PREFIX = 'workdeck_board_';
+const getStorageKey = (projectName: string, key: string) => `${STORAGE_PREFIX}${projectName}_${key}`;
+
 
 interface ProjectBoardProps {
   onClose: () => void;
@@ -107,6 +111,69 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     { id: 'l9', name: 'High Priority', color: '#ff4f6a' },
     { id: 'l8', name: 'Urgent', color: '#F87171' }
   ]);
+
+  // Load board data from localStorage on mount
+  useEffect(() => {
+    const savedColumns = localStorage.getItem(getStorageKey(projectName, 'columns'));
+    const savedLabels = localStorage.getItem(getStorageKey(projectName, 'labels'));
+    const savedViews = localStorage.getItem(getStorageKey(projectName, 'views'));
+    const savedCardSize = localStorage.getItem(getStorageKey(projectName, 'cardSize'));
+
+    if (savedColumns) {
+      try {
+        const parsed = JSON.parse(savedColumns);
+        setColumns(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved columns:', e);
+      }
+    }
+
+    if (savedLabels) {
+      try {
+        const parsed = JSON.parse(savedLabels);
+        setBoardLabels(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved labels:', e);
+      }
+    }
+
+    if (savedViews) {
+      try {
+        const parsed = JSON.parse(savedViews);
+        // Merge with system views to preserve them
+        const systemViews = savedViews.filter((v: any) => v.isSystem);
+        const customViews = parsed.filter((v: any) => !v.isSystem);
+        setSavedViews([...systemViews, ...customViews]);
+      } catch (e) {
+        console.error('Failed to parse saved views:', e);
+      }
+    }
+
+    if (savedCardSize) {
+      setCardSize(savedCardSize as 'small' | 'medium' | 'large');
+    }
+  }, [projectName]);
+
+  // Save columns to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(getStorageKey(projectName, 'columns'), JSON.stringify(columns));
+  }, [columns, projectName]);
+
+  // Save labels to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(getStorageKey(projectName, 'labels'), JSON.stringify(boardLabels));
+  }, [boardLabels, projectName]);
+
+  // Save views to localStorage whenever they change (only custom views)
+  useEffect(() => {
+    const customViews = savedViews.filter(v => !v.isSystem);
+    localStorage.setItem(getStorageKey(projectName, 'views'), JSON.stringify(customViews));
+  }, [savedViews, projectName]);
+
+  // Save card size preference
+  useEffect(() => {
+    localStorage.setItem(getStorageKey(projectName, 'cardSize'), cardSize);
+  }, [cardSize, projectName]);
 
   const generateTasks = (columnId: string, color: string, count: number): Task[] => {
     const taskTitles = [
