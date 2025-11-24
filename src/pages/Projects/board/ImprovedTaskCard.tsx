@@ -134,11 +134,11 @@ export function ImprovedTaskCard({
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Drop Indicator Line */}
+      {/* Drop Indicator Line - shows above the card where it will be inserted */}
       {isOver && (
         <div style={{
           position: 'absolute',
-          top: '-4px',
+          top: '-6px',
           left: 0,
           right: 0,
           height: '3px',

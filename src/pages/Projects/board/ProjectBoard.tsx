@@ -390,47 +390,8 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    // Find source and target columns
-    const activeColumn = columns.find(col => col.tasks.some(t => t.id === activeId));
-    const overColumn = columns.find(col => col.id === overId || col.tasks.some(t => t.id === overId));
-
-    if (!activeColumn || !overColumn) return;
-
-    // If moving to a different column
-    if (activeColumn.id !== overColumn.id) {
-      setColumns(prevColumns => {
-        const newColumns = [...prevColumns];
-        const sourceCol = newColumns.find(c => c.id === activeColumn.id);
-        const targetCol = newColumns.find(c => c.id === overColumn.id);
-
-        if (sourceCol && targetCol) {
-          const taskToMove = sourceCol.tasks.find(t => t.id === activeId);
-          if (taskToMove) {
-            // Remove from source
-            sourceCol.tasks = sourceCol.tasks.filter(t => t.id !== activeId);
-
-            // Add to target with updated color
-            const updatedTask = { ...taskToMove, color: targetCol.color };
-
-            // If dropped on a task, insert before it; otherwise append
-            if (targetCol.tasks.some(t => t.id === overId)) {
-              const overIndex = targetCol.tasks.findIndex(t => t.id === overId);
-              targetCol.tasks.splice(overIndex, 0, updatedTask);
-            } else {
-              targetCol.tasks.push(updatedTask);
-            }
-          }
-        }
-
-        return newColumns;
-      });
-    }
+    // Just track the over state for visual feedback
+    // Don't actually move cards until drop
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -444,28 +405,40 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Find the column that contains the active task
-    const activeColumn = columns.find(col => col.tasks.some(t => t.id === activeId));
-    if (!activeColumn) return;
+    setColumns(prevColumns => {
+      const newColumns = [...prevColumns];
 
-    // If dropped on the same column, reorder within it
-    if (activeColumn.tasks.some(t => t.id === overId)) {
-      setColumns(prevColumns => {
-        const newColumns = [...prevColumns];
-        const col = newColumns.find(c => c.id === activeColumn.id);
+      // Find source column and task
+      const sourceCol = newColumns.find(col => col.tasks.some(t => t.id === activeId));
+      if (!sourceCol) return prevColumns;
 
-        if (col) {
-          const oldIndex = col.tasks.findIndex(t => t.id === activeId);
-          const newIndex = col.tasks.findIndex(t => t.id === overId);
+      const taskToMove = sourceCol.tasks.find(t => t.id === activeId);
+      if (!taskToMove) return prevColumns;
 
-          if (oldIndex !== -1 && newIndex !== -1) {
-            col.tasks = arrayMove(col.tasks, oldIndex, newIndex);
-          }
-        }
+      // Find target column (either by column ID or by task ID)
+      const targetCol = newColumns.find(col =>
+        col.id === overId || col.tasks.some(t => t.id === overId)
+      );
+      if (!targetCol) return prevColumns;
 
-        return newColumns;
-      });
-    }
+      // Remove from source column
+      sourceCol.tasks = sourceCol.tasks.filter(t => t.id !== activeId);
+
+      // Update task color to match target column
+      const updatedTask = { ...taskToMove, color: targetCol.color };
+
+      // Insert into target column
+      if (targetCol.tasks.some(t => t.id === overId)) {
+        // Dropped on a specific task - insert before it
+        const overIndex = targetCol.tasks.findIndex(t => t.id === overId);
+        targetCol.tasks.splice(overIndex, 0, updatedTask);
+      } else {
+        // Dropped on empty column - append to end
+        targetCol.tasks.push(updatedTask);
+      }
+
+      return newColumns;
+    });
   };
 
   const handleAddColumn = () => {
