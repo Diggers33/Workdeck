@@ -36,12 +36,26 @@ export function CalendarLeftSidebar({
   const [compactMode, setCompactMode] = useState(false);
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
 
-  const columns = [
-    { id: 'All tasks', count: 15 },
-    { id: 'On-Going', count: 3 },
-    { id: 'To Do', count: 5 },
-    { id: 'Workdeck', count: 2 },
-  ];
+  // Dynamic column counts based on actual tasks
+  const getColumnCounts = () => {
+    const onGoingCount = tasks.filter(t => t.column === 'On-Going').length;
+    const toDoCount = tasks.filter(t => t.column === 'To Do').length;
+    const workdeckCount = tasks.filter(t => t.column === 'Workdeck').length;
+    return [
+      { id: 'All tasks', count: tasks.length },
+      { id: 'On-Going', count: onGoingCount },
+      { id: 'To Do', count: toDoCount },
+      { id: 'Workdeck', count: workdeckCount },
+    ];
+  };
+  const columns = getColumnCounts();
+
+  // Filter tasks based on selected column
+  const filteredTasks = selectedColumn === 'All tasks'
+    ? tasks
+    : selectedColumn === 'Unscheduled only'
+      ? tasks.filter(t => t.loggedHours === 0)
+      : tasks.filter(t => t.column === selectedColumn);
 
   const allCalendars = [
     { id: 'Colm Digby (You)', name: 'Colm Digby (You)', color: '#0066FF' },
@@ -81,14 +95,14 @@ export function CalendarLeftSidebar({
     return '';
   };
 
-  // Calculate weekly summary
-  const totalScheduled = tasks.reduce((sum, task) => sum + task.loggedHours, 0);
-  const totalEstimated = tasks.reduce((sum, task) => sum + task.estimatedHours, 0);
-  const totalUnscheduled = tasks.reduce((sum, task) => {
+  // Calculate weekly summary (based on filtered tasks)
+  const totalScheduled = filteredTasks.reduce((sum, task) => sum + task.loggedHours, 0);
+  const totalEstimated = filteredTasks.reduce((sum, task) => sum + task.estimatedHours, 0);
+  const totalUnscheduled = filteredTasks.reduce((sum, task) => {
     const remaining = task.estimatedHours - task.loggedHours;
     return sum + (remaining > 0 ? remaining : 0);
   }, 0);
-  const unscheduledCount = tasks.filter(t => t.loggedHours === 0).length;
+  const unscheduledCount = filteredTasks.filter(t => t.loggedHours === 0).length;
 
   return (
     <div style={{
@@ -104,7 +118,7 @@ export function CalendarLeftSidebar({
       <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#0A0A0A', margin: 0 }}>
-            My Tasks {tasks.length > 0 && <span style={{ color: '#6B7280', fontWeight: 400 }}>({tasks.length})</span>}
+            My Tasks {filteredTasks.length > 0 && <span style={{ color: '#6B7280', fontWeight: 400 }}>({filteredTasks.length})</span>}
           </h3>
           <button
             onClick={() => setCompactMode(!compactMode)}
@@ -241,23 +255,32 @@ export function CalendarLeftSidebar({
                   </div>
                 </div>
                 <button
+                  onClick={() => {
+                    onColumnChange('Unscheduled only');
+                    setShowColumnPicker(false);
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    background: 'transparent',
+                    justifyContent: 'space-between',
+                    background: selectedColumn === 'Unscheduled only' ? '#EFF6FF' : 'transparent',
                     border: 'none',
                     fontSize: '13px',
-                    color: '#0A0A0A',
+                    color: selectedColumn === 'Unscheduled only' ? '#0066FF' : '#0A0A0A',
                     cursor: 'pointer',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    fontWeight: selectedColumn === 'Unscheduled only' ? 500 : 400
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = selectedColumn === 'Unscheduled only' ? '#EFF6FF' : '#F9FAFB'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = selectedColumn === 'Unscheduled only' ? '#EFF6FF' : 'transparent'}
                 >
-                  Unscheduled only
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {selectedColumn === 'Unscheduled only' && <Check size={14} color="#0066FF" />}
+                    <span>Unscheduled only</span>
+                  </div>
+                  <span style={{ color: '#6B7280' }}>({tasks.filter(t => t.loggedHours === 0).length})</span>
                 </button>
               </div>
             </>
@@ -319,7 +342,34 @@ export function CalendarLeftSidebar({
 
       {/* Task List */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
-        {tasks.map(task => {
+        {filteredTasks.length === 0 && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 20px',
+            color: '#9CA3AF'
+          }}>
+            <div style={{ fontSize: '13px', marginBottom: '4px' }}>No tasks in {selectedColumn}</div>
+            {selectedColumn !== 'All tasks' && (
+              <button
+                onClick={() => onColumnChange('All tasks')}
+                style={{
+                  fontSize: '12px',
+                  color: '#0066FF',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 8px'
+                }}
+              >
+                View all tasks →
+              </button>
+            )}
+          </div>
+        )}
+        {filteredTasks.map(task => {
           const isExpanded = expandedTasks.has(task.id);
           const progress = getProgressPercentage(task);
           const progressColor = getProgressColor(task);
