@@ -23,6 +23,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   const [draggingEvent, setDraggingEvent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<number>(0);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [wasInteracting, setWasInteracting] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   
   const [events, setEvents] = useState<Event[]>([
@@ -153,6 +154,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   const handleResizeStart = (eventId: string, edge: 'top' | 'bottom', e: React.MouseEvent) => {
     e.stopPropagation();
     setResizingEvent({ id: eventId, edge });
+    setWasInteracting(true);
   };
 
   const handleResizeMove = (e: React.MouseEvent) => {
@@ -184,12 +186,15 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
 
   const handleResizeEnd = () => {
     setResizingEvent(null);
+    // Keep wasInteracting true briefly to prevent click from opening modal
+    setTimeout(() => setWasInteracting(false), 50);
   };
 
   const handleDragStart = (eventId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     setDraggingEvent(eventId);
+    setWasInteracting(true);
   };
 
   const handleDragMove = (e: React.MouseEvent) => {
@@ -211,11 +216,13 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
 
   const handleDragEnd = () => {
     setDraggingEvent(null);
+    // Keep wasInteracting true briefly to prevent click from opening modal
+    setTimeout(() => setWasInteracting(false), 50);
   };
 
   const handleEventClick = (eventId: string, e: React.MouseEvent) => {
-    // Only open modal if we're not in the middle of dragging
-    if (!draggingEvent) {
+    // Only open modal if we're not in the middle of dragging or resizing
+    if (!draggingEvent && !resizingEvent && !wasInteracting) {
       setSelectedEventId(eventId);
     }
   };

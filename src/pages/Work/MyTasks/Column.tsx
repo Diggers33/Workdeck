@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, MoreVertical, GripVertical } from 'lucide-react';
+import { Plus, MoreVertical, GripVertical, ClipboardList } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -229,7 +229,9 @@ export function Column({
         {/* Empty state */}
         {tasks.length === 0 && (
           <div className="bg-white border-2 border-dashed rounded-lg p-6 text-center" style={{ borderColor: '#E5E7EB' }}>
-            <div className="text-[32px] mb-2">📋</div>
+            <div className="flex justify-center mb-2">
+              <ClipboardList className="w-8 h-8 text-[#D1D5DB]" />
+            </div>
             <div className="text-[14px] text-[#6B7280] mb-1">No tasks here</div>
             <div className="text-[12px] text-[#9CA3AF]">
               Drag tasks from other columns
