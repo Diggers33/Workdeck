@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle, X, Edit2, Search, GripVertical } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, X, Edit2, Search, GripVertical, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { CalendarTask } from './WorkdeckCalendar';
 import { TaskCompletionModal } from './TaskCompletionModal';
 
 interface CalendarLeftSidebarProps {
   tasks: CalendarTask[];
-  selectedColumn: string;
-  onColumnChange: (column: string) => void;
+  selectedColumn?: string;
+  onColumnChange?: (column: string) => void;
   onTaskDrag: (task: CalendarTask) => void;
   selectedCalendars: string[];
   onCalendarsChange: (calendars: string[]) => void;
@@ -14,12 +15,17 @@ interface CalendarLeftSidebarProps {
 
 export function CalendarLeftSidebar({
   tasks,
-  selectedColumn,
-  onColumnChange,
+  selectedColumn: selectedColumnProp,
+  onColumnChange: onColumnChangeProp,
   onTaskDrag,
   selectedCalendars,
   onCalendarsChange
 }: CalendarLeftSidebarProps) {
+  const navigate = useNavigate();
+  // Internal state for column selection if not controlled externally
+  const [internalSelectedColumn, setInternalSelectedColumn] = useState('All tasks');
+  const selectedColumn = selectedColumnProp ?? internalSelectedColumn;
+  const onColumnChange = onColumnChangeProp ?? setInternalSelectedColumn;
   const [showColumnPicker, setShowColumnPicker] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showCompletionModal, setShowCompletionModal] = useState(false);
@@ -147,6 +153,7 @@ export function CalendarLeftSidebar({
           </button>
 
           <button
+            onClick={() => navigate('/work/my-tasks')}
             style={{
               height: '32px',
               padding: '0 10px',
@@ -209,17 +216,21 @@ export function CalendarLeftSidebar({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: selectedColumn === col.id ? '#F9FAFB' : 'transparent',
+                      background: selectedColumn === col.id ? '#EFF6FF' : 'transparent',
                       border: 'none',
                       fontSize: '13px',
-                      color: '#0A0A0A',
+                      color: selectedColumn === col.id ? '#0066FF' : '#0A0A0A',
                       cursor: 'pointer',
-                      textAlign: 'left'
+                      textAlign: 'left',
+                      fontWeight: selectedColumn === col.id ? 500 : 400
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = selectedColumn === col.id ? '#F9FAFB' : 'transparent'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = selectedColumn === col.id ? '#EFF6FF' : '#F9FAFB'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = selectedColumn === col.id ? '#EFF6FF' : 'transparent'}
                   >
-                    <span>{col.id}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {selectedColumn === col.id && <Check size={14} color="#0066FF" />}
+                      <span>{col.id}</span>
+                    </div>
                     <span style={{ color: '#6B7280' }}>({col.count})</span>
                   </button>
                 ))}
