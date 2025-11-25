@@ -741,21 +741,84 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
 
             <DragOverlay>
               {activeId && activeId.startsWith('column-') ? (
-                // Column drag overlay
-                <div
-                  style={{
-                    width: focusMode ? '400px' : '320px',
-                    backgroundColor: '#F3F4F6',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    opacity: 0.9,
-                    boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
-                  }}
-                >
-                  <div className="text-[16px] font-semibold text-[#111827]">
-                    {columns.find(c => `column-${c.id}` === activeId)?.name}
-                  </div>
-                </div>
+                // Column drag overlay - render full column
+                (() => {
+                  const draggedColumn = columns.find(c => `column-${c.id}` === activeId);
+                  if (!draggedColumn) return null;
+                  const columnTasks = draggedColumn.taskIds
+                    .map(id => filteredTasks[id])
+                    .filter(Boolean);
+                  const totalMinutes = columnTasks.reduce((sum, task) => sum + (task.timeEstimate || 0), 0);
+                  const hours = Math.floor(totalMinutes / 60);
+                  const minutes = totalMinutes % 60;
+                  const totalEstimate = totalMinutes > 0 ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`) : null;
+
+                  return (
+                    <div
+                      style={{
+                        width: focusMode ? '400px' : '320px',
+                        backgroundColor: '#F3F4F6',
+                        borderRadius: '12px',
+                        padding: '12px',
+                        opacity: 0.95,
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.15), 0 4px 8px rgba(0,0,0,0.1)',
+                        minHeight: '200px',
+                        maxHeight: 'calc(100vh - 280px)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {/* Column Header */}
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-[16px] font-semibold text-[#111827]">{draggedColumn.name}</h3>
+                          <span className="text-[13px] text-[#6B7280]">
+                            {columnTasks.length} {columnTasks.length === 1 ? 'task' : 'tasks'}
+                          </span>
+                        </div>
+                        <div className="mb-2 text-[12px] text-[#9CA3AF]">
+                          {totalEstimate ? `${totalEstimate} est` : '—'}
+                        </div>
+                        <div
+                          className="h-1 rounded-full"
+                          style={{ backgroundColor: draggedColumn.color }}
+                        />
+                      </div>
+
+                      {/* Task previews */}
+                      <div className="space-y-2">
+                        {columnTasks.slice(0, 3).map(task => (
+                          <div
+                            key={task.id}
+                            style={{
+                              background: 'white',
+                              borderLeft: `3px solid ${task.projectColor}`,
+                              borderRadius: '6px',
+                              padding: '8px 10px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                            }}
+                          >
+                            <div className="text-[12px] font-medium text-[#111827] truncate">
+                              {task.title}
+                            </div>
+                            <div className="text-[10px] text-[#6B7280] mt-1">
+                              {task.projectName}
+                            </div>
+                          </div>
+                        ))}
+                        {columnTasks.length > 3 && (
+                          <div className="text-[12px] text-[#9CA3AF] text-center py-2">
+                            +{columnTasks.length - 3} more tasks
+                          </div>
+                        )}
+                        {columnTasks.length === 0 && (
+                          <div className="text-[12px] text-[#9CA3AF] text-center py-4">
+                            No tasks
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
               ) : activeTask ? (
                 // Task drag overlay
                 <div style={{ width: focusMode ? '400px' : '320px', opacity: 0.9 }}>
