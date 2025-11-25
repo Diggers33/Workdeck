@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, MoreVertical } from 'lucide-react';
+import { Plus, MoreVertical, GripVertical } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
 
 interface Task {
@@ -61,8 +63,24 @@ export function Column({
   focusMode = false
 }: ColumnProps) {
   const [showMenu, setShowMenu] = useState(false);
-  const { setNodeRef, isOver } = useDroppable({
+
+  // Make column itself sortable (draggable)
+  const {
+    attributes: columnAttributes,
+    listeners: columnListeners,
+    setNodeRef: setColumnNodeRef,
+    transform: columnTransform,
+    transition: columnTransition,
+    isDragging: isColumnDragging,
+  } = useSortable({
+    id: `column-${column.id}`,
+    data: { type: 'column', column }
+  });
+
+  // Also make it droppable for tasks
+  const { setNodeRef: setDroppableNodeRef, isOver } = useDroppable({
     id: column.id,
+    data: { type: 'column', columnId: column.id }
   });
 
   // Calculate total time estimate for column
@@ -78,12 +96,21 @@ export function Column({
   const totalEstimate = getTotalEstimate();
   const isWaitingColumn = column.name === 'Waiting On';
 
+  const columnStyle = {
+    transform: CSS.Transform.toString(columnTransform),
+    transition: columnTransition,
+    opacity: isColumnDragging ? 0.5 : 1,
+  };
+
   return (
     <div
-      ref={setNodeRef}
-      className={`flex-shrink-0 rounded-xl p-3 transition-all ${isOver ? 'bg-[#EFF6FF] ring-2 ring-[#2563EB] ring-opacity-50' : ''
-        }`}
+      ref={(node) => {
+        setColumnNodeRef(node);
+        setDroppableNodeRef(node);
+      }}
+      className={`flex-shrink-0 rounded-xl p-3 transition-all ${isOver ? 'ring-2 ring-[#2563EB] ring-opacity-50' : ''}`}
       style={{
+        ...columnStyle,
         width: focusMode ? '400px' : '320px',
         backgroundColor: isOver ? '#EFF6FF' : '#F3F4F6',
         minHeight: 'calc(100vh - 240px)',
@@ -92,7 +119,15 @@ export function Column({
       {/* Column Header */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
+          <div
+            {...columnAttributes}
+            {...columnListeners}
+            className="flex items-center gap-2 flex-1"
+            style={{ cursor: isColumnDragging ? 'grabbing' : 'grab' }}
+          >
+            {!focusMode && (
+              <GripVertical className="w-4 h-4 text-[#9CA3AF] flex-shrink-0" />
+            )}
             <h3 className="text-[16px] font-semibold text-[#111827]">{column.name}</h3>
             <span className="text-[13px] text-[#6B7280]">{tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}</span>
           </div>

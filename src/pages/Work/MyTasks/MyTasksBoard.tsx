@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Filter, Search, Settings, ChevronDown, Clock, Eye } from 'lucide-react';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { Column } from './Column';
 import { TaskCard } from './TaskCard';
 import { ActiveTimerBar } from './modals/ActiveTimerBar';
@@ -299,7 +300,15 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
 
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const { active } = event;
+    const activeId = active.id as string;
+
+    // Check if dragging a column
+    if (activeId.startsWith('column-')) {
+      setActiveId(activeId);
+    } else {
+      setActiveId(activeId);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -310,8 +319,29 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
       return;
     }
 
-    const activeTaskId = active.id as string;
-    const overColumnId = over.id as string;
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Handle column reordering
+    if (activeId.startsWith('column-') && overId.startsWith('column-')) {
+      const activeColumnId = activeId.replace('column-', '');
+      const overColumnId = overId.replace('column-', '');
+
+      if (activeColumnId !== overColumnId) {
+        setColumns(prevColumns => {
+          const oldIndex = prevColumns.findIndex(col => col.id === activeColumnId);
+          const newIndex = prevColumns.findIndex(col => col.id === overColumnId);
+          return arrayMove(prevColumns, oldIndex, newIndex);
+        });
+        toast('Column reordered');
+      }
+      setActiveId(null);
+      return;
+    }
+
+    // Handle task movement between columns
+    const activeTaskId = activeId;
+    const overColumnId = overId;
 
     const sourceColumn = columns.find(col => col.taskIds.includes(activeTaskId));
     const targetColumn = columns.find(col => col.id === overColumnId);
@@ -683,29 +713,51 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            {displayColumns.map(column => (
-              <Column
-                key={column.id}
-                column={column}
-                tasks={column.taskIds
-                  .map(id => filteredTasks[id])
-                  .filter(Boolean)
-                }
-                cardSize={focusMode ? 'L' : cardSize}
-                onStartTimer={startTimer}
-                onPauseTimer={pauseTimer}
-                onResumeTimer={resumeTimer}
-                onStopTimer={stopTimer}
-                onTaskClick={(task) => setSelectedTask(task)}
-                timerTaskId={timerState.taskId}
-                timerIsPaused={timerState.isPaused}
-                getElapsedTime={getElapsedTime}
-                focusMode={focusMode}
-              />
-            ))}
+            <SortableContext
+              items={displayColumns.map(col => `column-${col.id}`)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {displayColumns.map(column => (
+                <Column
+                  key={column.id}
+                  column={column}
+                  tasks={column.taskIds
+                    .map(id => filteredTasks[id])
+                    .filter(Boolean)
+                  }
+                  cardSize={focusMode ? 'L' : cardSize}
+                  onStartTimer={startTimer}
+                  onPauseTimer={pauseTimer}
+                  onResumeTimer={resumeTimer}
+                  onStopTimer={stopTimer}
+                  onTaskClick={(task) => setSelectedTask(task)}
+                  timerTaskId={timerState.taskId}
+                  timerIsPaused={timerState.isPaused}
+                  getElapsedTime={getElapsedTime}
+                  focusMode={focusMode}
+                />
+              ))}
+            </SortableContext>
 
             <DragOverlay>
-              {activeTask && (
+              {activeId && activeId.startsWith('column-') ? (
+                // Column drag overlay
+                <div
+                  style={{
+                    width: focusMode ? '400px' : '320px',
+                    backgroundColor: '#F3F4F6',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    opacity: 0.9,
+                    boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+                  }}
+                >
+                  <div className="text-[16px] font-semibold text-[#111827]">
+                    {columns.find(c => `column-${c.id}` === activeId)?.name}
+                  </div>
+                </div>
+              ) : activeTask ? (
+                // Task drag overlay
                 <div style={{ width: focusMode ? '400px' : '320px', opacity: 0.9 }}>
                   <TaskCard
                     task={activeTask}
@@ -714,7 +766,7 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
                     isTimerActive={false}
                   />
                 </div>
-              )}
+              ) : null}
             </DragOverlay>
           </DndContext>
 
