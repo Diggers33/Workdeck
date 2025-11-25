@@ -575,7 +575,6 @@ export function WorkdeckCalendar() {
         <div style={{ flex: 1, overflow: 'auto' }}>
           {viewType === 'day' ? (
             <CalendarDayView
-              key={events.length}
               currentDate={currentDate}
               events={events.filter(e => selectedCalendars.includes(e.createdBy))}
               onEventClick={setSelectedEvent}
@@ -589,7 +588,6 @@ export function WorkdeckCalendar() {
             />
           ) : viewType === 'week' ? (
             <CalendarWeekView
-              key={events.length}
               currentDate={currentDate}
               events={events.filter(e => {
                 const isIncluded = selectedCalendars.includes(e.createdBy);
@@ -610,7 +608,6 @@ export function WorkdeckCalendar() {
             />
           ) : (
             <CalendarMonthView
-              key={events.length}
               currentDate={currentDate}
               events={events.filter(e => selectedCalendars.includes(e.createdBy))}
               onEventClick={setSelectedEvent}

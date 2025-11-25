@@ -15,6 +15,8 @@ interface EventModalProps {
 
 export function EventModal({ event, initialDate, onClose, onSave, onDelete, userColors }: EventModalProps) {
   const isEditing = !!event;
+  // Check if current user owns this event - only "Colm Digby (You)" events are editable
+  const isOwner = !event || event.createdBy === 'Colm Digby (You)';
   
   // Form state
   const [mode, setMode] = useState<'event' | 'task' | 'timeblock'>('event');
@@ -592,8 +594,9 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => isOwner && setTitle(e.target.value)}
               placeholder="Add a title..."
+              readOnly={!isOwner}
               style={{
                 border: 'none',
                 outline: 'none',
@@ -602,9 +605,10 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 color: '#0A0A0A',
                 flex: 1,
                 background: 'transparent',
-                padding: 0
+                padding: 0,
+                cursor: isOwner ? 'text' : 'default'
               }}
-              autoFocus={!isEditing}
+              autoFocus={!isEditing && isOwner}
             />
 
             <button
@@ -706,7 +710,8 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                   Project
                 </label>
                 <button
-                  onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                  onClick={() => isOwner && setShowProjectDropdown(!showProjectDropdown)}
+                  disabled={!isOwner}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -715,18 +720,19 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                     justifyContent: 'space-between',
                     border: '1px solid #D1D5DB',
                     borderRadius: '6px',
-                    background: 'white',
-                    cursor: 'pointer',
+                    background: isOwner ? 'white' : '#F9FAFB',
+                    cursor: isOwner ? 'pointer' : 'default',
                     fontSize: '14px',
                     color: project ? '#0A0A0A' : '#9CA3AF',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    opacity: isOwner ? 1 : 0.7
                   }}
                 >
                   {project || 'Select...'}
-                  <ChevronDown size={16} color="#9CA3AF" />
+                  {isOwner && <ChevronDown size={16} color="#9CA3AF" />}
                 </button>
 
-                {showProjectDropdown && (
+                {showProjectDropdown && isOwner && (
                   <>
                     <div
                       style={{
@@ -795,7 +801,8 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                   Task <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(optional)</span>
                 </label>
                 <button
-                  onClick={() => setShowTaskDropdown(!showTaskDropdown)}
+                  onClick={() => isOwner && setShowTaskDropdown(!showTaskDropdown)}
+                  disabled={!isOwner}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -804,18 +811,19 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                     justifyContent: 'space-between',
                     border: '1px solid #D1D5DB',
                     borderRadius: '6px',
-                    background: 'white',
-                    cursor: 'pointer',
+                    background: isOwner ? 'white' : '#F9FAFB',
+                    cursor: isOwner ? 'pointer' : 'default',
                     fontSize: '14px',
                     color: task ? '#0A0A0A' : '#9CA3AF',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    opacity: isOwner ? 1 : 0.7
                   }}
                 >
                   {task || 'Select...'}
-                  <ChevronDown size={16} color="#9CA3AF" />
+                  {isOwner && <ChevronDown size={16} color="#9CA3AF" />}
                 </button>
 
-                {showTaskDropdown && (
+                {showTaskDropdown && isOwner && (
                   <>
                     <div
                       style={{
@@ -934,23 +942,26 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 <input
                   type="time"
                   value={fromTime}
-                  onChange={(e) => setFromTime(e.target.value)}
+                  onChange={(e) => isOwner && setFromTime(e.target.value)}
+                  readOnly={!isOwner}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     border: '1px solid #D1D5DB',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    color: '#0A0A0A'
+                    color: '#0A0A0A',
+                    background: isOwner ? 'white' : '#F9FAFB',
+                    cursor: isOwner ? 'text' : 'default'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ 
+                <label style={{
                   display: 'block',
-                  fontSize: '13px', 
-                  fontWeight: 500, 
+                  fontSize: '13px',
+                  fontWeight: 500,
                   color: '#374151',
                   marginBottom: '8px'
                 }}>
@@ -959,14 +970,17 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 <input
                   type="time"
                   value={toTime}
-                  onChange={(e) => setToTime(e.target.value)}
+                  onChange={(e) => isOwner && setToTime(e.target.value)}
+                  readOnly={!isOwner}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     border: '1px solid #D1D5DB',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    color: '#0A0A0A'
+                    color: '#0A0A0A',
+                    background: isOwner ? 'white' : '#F9FAFB',
+                    cursor: isOwner ? 'text' : 'default'
                   }}
                 />
               </div>
@@ -1006,16 +1020,18 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 alignItems: 'center',
                 gap: '8px',
                 marginBottom: '12px',
-                cursor: 'pointer'
+                cursor: isOwner ? 'pointer' : 'default',
+                opacity: isOwner ? 1 : 0.7
               }}>
                 <input
                   type="checkbox"
                   checked={isTimesheet}
-                  onChange={(e) => setIsTimesheet(e.target.checked)}
+                  onChange={(e) => isOwner && setIsTimesheet(e.target.checked)}
+                  disabled={!isOwner}
                   style={{
                     width: '18px',
                     height: '18px',
-                    cursor: 'pointer',
+                    cursor: isOwner ? 'pointer' : 'default',
                     accentColor: '#0066FF'
                   }}
                 />
@@ -1031,16 +1047,18 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                cursor: 'pointer'
+                cursor: isOwner ? 'pointer' : 'default',
+                opacity: isOwner ? 1 : 0.7
               }}>
                 <input
                   type="checkbox"
                   checked={isBillable}
-                  onChange={(e) => setIsBillable(e.target.checked)}
+                  onChange={(e) => isOwner && setIsBillable(e.target.checked)}
+                  disabled={!isOwner}
                   style={{
                     width: '18px',
                     height: '18px',
-                    cursor: 'pointer',
+                    cursor: isOwner ? 'pointer' : 'default',
                     accentColor: '#0066FF'
                   }}
                 />
@@ -1063,22 +1081,38 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
             alignItems: 'center',
             gap: '12px'
           }}>
-            <button
-              onClick={() => setShowMoreOptions(true)}
-              style={{
-                padding: '0',
-                border: 'none',
-                background: 'transparent',
-                color: '#0066FF',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-              onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-            >
-              More options →
-            </button>
+            {isOwner ? (
+              <button
+                onClick={() => setShowMoreOptions(true)}
+                style={{
+                  padding: '0',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#0066FF',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+              >
+                More options →
+              </button>
+            ) : (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                color: '#92400E',
+                background: '#FEF3C7',
+                padding: '6px 10px',
+                borderRadius: '4px'
+              }}>
+                <Lock size={12} />
+                Read-only
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
@@ -1096,26 +1130,28 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 onMouseEnter={(e) => e.currentTarget.style.background = '#F3F4F6'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
-                Cancel
+                {isOwner ? 'Cancel' : 'Close'}
               </button>
 
-              <button
-                onClick={handleSave}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#0066FF',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#0052CC'}
-                onMouseLeave={(e) => e.currentTarget.style.background = '#0066FF'}
-              >
-                Save
-              </button>
+              {isOwner && (
+                <button
+                  onClick={handleSave}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#0066FF',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#0052CC'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#0066FF'}
+                >
+                  Save
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -3412,7 +3448,7 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
             gap: '12px',
             background: '#FAFBFC'
           }}>
-            {isEditing && onDelete && (
+            {isEditing && onDelete && isOwner && (
               <button
                 onClick={() => {
                   if (event?.id) {
@@ -3442,7 +3478,24 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 Delete Event
               </button>
             )}
-            
+
+            {/* Read-only notice for other people's events */}
+            {!isOwner && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                background: '#FEF3C7',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: '#92400E'
+              }}>
+                <Lock size={14} />
+                <span>This event belongs to {event?.createdBy} and is read-only</span>
+              </div>
+            )}
+
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
               <button
                 onClick={onClose}
@@ -3459,33 +3512,35 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
               >
-                Cancel
+                {isOwner ? 'Cancel' : 'Close'}
               </button>
 
-              <button
-                onClick={handleSave}
-                style={{
-                  padding: '12px 32px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#0066FF',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(0, 102, 255, 0.2)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#0052CC';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 102, 255, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#0066FF';
-                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 102, 255, 0.2)';
-                }}
-              >
-                Save Event
-              </button>
+              {isOwner && (
+                <button
+                  onClick={handleSave}
+                  style={{
+                    padding: '12px 32px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: '#0066FF',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0, 102, 255, 0.2)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#0052CC';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 102, 255, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#0066FF';
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 102, 255, 0.2)';
+                  }}
+                >
+                  Save Event
+                </button>
+              )}
             </div>
           </div>
         </div>
