@@ -3,6 +3,8 @@ import DashboardApp from './pages/Dashboard/DashboardApp';
 import ResourcePlannerApp from './pages/ResourcePlanner/ResourcePlannerApp';
 import ProjectsApp from './pages/Projects/ProjectsApp';
 import ProjectWizardPage from './pages/Projects/ProjectWizardPage';
+import MyCalendarApp from './pages/Time/Calendar/MyCalendarApp';
+import MyTasksApp from './pages/Work/MyTasks/MyTasksApp';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
 import { AppLayout } from './components/layout/AppLayout';
 import { SettingsDashboardRedesigned } from './pages/Settings/SettingsDashboardRedesigned';
@@ -18,12 +20,8 @@ function App() {
         <Route path="/projects/edit/:id" element={<ProjectWizardPage />} />
         <Route path="/settings" element={<SettingsDashboardRedesigned />} />
 
-        {/* WORK TAB PENDING SCREENS */}
-        <Route path="/work/my-tasks" element={<AppLayout><PendingScreen title="My Tasks"
-            category="WORK MANAGEMENT"
-            description="Personal task list with priorities, due dates, and project associations."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
+        {/* WORK TAB SCREENS */}
+        <Route path="/work/my-tasks" element={<MyTasksApp />} />
         <Route path="/work/manager-view" element={<AppLayout><PendingScreen title="Manager View"
             category="WORK MANAGEMENT"
             description="Team oversight with workload balancing, performance tracking, and resource allocation."
@@ -35,12 +33,8 @@ function App() {
             onBack={() => window.history.back()}
           /></AppLayout>} />
 
-        {/* TIME TAB PENDING SCREENS */}
-        <Route path="/time/my-calendar" element={<AppLayout><PendingScreen title="My Calendar"
-            category="TIME MANAGEMENT"
-            description="Your personal calendar with meeting scheduling, availability management, and integration with project timelines."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
+        {/* TIME TAB SCREENS */}
+        <Route path="/time/my-calendar" element={<MyCalendarApp />} />
         <Route path="/time/timesheets" element={<AppLayout><PendingScreen title="Timesheets"
             category="TIME MANAGEMENT"
             description="Track time spent on projects and tasks with easy entry and reporting."
