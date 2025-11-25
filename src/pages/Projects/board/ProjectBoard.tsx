@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Settings, X, ChevronLeft, MoreVertical, Tag, Filter, Users } from 'lucide-react';
+import { Search, Plus, Settings, X, ChevronLeft, MoreVertical, Tag, Filter, Users, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   DndContext,
   DragEndEvent,
@@ -68,6 +68,7 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [showColumnSettings, setShowColumnSettings] = useState<string | null>(null);
   const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage: 50, 75, 100, 125, 150
   const [showDescription, setShowDescription] = useState(true);
   const [showParticipants, setShowParticipants] = useState(true);
   const [selectedTask, setSelectedTask] = useState<GanttTask | null>(null);
@@ -574,10 +575,10 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
     // Update the task in the columns
     setColumns(prev => prev.map(col => ({
       ...col,
-      tasks: col.tasks.map(t => 
-        t.id === taskId 
-          ? { 
-              ...t, 
+      tasks: col.tasks.map(t =>
+        t.id === taskId
+          ? {
+              ...t,
               title: updates.name || t.title,
               description: updates.description || t.description,
               priority: updates.priority || t.priority
@@ -586,6 +587,27 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
       )
     })));
     setSelectedTask(null);
+  };
+
+  // Zoom handlers
+  const handleZoomIn = () => {
+    setZoomLevel(prev => {
+      if (prev >= 150) return 150; // Max zoom
+      if (prev >= 125) return 150;
+      if (prev >= 100) return 125;
+      if (prev >= 75) return 100;
+      return 75;
+    });
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => {
+      if (prev <= 50) return 50; // Min zoom
+      if (prev <= 75) return 50;
+      if (prev <= 100) return 75;
+      if (prev <= 125) return 100;
+      return 125;
+    });
   };
 
   const filteredColumns = columns.map(col => ({
@@ -932,6 +954,65 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
             ))}
           </div>
 
+          {/* Zoom Controls */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 50}
+              style={{
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'white',
+                border: '1px solid #E5E7EB',
+                borderRadius: '6px',
+                cursor: zoomLevel <= 50 ? 'not-allowed' : 'pointer',
+                opacity: zoomLevel <= 50 ? 0.5 : 1,
+                transition: 'all 150ms ease'
+              }}
+              onMouseEnter={(e) => {
+                if (zoomLevel > 50) e.currentTarget.style.background = '#F9FAFB';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'white';
+              }}
+              title="Zoom Out"
+            >
+              <ZoomOut size={16} style={{ color: '#6B7280' }} />
+            </button>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: '#6B7280', minWidth: '45px', textAlign: 'center' }}>
+              {zoomLevel}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 150}
+              style={{
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'white',
+                border: '1px solid #E5E7EB',
+                borderRadius: '6px',
+                cursor: zoomLevel >= 150 ? 'not-allowed' : 'pointer',
+                opacity: zoomLevel >= 150 ? 0.5 : 1,
+                transition: 'all 150ms ease'
+              }}
+              onMouseEnter={(e) => {
+                if (zoomLevel < 150) e.currentTarget.style.background = '#F9FAFB';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'white';
+              }}
+              title="Zoom In"
+            >
+              <ZoomIn size={16} style={{ color: '#6B7280' }} />
+            </button>
+          </div>
+
           {/* Tags Button */}
           <button
             onClick={() => setShowLabelManagement(true)}
@@ -1048,8 +1129,10 @@ export function ProjectBoard({ onClose, projectName = 'BIOGEMSE' }: ProjectBoard
             <div style={{
               display: 'flex',
               gap: '16px',
-              height: '100%',
-              minWidth: 'fit-content'
+              height: `${100 * (100 / zoomLevel)}%`,
+              minWidth: 'fit-content',
+              transform: `scale(${zoomLevel / 100})`,
+              transformOrigin: 'top left'
             }}>
               {filteredColumns.map((column) => (
                 <BoardColumn

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertCircle } from 'lucide-react';
 
 interface BlockedModalProps {
@@ -17,7 +18,7 @@ export function BlockedModal({ taskTitle, currentReason, onConfirm, onCancel }: 
     }
   };
 
-  return (
+  return createPortal(
     <div
       onClick={onCancel}
       style={{
@@ -242,6 +243,7 @@ export function BlockedModal({ taskTitle, currentReason, onConfirm, onCancel }: 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

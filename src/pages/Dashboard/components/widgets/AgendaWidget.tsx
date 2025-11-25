@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EventModal } from '../calendar/EventModal';
 
 interface AgendaWidgetProps {
   draggedTask?: any;
@@ -18,9 +19,10 @@ interface Event {
 export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverTime, setDragOverTime] = useState<number | null>(null);
-  const [resizingEvent, setResizingEvent] = useState<string | null>(null);
+  const [resizingEvent, setResizingEvent] = useState<{ id: string; edge: 'top' | 'bottom' } | null>(null);
   const [draggingEvent, setDraggingEvent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<number>(0);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   
   const [events, setEvents] = useState<Event[]>([
@@ -90,7 +92,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     return result;
   };
 
-  const getTimeFromMousePosition = (e: React.PointerEvent): number | null => {
+  const getTimeFromMousePosition = (e: React.MouseEvent): number | null => {
     if (!timelineRef.current) return null;
     
     const rect = timelineRef.current.getBoundingClientRect();
@@ -109,7 +111,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     e.preventDefault();
     setIsDragOver(true);
     
-    const time = getTimeFromPointerPosition(e as any);
+    const time = getTimeFromMousePosition(e as any);
     if (time !== null && time >= 0 && time <= 24) {
       setDragOverTime(time);
     }
@@ -139,62 +141,64 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     setDragOverTime(null);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragOver) {
-      const time = getTimeFromPointerPosition(e);
+      const time = getTimeFromMousePosition(e);
       if (time !== null && time >= 0 && time <= 24) {
         setDragOverTime(time);
       }
     }
   };
 
-  const handleResizeStart = (eventId: string, e: React.PointerEvent) => {
-    e.preventDefault();
+  const handleResizeStart = (eventId: string, edge: 'top' | 'bottom', e: React.MouseEvent) => {
     e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    setResizingEvent(eventId);
+    setResizingEvent({ id: eventId, edge });
   };
 
-  const handleResizeMove = (e: React.PointerEvent) => {
+  const handleResizeMove = (e: React.MouseEvent) => {
     if (!resizingEvent || !timelineRef.current) return;
     
-    const event = events.find(ev => ev.id === resizingEvent);
+    const event = events.find(ev => ev.id === resizingEvent.id);
     if (!event) return;
     
-    const time = getTimeFromPointerPosition(e);
+    const time = getTimeFromMousePosition(e);
     if (time === null) return;
     
-    // Calculate new duration (minimum 15 minutes = 0.25 hours)
-    const newDuration = Math.max(0.25, time - event.start);
-    
-    setEvents(prev => prev.map(ev => 
-      ev.id === resizingEvent ? { ...ev, duration: newDuration } : ev
-    ));
+    if (resizingEvent.edge === 'top') {
+      // Resizing from top - change start time
+      const newStart = Math.max(0, Math.min(time, event.start + event.duration - 0.25));
+      const newDuration = (event.start + event.duration) - newStart;
+      
+      setEvents(prev => prev.map(ev => 
+        ev.id === resizingEvent.id ? { ...ev, start: newStart, duration: newDuration } : ev
+      ));
+    } else {
+      // Resizing from bottom - change duration (minimum 15 minutes = 0.25 hours)
+      const newDuration = Math.max(0.25, time - event.start);
+      
+      setEvents(prev => prev.map(ev => 
+        ev.id === resizingEvent.id ? { ...ev, duration: newDuration } : ev
+      ));
+    }
   };
 
-  const handleResizeEnd = (e?: PointerEvent) => {
-    if (e && e.target && 'releasePointerCapture' in e.target) {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    }
+  const handleResizeEnd = () => {
     setResizingEvent(null);
   };
 
-  const handleDragStart = (eventId: string, e: React.PointerEvent) => {
-    e.preventDefault();
+  const handleDragStart = (eventId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
+    e.preventDefault();
     setDraggingEvent(eventId);
   };
 
-  const handleDragMove = (e: React.PointerEvent) => {
+  const handleDragMove = (e: React.MouseEvent) => {
     if (!draggingEvent || !timelineRef.current) return;
     
     const event = events.find(ev => ev.id === draggingEvent);
     if (!event) return;
     
-    const time = getTimeFromPointerPosition(e);
+    const time = getTimeFromMousePosition(e);
     if (time === null) return;
     
     // Calculate new start time (snap to 15 minute increments)
@@ -205,11 +209,15 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
     ));
   };
 
-  const handleDragEnd = (e?: PointerEvent) => {
-    if (e && e.target && 'releasePointerCapture' in e.target) {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    }
+  const handleDragEnd = () => {
     setDraggingEvent(null);
+  };
+
+  const handleEventClick = (eventId: string, e: React.MouseEvent) => {
+    // Only open modal if we're not in the middle of dragging
+    if (!draggingEvent) {
+      setSelectedEventId(eventId);
+    }
   };
 
   const formatTime = (time: number): string => {
@@ -220,184 +228,308 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
 
   const eventsWithOverlaps = getEventsWithOverlaps();
 
+  // Convert event to calendar event format
+  const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
+  const calendarEvent = selectedEvent ? {
+    id: selectedEvent.id,
+    title: selectedEvent.title,
+    startTime: (() => {
+      const today = new Date();
+      today.setHours(Math.floor(selectedEvent.start));
+      today.setMinutes((selectedEvent.start % 1) * 60);
+      today.setSeconds(0);
+      return today;
+    })(),
+    endTime: (() => {
+      const today = new Date();
+      const endTime = selectedEvent.start + selectedEvent.duration;
+      today.setHours(Math.floor(endTime));
+      today.setMinutes((endTime % 1) * 60);
+      today.setSeconds(0);
+      return today;
+    })(),
+    color: selectedEvent.color,
+    isTimesheet: true,
+    isBillable: false
+  } : null;
+
   return (
-    <div 
-      className="bg-white rounded-lg relative overflow-hidden" 
-      style={{ 
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
-        height: '100%', 
-        display: 'flex', 
-        flexDirection: 'column'
-      }}
-      onPointerMove={resizingEvent ? handleResizeMove : (draggingEvent ? handleDragMove : undefined)}
-      onPointerUp={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
-      onPointerLeave={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
-    >
-      {/* Colored top accent */}
-      <div className="absolute left-0 right-0 top-0 h-1" style={{ background: 'linear-gradient(90deg, #FBBF24 0%, #FDE68A 100%)' }}></div>
-      
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-[#E5E7EB]" style={{ minHeight: '36px' }}>
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4 text-[#FBBF24]" />
-            <h3 className="text-[14px] font-medium text-[#1F2937]">Today</h3>
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="p-0.5 hover:bg-[#F9FAFB] rounded transition-colors">
-              <ChevronLeft className="w-4 h-4 text-[#6B7280]" />
-            </button>
-            <button className="p-0.5 hover:bg-[#F9FAFB] rounded transition-colors">
-              <ChevronRight className="w-4 h-4 text-[#6B7280]" />
-            </button>
-          </div>
-        </div>
-        <p className="text-[10px] text-[#9CA3AF]">Saturday, November 22</p>
-      </div>
+    <>
+      {selectedEventId && calendarEvent && (
+        <EventModal
+          event={calendarEvent}
+          onClose={() => setSelectedEventId(null)}
+          onSave={(updatedEvent) => {
+            // Update the event in the list
+            const startTime = new Date(updatedEvent.startTime);
+            const endTime = new Date(updatedEvent.endTime);
+            const start = startTime.getHours() + startTime.getMinutes() / 60;
+            const end = endTime.getHours() + endTime.getMinutes() / 60;
+            const duration = end - start;
 
-      {/* Timeline */}
+            setEvents(prev => prev.map(ev => 
+              ev.id === updatedEvent.id 
+                ? { ...ev, title: updatedEvent.title, start, duration }
+                : ev
+            ));
+            setSelectedEventId(null);
+          }}
+          onDelete={(id) => {
+            setEvents(prev => prev.filter(ev => ev.id !== id));
+            setSelectedEventId(null);
+          }}
+        />
+      )}
       <div 
-        ref={timelineRef}
-        className="px-2 py-1.5 custom-scrollbar" 
-        style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onMouseMove={handlePointerMove}
+        className="bg-white rounded-lg relative overflow-hidden" 
+        style={{ 
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column'
+        }}
+        onMouseMove={resizingEvent ? handleResizeMove : (draggingEvent ? handleDragMove : undefined)}
+        onMouseUp={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
+        onMouseLeave={resizingEvent ? handleResizeEnd : (draggingEvent ? handleDragEnd : undefined)}
       >
-        <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
-          {/* Hour grid */}
-          {hours.map((hour) => (
-            <div 
-              key={hour}
-              className="border-b border-[#F3F4F6]"
-              style={{ 
-                height: `${pixelsPerHour}px`, 
-                position: 'absolute',
-                top: `${(hour - startHour) * pixelsPerHour}px`,
-                left: 0,
-                right: 0
-              }}
-            >
-              <div className="absolute left-0 top-0.5 text-[10px] font-medium text-[#9CA3AF] w-10">
-                {hour}:00
-              </div>
+        {/* Colored top accent */}
+        <div className="absolute left-0 right-0 top-0 h-1" style={{ background: 'linear-gradient(90deg, #FBBF24 0%, #FDE68A 100%)' }}></div>
+        
+        {/* Header */}
+        <div className="px-3 py-2 border-b border-[#E5E7EB]" style={{ minHeight: '36px' }}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-[#FBBF24]" />
+              <h3 className="text-[14px] font-medium text-[#1F2937]">Today</h3>
             </div>
-          ))}
-
-          {/* Current time indicator */}
-          <div 
-            className="pointer-events-none"
-            style={{ 
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: `${((currentHour - startHour) * pixelsPerHour)}px`,
-              display: 'flex',
-              alignItems: 'center',
-              zIndex: 10
-            }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444] ml-0.5"></div>
-            <div className="flex-1 h-0.5 bg-[#EF4444] opacity-70"></div>
+            <div className="flex items-center gap-1">
+              <button className="p-0.5 hover:bg-[#F9FAFB] rounded transition-colors">
+                <ChevronLeft className="w-4 h-4 text-[#6B7280]" />
+              </button>
+              <button className="p-0.5 hover:bg-[#F9FAFB] rounded transition-colors">
+                <ChevronRight className="w-4 h-4 text-[#6B7280]" />
+              </button>
+            </div>
           </div>
+          <p className="text-[10px] text-[#9CA3AF]">Saturday, November 22</p>
+        </div>
 
-          {/* Drop indicator line */}
-          {isDragOver && dragOverTime !== null && (
-            <div
+        {/* Timeline */}
+        <div 
+          ref={timelineRef}
+          className="px-2 py-1.5 custom-scrollbar" 
+          style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onMouseMove={handleMouseMove}
+        >
+          <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
+            {/* Hour grid */}
+            {hours.map((hour) => (
+              <div 
+                key={hour}
+                className="border-b border-[#F3F4F6]"
+                style={{ 
+                  height: `${pixelsPerHour}px`, 
+                  position: 'absolute',
+                  top: `${(hour - startHour) * pixelsPerHour}px`,
+                  left: 0,
+                  right: 0
+                }}
+              >
+                <div className="absolute left-0 top-0.5 text-[10px] font-medium text-[#9CA3AF] w-10">
+                  {hour}:00
+                </div>
+              </div>
+            ))}
+
+            {/* Current time indicator */}
+            <div 
               className="pointer-events-none"
-              style={{
+              style={{ 
                 position: 'absolute',
-                left: '40px',
-                right: '6px',
-                top: `${dragOverTime * pixelsPerHour}px`,
-                height: '2px',
-                background: '#3B82F6',
-                zIndex: 15
+                left: 0,
+                right: 0,
+                top: `${((currentHour - startHour) * pixelsPerHour)}px`,
+                display: 'flex',
+                alignItems: 'center',
+                zIndex: 10
               }}
             >
-              <div 
-                className="text-[9px] text-[#3B82F6] font-medium bg-white px-1 rounded"
-                style={{ position: 'absolute', left: 0, top: '-10px' }}
-              >
-                {formatTime(dragOverTime)}
-              </div>
+              <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444] ml-0.5"></div>
+              <div className="flex-1 h-0.5 bg-[#EF4444] opacity-70"></div>
             </div>
-          )}
 
-          {/* Events */}
-          {eventsWithOverlaps.map((event) => {
-            const totalOverlaps = event.totalOverlaps || 1;
-            const overlap = event.overlap || 0;
-            const widthPercent = 100 / totalOverlaps;
-            const leftPercent = (overlap * widthPercent);
-            
-            return (
+            {/* Drop indicator line */}
+            {isDragOver && dragOverTime !== null && (
               <div
-                key={event.id}
-                className="cursor-move hover:opacity-90 transition-opacity group select-none"
+                className="pointer-events-none"
                 style={{
                   position: 'absolute',
-                  left: `calc(40px + ${leftPercent}%)`,
-                  width: `calc(${widthPercent}% - ${totalOverlaps > 1 ? 2 : 6}px)`,
-                  top: `${event.start * pixelsPerHour}px`,
-                  height: `${event.duration * pixelsPerHour}px`,
-                  backgroundColor: event.color,
-                  borderRadius: '4px',
-                  padding: '6px 8px',
-                  zIndex: draggingEvent === event.id ? 15 : 5,
-                  minHeight: '30px',
-                  opacity: draggingEvent === event.id ? 0.7 : 1,
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  touchAction: 'none'
-                }}
-                onPointerDown={(e) => handleDragStart(event.id, e)}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
+                  left: '40px',
+                  right: '6px',
+                  top: `${dragOverTime * pixelsPerHour}px`,
+                  height: '2px',
+                  background: '#3B82F6',
+                  zIndex: 15
                 }}
               >
-                <div className="text-[11px] font-medium text-white leading-tight overflow-hidden">
-                  {event.title}
+                <div 
+                  className="text-[9px] text-[#3B82F6] font-medium bg-white px-1 rounded"
+                  style={{ position: 'absolute', left: 0, top: '-10px' }}
+                >
+                  {formatTime(dragOverTime)}
                 </div>
-                <div className="text-[9px] text-white opacity-80 mt-0.5">
-                  {formatTime(event.start)} - {formatTime(event.start + event.duration)}
-                </div>
-                
-                {/* Resize handle */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: 'rgba(0,0,0,0.2)' }}
-                  onPointerDown={(e) => handleResizeStart(event.id, e)}
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                />
               </div>
-            );
-          })}
-        </div>
-      </div>
+            )}
 
-      {/* Drop hint */}
-      {isDragOver && (
-        <div 
-          className="absolute top-14 left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
-        >
-          <div className="bg-[#3B82F6] text-white px-3 py-1.5 rounded text-[12px] font-medium shadow-lg">
-            Drop to schedule {dragOverTime !== null && `at ${formatTime(dragOverTime)}`}
+            {/* Events */}
+            {eventsWithOverlaps.map((event) => {
+              const totalOverlaps = event.totalOverlaps || 1;
+              const overlap = event.overlap || 0;
+              const widthPercent = 100 / totalOverlaps;
+              const leftPercent = (overlap * widthPercent);
+              
+              return (
+                <div
+                  key={event.id}
+                  className="cursor-move hover:opacity-90 transition-opacity group select-none"
+                  style={{
+                    position: 'absolute',
+                    left: `calc(40px + ${leftPercent}%)`,
+                    width: `calc(${widthPercent}% - ${totalOverlaps > 1 ? 2 : 6}px)`,
+                    top: `${event.start * pixelsPerHour}px`,
+                    height: `${event.duration * pixelsPerHour}px`,
+                    backgroundColor: event.color,
+                    borderRadius: '4px',
+                    padding: '0',
+                    zIndex: draggingEvent === event.id ? 15 : 5,
+                    minHeight: '30px',
+                    opacity: draggingEvent === event.id ? 0.7 : 1,
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                  onClick={(e) => handleEventClick(event.id, e)}
+                >
+                  {/* Top resize handle */}
+                  <div
+                    className="resize-handle"
+                    style={{ 
+                      height: '6px',
+                      width: '100%',
+                      cursor: 'ns-resize',
+                      background: 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderTopLeftRadius: '4px',
+                      borderTopRightRadius: '4px',
+                      transition: 'background 150ms'
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      handleResizeStart(event.id, 'top', e);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={{
+                      width: '20px',
+                      height: '2px',
+                      borderRadius: '2px',
+                      background: 'rgba(255, 255, 255, 0.5)',
+                      opacity: 0,
+                      transition: 'opacity 150ms'
+                    }} className="group-hover:opacity-100" />
+                  </div>
+                  
+                  {/* Event content */}
+                  <div 
+                    style={{ 
+                      flex: 1, 
+                      padding: '6px 8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      cursor: 'move'
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      handleDragStart(event.id, e);
+                    }}
+                  >
+                    <div className="text-[11px] font-medium text-white leading-tight overflow-hidden">
+                      {event.title}
+                    </div>
+                    <div className="text-[9px] text-white opacity-80 mt-0.5">
+                      {formatTime(event.start)} - {formatTime(event.start + event.duration)}
+                    </div>
+                  </div>
+                  
+                  {/* Bottom resize handle */}
+                  <div
+                    className="resize-handle"
+                    style={{ 
+                      height: '6px',
+                      width: '100%',
+                      cursor: 'ns-resize',
+                      background: 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderBottomLeftRadius: '4px',
+                      borderBottomRightRadius: '4px',
+                      transition: 'background 150ms'
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      handleResizeStart(event.id, 'bottom', e);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div style={{
+                      width: '20px',
+                      height: '2px',
+                      borderRadius: '2px',
+                      background: 'rgba(255, 255, 255, 0.5)',
+                      opacity: 0,
+                      transition: 'opacity 150ms'
+                    }} className="group-hover:opacity-100" />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <div className="px-3 py-1.5 border-t border-[#E5E7EB]" style={{ minHeight: '30px' }}>
-        <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
-          Full calendar →
-        </button>
+        {/* Drop hint */}
+        {isDragOver && (
+          <div 
+            className="absolute top-14 left-1/2 transform -translate-x-1/2 pointer-events-none z-20"
+          >
+            <div className="bg-[#3B82F6] text-white px-3 py-1.5 rounded text-[12px] font-medium shadow-lg">
+              Drop to schedule {dragOverTime !== null && `at ${formatTime(dragOverTime)}`}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="px-3 py-1.5 border-t border-[#E5E7EB]" style={{ minHeight: '30px' }}>
+          <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
+            Full calendar →
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

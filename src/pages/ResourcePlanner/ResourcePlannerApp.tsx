@@ -54,6 +54,7 @@ export default function App() {
               <HeatMap
                 users={mockUsers}
                 tasks={tasks}
+                projects={mockProjects}
                 departments={departments}
                 leaves={mockLeaves}
                 onTaskClick={handleTaskClick}
@@ -66,7 +67,7 @@ export default function App() {
                 users={mockUsers}
                 tasks={tasks}
                 projects={mockProjects}
-                onTaskClick={handleTaskClick}
+                departments={departments}
               />
             </TabsContent>
           </div>

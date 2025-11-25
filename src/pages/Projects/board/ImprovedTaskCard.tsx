@@ -193,10 +193,10 @@ export function ImprovedTaskCard({
         borderRadius: '6px',
         padding: size === 'small' ? '12px' : size === 'medium' ? '14px' : '16px',
         cursor: 'pointer',
-        boxShadow: isSelected 
-          ? '0 0 0 2px #0066FF' 
-          : isHovered 
-            ? '0 4px 12px rgba(0,0,0,0.08)' 
+        boxShadow: isSelected
+          ? '0 0 0 2px #0066FF'
+          : isHovered
+            ? '0 4px 12px rgba(0,0,0,0.08)'
             : '0 1px 3px rgba(0,0,0,0.04)',
         transition: 'all 150ms ease',
         position: 'relative'
