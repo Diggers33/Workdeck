@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronRight, ChevronDown, Trash2, Paperclip, Plus, Eye, X, Upload } from 'lucide-react';
+import { useSpending, Project, Activity, Task } from '../../../contexts/SpendingContext';
 
 interface PurchaseLineItemProps {
   item: {
@@ -16,6 +17,10 @@ interface PurchaseLineItemProps {
       name: string;
       url: string;
     }>;
+    // Project allocation per line item
+    projectId?: string;
+    activityId?: string;
+    taskId?: string;
   };
   index: number;
   isExpanded: boolean;
@@ -25,6 +30,8 @@ interface PurchaseLineItemProps {
   onDelete: () => void;
   onAddSupplier: () => void;
   canDelete: boolean;
+  // Multi-project mode support
+  showProjectAllocation?: boolean;
 }
 
 const costTypes = [
@@ -50,9 +57,42 @@ export function PurchaseLineItem({
   onUpdate,
   onDelete,
   onAddSupplier,
-  canDelete
+  canDelete,
+  showProjectAllocation = false
 }: PurchaseLineItemProps) {
   const [showDeleteButton, setShowDeleteButton] = useState(false);
+  const {
+    projects,
+    getActivitiesForProject,
+    getTasksForActivity,
+    getProjectById,
+    getActivityById,
+    getTaskById
+  } = useSpending();
+
+  // Get available activities and tasks for this item's project/activity
+  const itemActivities = item.projectId ? getActivitiesForProject(item.projectId) : [];
+  const itemTasks = item.activityId ? getTasksForActivity(item.activityId) : [];
+
+  // Handle project change for this line item
+  const handleItemProjectChange = (newProjectId: string) => {
+    onUpdate({
+      projectId: newProjectId,
+      activityId: '',
+      taskId: ''
+    });
+  };
+
+  // Handle activity change for this line item
+  const handleItemActivityChange = (newActivityId: string) => {
+    onUpdate({
+      activityId: newActivityId,
+      taskId: ''
+    });
+  };
+
+  // Get project badge color
+  const projectBadge = item.projectId ? getProjectById(item.projectId) : null;
 
   const itemSubtotal = item.quantity * item.unitPrice;
   const itemVat = itemSubtotal * (item.vatPercent / 100);
@@ -145,6 +185,22 @@ export function PurchaseLineItem({
           <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827', minWidth: '80px', textAlign: 'right', flexShrink: 0 }}>
             €{itemTotal.toFixed(0)}
           </div>
+
+          {/* Project Badge - shown when multi-project mode */}
+          {showProjectAllocation && projectBadge && (
+            <div style={{ minWidth: '90px', flexShrink: 0 }}>
+              <span
+                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: `${projectBadge.color}15`,
+                  color: projectBadge.color,
+                  border: `1px solid ${projectBadge.color}30`
+                }}
+              >
+                {projectBadge.code}
+              </span>
+            </div>
+          )}
 
           {/* Attachment Indicator */}
           <div style={{ width: '40px', flexShrink: 0, textAlign: 'center' }}>
@@ -478,6 +534,90 @@ export function PurchaseLineItem({
                     </label>
                   </div>
                 </div>
+
+                {/* Project Allocation - shown when multi-project mode */}
+                {showProjectAllocation && (
+                  <div
+                    className="p-4 rounded-lg"
+                    style={{
+                      backgroundColor: '#F9FAFB',
+                      border: '1px solid #E5E7EB'
+                    }}
+                  >
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
+                      PROJECT ALLOCATION
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Project */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                          PROJECT <span style={{ color: '#DC2626' }}>*</span>
+                        </label>
+                        <select
+                          value={item.projectId || ''}
+                          onChange={(e) => handleItemProjectChange(e.target.value)}
+                          className="w-full px-3 border rounded-lg"
+                          style={{
+                            fontSize: '14px',
+                            borderColor: !item.projectId ? '#DC2626' : '#E5E7EB',
+                            height: '40px'
+                          }}
+                        >
+                          <option value="">Select project...</option>
+                          {projects.map(p => (
+                            <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Activity */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                          ACTIVITY
+                        </label>
+                        <select
+                          value={item.activityId || ''}
+                          onChange={(e) => handleItemActivityChange(e.target.value)}
+                          className="w-full px-3 border rounded-lg"
+                          style={{
+                            fontSize: '14px',
+                            borderColor: '#E5E7EB',
+                            height: '40px'
+                          }}
+                          disabled={!item.projectId}
+                        >
+                          <option value="">Select activity...</option>
+                          {itemActivities.map(a => (
+                            <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Task */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                          TASK
+                        </label>
+                        <select
+                          value={item.taskId || ''}
+                          onChange={(e) => onUpdate({ taskId: e.target.value })}
+                          className="w-full px-3 border rounded-lg"
+                          style={{
+                            fontSize: '14px',
+                            borderColor: '#E5E7EB',
+                            height: '40px'
+                          }}
+                          disabled={!item.activityId || itemTasks.length === 0}
+                        >
+                          <option value="">Select task...</option>
+                          {itemTasks.map(t => (
+                            <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Attachments */}
                 <div>

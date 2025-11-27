@@ -20,7 +20,7 @@ import {
   Package,
   CheckCheck
 } from 'lucide-react';
-import { useSpending, SpendingRequest } from '../../../contexts/SpendingContext';
+import { useSpending, SpendingRequest, Project, Activity, Task } from '../../../contexts/SpendingContext';
 import { AddSupplierModal } from './AddSupplierModal';
 import { PurchaseLineItem } from './PurchaseLineItem';
 
@@ -43,10 +43,23 @@ interface LineItem {
     name: string;
     url: string;
   }>;
+  // Project allocation per line item (used when multi-project mode is enabled)
+  projectId?: string;
+  activityId?: string;
+  taskId?: string;
 }
 
 export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProps) {
-  const { requests, updateRequest } = useSpending();
+  const {
+    requests,
+    updateRequest,
+    projects,
+    getActivitiesForProject,
+    getTasksForActivity,
+    getProjectById,
+    getActivityById,
+    getTaskById
+  } = useSpending();
   const purchase = requests.find(r => r.id === requestId && r.type === 'Purchase');
 
   // Scroll to top when component mounts
@@ -54,14 +67,79 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  // Form state
-  const [project, setProject] = useState('BIOGEMSE');
+  // Form state - Default Allocation
+  const [projectId, setProjectId] = useState(purchase?.projectId || '');
+  const [activityId, setActivityId] = useState(purchase?.activityId || '');
+  const [taskId, setTaskId] = useState(purchase?.taskId || '');
+  const [useDefaultAllocation, setUseDefaultAllocation] = useState(purchase?.useDefaultAllocation !== false);
+
+  // Other form state
   const [office, setOffice] = useState('Barcelona');
   const [department, setDepartment] = useState('Engineering');
   const [costCenter, setCostCenter] = useState('');
   const [isAsap, setIsAsap] = useState(false);
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  // Derived data for cascading dropdowns
+  const availableActivities = projectId ? getActivitiesForProject(projectId) : [];
+  const availableTasks = activityId ? getTasksForActivity(activityId) : [];
+
+  // Handle project change - clear activity and task
+  const handleProjectChange = (newProjectId: string) => {
+    setProjectId(newProjectId);
+    setActivityId('');
+    setTaskId('');
+    // If using default allocation, update all line items
+    if (useDefaultAllocation) {
+      setLineItems(items => items.map(item => ({
+        ...item,
+        projectId: newProjectId,
+        activityId: '',
+        taskId: ''
+      })));
+    }
+  };
+
+  // Handle activity change - clear task
+  const handleActivityChange = (newActivityId: string) => {
+    setActivityId(newActivityId);
+    setTaskId('');
+    // If using default allocation, update all line items
+    if (useDefaultAllocation) {
+      setLineItems(items => items.map(item => ({
+        ...item,
+        activityId: newActivityId,
+        taskId: ''
+      })));
+    }
+  };
+
+  // Handle task change
+  const handleTaskChange = (newTaskId: string) => {
+    setTaskId(newTaskId);
+    // If using default allocation, update all line items
+    if (useDefaultAllocation) {
+      setLineItems(items => items.map(item => ({
+        ...item,
+        taskId: newTaskId
+      })));
+    }
+  };
+
+  // Handle toggle of default allocation
+  const handleUseDefaultAllocationChange = (checked: boolean) => {
+    setUseDefaultAllocation(checked);
+    if (checked) {
+      // Apply header defaults to all line items
+      setLineItems(items => items.map(item => ({
+        ...item,
+        projectId,
+        activityId,
+        taskId
+      })));
+    }
+  };
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -73,12 +151,19 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
   const isDenied = purchase?.status === 'Denied';
   const isAdmin = false; // TODO: Get from context
 
-  // Calculate totals
+  // Calculate totals including project breakdown
   const totals = useMemo(() => {
     let subtotal = 0;
     let totalVat = 0;
     let billableAmount = 0;
     const supplierBreakdown: Record<string, { count: number; total: number }> = {};
+    const projectBreakdown: Record<string, {
+      projectId: string;
+      projectCode: string;
+      projectColor: string;
+      items: Array<{ description: string; quantity: number; total: number }>;
+      total: number;
+    }> = {};
 
     lineItems.forEach(item => {
       const itemSubtotal = item.quantity * item.unitPrice;
@@ -92,12 +177,42 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
         billableAmount += itemTotal;
       }
 
-      if (!supplierBreakdown[item.supplier]) {
-        supplierBreakdown[item.supplier] = { count: 0, total: 0 };
+      // Supplier breakdown
+      if (item.supplier) {
+        if (!supplierBreakdown[item.supplier]) {
+          supplierBreakdown[item.supplier] = { count: 0, total: 0 };
+        }
+        supplierBreakdown[item.supplier].count += 1;
+        supplierBreakdown[item.supplier].total += itemTotal;
       }
-      supplierBreakdown[item.supplier].count += 1;
-      supplierBreakdown[item.supplier].total += itemTotal;
+
+      // Project breakdown (use item's project or default)
+      const itemProjectId = item.projectId || projectId;
+      if (itemProjectId) {
+        const project = getProjectById(itemProjectId);
+        if (project) {
+          if (!projectBreakdown[itemProjectId]) {
+            projectBreakdown[itemProjectId] = {
+              projectId: itemProjectId,
+              projectCode: project.code,
+              projectColor: project.color,
+              items: [],
+              total: 0
+            };
+          }
+          projectBreakdown[itemProjectId].items.push({
+            description: item.description,
+            quantity: item.quantity,
+            total: itemTotal
+          });
+          projectBreakdown[itemProjectId].total += itemTotal;
+        }
+      }
     });
+
+    // Count unique projects
+    const uniqueProjects = Object.keys(projectBreakdown);
+    const hasMultipleProjects = uniqueProjects.length > 1;
 
     return {
       subtotal,
@@ -105,9 +220,12 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
       grandTotal: subtotal + totalVat,
       billableAmount,
       supplierBreakdown,
+      projectBreakdown,
+      hasMultipleProjects,
+      uniqueProjectCount: uniqueProjects.length,
       itemCount: lineItems.length
     };
-  }, [lineItems]);
+  }, [lineItems, projectId, getProjectById]);
 
   // Add new line item
   const addLineItem = () => {
@@ -121,7 +239,11 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
       unitPrice: 0,
       vatPercent: 21,
       billable: false,
-      attachments: []
+      attachments: [],
+      // Pre-populate with defaults if using default allocation
+      projectId: useDefaultAllocation ? projectId : '',
+      activityId: useDefaultAllocation ? activityId : '',
+      taskId: useDefaultAllocation ? taskId : ''
     };
     setLineItems([...lineItems, newItem]);
   };
@@ -143,9 +265,11 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
   // Validate form
   const validate = () => {
     const newErrors: Record<string, string> = {};
+    const warnings: string[] = [];
 
-    if (!project) {
-      newErrors.project = 'Project is required';
+    // Project validation - required if using default allocation
+    if (useDefaultAllocation && !projectId) {
+      newErrors.project = 'Default project is required';
     }
 
     if (lineItems.length === 0) {
@@ -168,7 +292,16 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
       if (item.unitPrice <= 0) {
         newErrors[`item-${item.id}-unitPrice`] = `Item ${index + 1}: Unit price must be greater than 0`;
       }
+      // When not using default allocation, each item must have a project
+      if (!useDefaultAllocation && !item.projectId) {
+        newErrors[`item-${item.id}-project`] = `Item ${index + 1}: Project is required`;
+      }
     });
+
+    // Warning for multiple projects (not blocking)
+    if (totals.uniqueProjectCount >= 3) {
+      warnings.push('This purchase spans multiple projects. Consider splitting for easier tracking.');
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -405,25 +538,25 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
           </div>
         )}
 
-        {/* Section 1: Basic Information */}
+        {/* Section 1: Default Allocation */}
         <div className="bg-white border rounded-xl mb-6" style={{ borderColor: '#E5E7EB', padding: '24px' }}>
           <div style={{ fontSize: '16px', fontWeight: 600, color: '#111827', paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '20px' }}>
-            Basic Information
+            Default Allocation
           </div>
 
-          {/* Project */}
+          {/* Default Project */}
           <div className="mb-5">
             <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              PROJECT <span style={{ color: '#DC2626' }}>*</span>
+              DEFAULT PROJECT {useDefaultAllocation && <span style={{ color: '#DC2626' }}>*</span>}
             </label>
             {isReadOnly ? (
               <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                {project} - Digital Product Passport
+                {projectId ? `${getProjectById(projectId)?.code} - ${getProjectById(projectId)?.name}` : '—'}
               </div>
             ) : (
               <select
-                value={project}
-                onChange={(e) => setProject(e.target.value)}
+                value={projectId}
+                onChange={(e) => handleProjectChange(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg"
                 style={{
                   fontSize: '14px',
@@ -432,10 +565,9 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                 }}
               >
                 <option value="">Select project...</option>
-                <option value="BIOGEMSE">BIOGEMSE - Digital Product Passport</option>
-                <option value="HALO-TEX">HALO-TEX - Textile Recycling</option>
-                <option value="RETAIN">RETAIN - Packaging Solutions</option>
-                <option value="Infrastructure">Infrastructure - Internal</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                ))}
               </select>
             )}
             {errors.project && (
@@ -444,6 +576,82 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
               </div>
             )}
           </div>
+
+          {/* Default Activity and Task - only show when project selected */}
+          {(projectId || isReadOnly) && (
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                  DEFAULT ACTIVITY (optional)
+                </label>
+                {isReadOnly ? (
+                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                    {activityId ? `${getActivityById(activityId)?.code} - ${getActivityById(activityId)?.name}` : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={activityId}
+                    onChange={(e) => handleActivityChange(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                    disabled={!projectId}
+                  >
+                    <option value="">Select activity...</option>
+                    {availableActivities.map(a => (
+                      <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                  DEFAULT TASK (optional)
+                </label>
+                {isReadOnly ? (
+                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                    {taskId ? `${getTaskById(taskId)?.code} - ${getTaskById(taskId)?.name}` : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={taskId}
+                    onChange={(e) => handleTaskChange(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                    disabled={!activityId || availableTasks.length === 0}
+                  >
+                    <option value="">Select task...</option>
+                    {availableTasks.map(t => (
+                      <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* All items use defaults checkbox */}
+          {!isReadOnly && (
+            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg" style={{ backgroundColor: useDefaultAllocation ? '#EFF6FF' : '#F9FAFB', border: useDefaultAllocation ? '1px solid #BFDBFE' : '1px solid #E5E7EB' }}>
+              <input
+                type="checkbox"
+                checked={useDefaultAllocation}
+                onChange={(e) => handleUseDefaultAllocationChange(e.target.checked)}
+                className="w-4 h-4 rounded"
+                style={{ accentColor: '#2563EB' }}
+              />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+                  All items use these defaults
+                </div>
+                <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                  {useDefaultAllocation
+                    ? 'Line items will inherit the default project/activity/task'
+                    : 'Each line item can have different project allocation'}
+                </div>
+              </div>
+            </label>
+          )}
 
           <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '20px 0' }} />
 
@@ -575,6 +783,7 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
               onDelete={() => deleteLineItem(item.id)}
               onAddSupplier={() => setShowSupplierModal(true)}
               canDelete={lineItems.length > 1}
+              showProjectAllocation={!useDefaultAllocation}
             />
           ))}
         </div>
@@ -619,6 +828,47 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
 
             <div style={{ height: '1px', backgroundColor: '#BFDBFE', margin: '16px 0' }} />
 
+            {/* By Project breakdown - only show when multiple projects */}
+            {totals.hasMultipleProjects && (
+              <>
+                <div className="mb-3">
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    TOTALS BY PROJECT
+                  </div>
+                  <div className="space-y-3">
+                    {Object.values(totals.projectBreakdown).map((projectData) => (
+                      <div key={projectData.projectId}>
+                        <div className="flex items-center justify-between" style={{ fontSize: '14px' }}>
+                          <div className="flex items-center gap-2">
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '2px',
+                                backgroundColor: projectData.projectColor
+                              }}
+                            />
+                            <span style={{ fontWeight: 500, color: '#111827' }}>{projectData.projectCode}</span>
+                          </div>
+                          <span style={{ fontWeight: 600, color: '#111827' }}>€{projectData.total.toFixed(2)}</span>
+                        </div>
+                        <div style={{ marginLeft: '16px', marginTop: '4px' }}>
+                          {projectData.items.map((item, idx) => (
+                            <div key={idx} style={{ fontSize: '12px', color: '#6B7280' }}>
+                              └─ {item.quantity}× {item.description}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ height: '1px', backgroundColor: '#BFDBFE', margin: '16px 0' }} />
+              </>
+            )}
+
             <div className="mb-3">
               <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 SUPPLIERS ON THIS PURCHASE
@@ -627,7 +877,7 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                 {Object.entries(totals.supplierBreakdown).map(([supplier, data]) => (
                   <div key={supplier} className="flex items-center gap-2" style={{ fontSize: '13px', color: '#374151' }}>
                     <span>•</span>
-                    <span>{supplier} ({data.count} {data.count === 1 ? 'item' : 'items'} - €{data.total.toFixed(2)})</span>
+                    <span>{supplier || 'No supplier'} ({data.count} {data.count === 1 ? 'item' : 'items'} - €{data.total.toFixed(2)})</span>
                   </div>
                 ))}
               </div>
@@ -640,6 +890,24 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
               <span style={{ color: '#111827' }}>€{totals.billableAmount.toFixed(2)}</span>
             </div>
           </div>
+
+          {/* Multi-project warning */}
+          {totals.uniqueProjectCount >= 3 && !isReadOnly && (
+            <div
+              className="flex items-start gap-3 mt-4 p-3 rounded-lg"
+              style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}
+            >
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: '#D97706' }} />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: '#92400E' }}>
+                  This purchase spans {totals.uniqueProjectCount} projects
+                </div>
+                <div style={{ fontSize: '13px', color: '#92400E', marginTop: '2px' }}>
+                  Consider splitting into separate purchases for easier tracking and approval.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Section 4: Additional Notes */}

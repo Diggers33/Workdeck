@@ -17,7 +17,7 @@ import {
   Printer,
   Download
 } from 'lucide-react';
-import { useSpending, SpendingRequest } from '../../../contexts/SpendingContext';
+import { useSpending, SpendingRequest, Project, Activity, Task } from '../../../contexts/SpendingContext';
 import { ExpenseLineItem } from './ExpenseLineItem';
 
 interface ExpenseDetailViewProps {
@@ -42,7 +42,16 @@ interface LineItem {
 }
 
 export function ExpenseDetailView({ requestId, onBack }: ExpenseDetailViewProps) {
-  const { requests, updateRequest } = useSpending();
+  const {
+    requests,
+    updateRequest,
+    projects,
+    getActivitiesForProject,
+    getTasksForActivity,
+    getProjectById,
+    getActivityById,
+    getTaskById
+  } = useSpending();
   const expense = requests.find(r => r.id === requestId && r.type === 'Expense');
 
   // Scroll to top when component mounts
@@ -52,11 +61,29 @@ export function ExpenseDetailView({ requestId, onBack }: ExpenseDetailViewProps)
 
   // Form state
   const [purpose, setPurpose] = useState(expense?.purpose || '');
-  const [project, setProject] = useState('BIOGEMSE');
+  const [projectId, setProjectId] = useState(expense?.projectId || '');
+  const [activityId, setActivityId] = useState(expense?.activityId || '');
+  const [taskId, setTaskId] = useState(expense?.taskId || '');
   const [costCenter, setCostCenter] = useState('Marketing');
-  const [activity, setActivity] = useState('');
   const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  // Derived data for cascading dropdowns
+  const availableActivities = projectId ? getActivitiesForProject(projectId) : [];
+  const availableTasks = activityId ? getTasksForActivity(activityId) : [];
+
+  // Handle project change - clear activity and task
+  const handleProjectChange = (newProjectId: string) => {
+    setProjectId(newProjectId);
+    setActivityId('');
+    setTaskId('');
+  };
+
+  // Handle activity change - clear task
+  const handleActivityChange = (newActivityId: string) => {
+    setActivityId(newActivityId);
+    setTaskId('');
+  };
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -440,19 +467,19 @@ export function ExpenseDetailView({ requestId, onBack }: ExpenseDetailViewProps)
               </label>
               {isReadOnly ? (
                 <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                  {project || '—'}
+                  {projectId ? `${getProjectById(projectId)?.code} - ${getProjectById(projectId)?.name}` : '—'}
                 </div>
               ) : (
                 <select
-                  value={project}
-                  onChange={(e) => setProject(e.target.value)}
+                  value={projectId}
+                  onChange={(e) => handleProjectChange(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                   style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
                 >
                   <option value="">Select project...</option>
-                  <option value="BIOGEMSE">BIOGEMSE</option>
-                  <option value="SKYTECH">SKYTECH</option>
-                  <option value="NEXUS">NEXUS</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                  ))}
                 </select>
               )}
             </div>
@@ -482,29 +509,74 @@ export function ExpenseDetailView({ requestId, onBack }: ExpenseDetailViewProps)
             </div>
           </div>
 
-          {/* Activity */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              ACTIVITY (optional)
-            </label>
-            {isReadOnly ? (
-              <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                {activity || '—'}
+          {/* Activity - appears when project is selected */}
+          {(projectId || isReadOnly) && (
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                  ACTIVITY (optional)
+                </label>
+                {isReadOnly ? (
+                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                    {activityId ? `${getActivityById(activityId)?.code} - ${getActivityById(activityId)?.name}` : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={activityId}
+                    onChange={(e) => handleActivityChange(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                    disabled={!projectId}
+                  >
+                    <option value="">Select activity...</option>
+                    {availableActivities.map(a => (
+                      <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                    ))}
+                  </select>
+                )}
+                {!isReadOnly && !projectId && (
+                  <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>
+                    Select a project first
+                  </div>
+                )}
               </div>
-            ) : (
-              <select
-                value={activity}
-                onChange={(e) => setActivity(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
-              >
-                <option value="">Select activity...</option>
-                <option value="Client Meeting">Client Meeting</option>
-                <option value="Team Event">Team Event</option>
-                <option value="Conference">Conference</option>
-              </select>
-            )}
-          </div>
+
+              {/* Task - appears when activity is selected */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                  TASK (optional)
+                </label>
+                {isReadOnly ? (
+                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                    {taskId ? `${getTaskById(taskId)?.code} - ${getTaskById(taskId)?.name}` : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={taskId}
+                    onChange={(e) => setTaskId(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                    disabled={!activityId || availableTasks.length === 0}
+                  >
+                    <option value="">Select task...</option>
+                    {availableTasks.map(t => (
+                      <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
+                    ))}
+                  </select>
+                )}
+                {!isReadOnly && !activityId && (
+                  <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>
+                    Select an activity first
+                  </div>
+                )}
+                {!isReadOnly && activityId && availableTasks.length === 0 && (
+                  <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>
+                    No tasks for this activity
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Section 2: Line Items */}

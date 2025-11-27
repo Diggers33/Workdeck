@@ -1,7 +1,30 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Receipt, ShoppingCart, Palmtree, User, Coffee, Plane, Car, Home, Laptop, Package } from 'lucide-react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 export type SpendingType = 'Expense' | 'Purchase';
+
+// Project, Activity, Task types
+export interface Project {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+}
+
+export interface Activity {
+  id: string;
+  projectId: string;
+  code: string;
+  name: string;
+  order: number;
+}
+
+export interface Task {
+  id: string;
+  activityId: string;
+  code: string;
+  name: string;
+  order: number;
+}
 
 export type SpendingStatus = 
   | 'Draft' 
@@ -38,12 +61,17 @@ export interface SpendingLineItem {
   receiptUrl?: string;
   receiptFilename?: string;
   notes?: string;
-  
+
   // Purchase-specific
   supplier?: string;
   quantity?: number;
   unitPrice?: number;
   sku?: string;
+
+  // Project/Activity/Task linking (for purchase line items when multi-project)
+  projectId?: string;
+  activityId?: string;
+  taskId?: string;
 }
 
 export interface SpendingRequest {
@@ -53,11 +81,21 @@ export interface SpendingRequest {
   userId: string;
   status: SpendingStatus;
   purpose: string;
+
+  // Project/Activity/Task linking
+  projectId?: string;
+  activityId?: string;
+  taskId?: string;
+
+  // Legacy project field (for backward compatibility)
   project?: string;
   costCenter?: string;
   office?: string;
   department?: string;
   isAsap?: boolean;
+
+  // Purchase-specific: Default allocation settings
+  useDefaultAllocation?: boolean; // When true, all line items use header defaults
   
   lineItems: SpendingLineItem[];
   
@@ -96,6 +134,9 @@ export interface Supplier {
 interface SpendingContextType {
   requests: SpendingRequest[];
   suppliers: Supplier[];
+  projects: Project[];
+  activities: Activity[];
+  tasks: Task[];
   currentUser: {
     id: string;
     name: string;
@@ -104,18 +145,25 @@ interface SpendingContextType {
     isPurchaseAdmin: boolean;
     directReports: string[];
   };
-  
+
+  // Project/Activity/Task helpers
+  getActivitiesForProject: (projectId: string) => Activity[];
+  getTasksForActivity: (activityId: string) => Task[];
+  getProjectById: (projectId: string) => Project | undefined;
+  getActivityById: (activityId: string) => Activity | undefined;
+  getTaskById: (taskId: string) => Task | undefined;
+
   createRequest: (type: SpendingType) => SpendingRequest;
   updateRequest: (id: string, updates: Partial<SpendingRequest>) => void;
   deleteRequest: (id: string) => void;
   submitRequest: (id: string) => void;
   approveRequest: (id: string, comment?: string) => void;
   denyRequest: (id: string, reason: string, comment?: string) => void;
-  
+
   addLineItem: (requestId: string, item: Omit<SpendingLineItem, 'id'>) => void;
   updateLineItem: (requestId: string, itemId: string, updates: Partial<SpendingLineItem>) => void;
   deleteLineItem: (requestId: string, itemId: string) => void;
-  
+
   addSupplier: (supplier: Omit<Supplier, 'id' | 'purchaseCount' | 'totalSpent'>) => void;
 }
 
@@ -151,6 +199,87 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
     isExpenseAdmin: true,
     isPurchaseAdmin: true,
     directReports: ['user-2', 'user-3', 'user-4'],
+  };
+
+  // Mock projects
+  const projects: Project[] = [
+    { id: 'proj-1', code: 'BIOGEMSE', name: 'Digital Product Passport', color: '#10B981' },
+    { id: 'proj-2', code: 'HALO-TEX', name: 'Textile Recycling Platform', color: '#3B82F6' },
+    { id: 'proj-3', code: 'RETAIN', name: 'Packaging Solutions', color: '#8B5CF6' },
+    { id: 'proj-4', code: 'SKYTECH', name: 'Cloud Infrastructure', color: '#F59E0B' },
+    { id: 'proj-5', code: 'NEXUS', name: 'Integration Platform', color: '#EC4899' },
+    { id: 'proj-6', code: 'CORE', name: 'Internal Operations', color: '#6B7280' },
+  ];
+
+  // Mock activities (work packages)
+  const activities: Activity[] = [
+    // BIOGEMSE activities
+    { id: 'act-1', projectId: 'proj-1', code: 'WP1', name: 'Project Management', order: 1 },
+    { id: 'act-2', projectId: 'proj-1', code: 'WP2', name: 'Requirements Analysis', order: 2 },
+    { id: 'act-3', projectId: 'proj-1', code: 'WP3', name: 'Pilot Testing', order: 3 },
+    { id: 'act-4', projectId: 'proj-1', code: 'WP4', name: 'Dissemination', order: 4 },
+    // HALO-TEX activities
+    { id: 'act-5', projectId: 'proj-2', code: 'WP1', name: 'Coordination', order: 1 },
+    { id: 'act-6', projectId: 'proj-2', code: 'WP2', name: 'Technology Development', order: 2 },
+    { id: 'act-7', projectId: 'proj-2', code: 'WP3', name: 'Testing & Validation', order: 3 },
+    // RETAIN activities
+    { id: 'act-8', projectId: 'proj-3', code: 'WP1', name: 'Research', order: 1 },
+    { id: 'act-9', projectId: 'proj-3', code: 'WP2', name: 'Development', order: 2 },
+    // SKYTECH activities
+    { id: 'act-10', projectId: 'proj-4', code: 'WP1', name: 'Infrastructure Setup', order: 1 },
+    { id: 'act-11', projectId: 'proj-4', code: 'WP2', name: 'Migration', order: 2 },
+    // NEXUS activities
+    { id: 'act-12', projectId: 'proj-5', code: 'WP1', name: 'API Development', order: 1 },
+    { id: 'act-13', projectId: 'proj-5', code: 'WP2', name: 'Integration', order: 2 },
+    // CORE activities
+    { id: 'act-14', projectId: 'proj-6', code: 'WP1', name: 'Operations', order: 1 },
+    { id: 'act-15', projectId: 'proj-6', code: 'WP2', name: 'Administration', order: 2 },
+  ];
+
+  // Mock tasks
+  const tasks: Task[] = [
+    // BIOGEMSE WP3 tasks
+    { id: 'task-1', activityId: 'act-3', code: 'T3.1', name: 'Pilot site selection', order: 1 },
+    { id: 'task-2', activityId: 'act-3', code: 'T3.2', name: 'Field trials', order: 2 },
+    { id: 'task-3', activityId: 'act-3', code: 'T3.3', name: 'Data collection', order: 3 },
+    { id: 'task-4', activityId: 'act-3', code: 'T3.4', name: 'Analysis & reporting', order: 4 },
+    // BIOGEMSE WP4 tasks
+    { id: 'task-5', activityId: 'act-4', code: 'T4.1', name: 'Communication plan', order: 1 },
+    { id: 'task-6', activityId: 'act-4', code: 'T4.2', name: 'Publications', order: 2 },
+    // HALO-TEX WP2 tasks
+    { id: 'task-7', activityId: 'act-6', code: 'T2.1', name: 'Sorting technology', order: 1 },
+    { id: 'task-8', activityId: 'act-6', code: 'T2.2', name: 'Recycling process', order: 2 },
+    { id: 'task-9', activityId: 'act-6', code: 'T2.3', name: 'Quality control', order: 3 },
+    // HALO-TEX WP3 tasks
+    { id: 'task-10', activityId: 'act-7', code: 'T3.1', name: 'Lab testing', order: 1 },
+    { id: 'task-11', activityId: 'act-7', code: 'T3.2', name: 'Industrial validation', order: 2 },
+    // SKYTECH WP1 tasks
+    { id: 'task-12', activityId: 'act-10', code: 'T1.1', name: 'Server setup', order: 1 },
+    { id: 'task-13', activityId: 'act-10', code: 'T1.2', name: 'Network configuration', order: 2 },
+    // CORE WP1 tasks
+    { id: 'task-14', activityId: 'act-14', code: 'T1.1', name: 'Daily operations', order: 1 },
+    { id: 'task-15', activityId: 'act-14', code: 'T1.2', name: 'Maintenance', order: 2 },
+  ];
+
+  // Helper functions
+  const getActivitiesForProject = (projectId: string): Activity[] => {
+    return activities.filter(a => a.projectId === projectId).sort((a, b) => a.order - b.order);
+  };
+
+  const getTasksForActivity = (activityId: string): Task[] => {
+    return tasks.filter(t => t.activityId === activityId).sort((a, b) => a.order - b.order);
+  };
+
+  const getProjectById = (projectId: string): Project | undefined => {
+    return projects.find(p => p.id === projectId);
+  };
+
+  const getActivityById = (activityId: string): Activity | undefined => {
+    return activities.find(a => a.id === activityId);
+  };
+
+  const getTaskById = (taskId: string): Task | undefined => {
+    return tasks.find(t => t.id === taskId);
   };
 
   // Mock suppliers
@@ -754,7 +883,15 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
       value={{
         requests,
         suppliers,
+        projects,
+        activities,
+        tasks,
         currentUser,
+        getActivitiesForProject,
+        getTasksForActivity,
+        getProjectById,
+        getActivityById,
+        getTaskById,
         createRequest,
         updateRequest,
         deleteRequest,
