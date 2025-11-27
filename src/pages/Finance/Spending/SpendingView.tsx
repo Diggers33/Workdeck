@@ -19,6 +19,7 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
   const {
     requests,
     currentUser,
+    getUserById,
     startProcessing,
     markAsOrdered,
     markAsReceived,
@@ -284,6 +285,62 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
   const hasReceiptIssue = (request: SpendingRequest) => {
     return request.lineItems.some(item => !item.receiptUrl) &&
            !['Draft', 'Denied'].includes(request.status);
+  };
+
+  // Get processor info for display in rows
+  const getProcessorInfo = (request: SpendingRequest): { text: string; subText?: string } | null => {
+    const formatTimeAgo = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+      if (diffHours < 1) return 'just now';
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays === 1) return 'yesterday';
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+    };
+
+    if (request.status === 'Processing' && request.processingStartedBy) {
+      const user = getUserById(request.processingStartedBy);
+      const time = request.processingStartedDate ? formatTimeAgo(request.processingStartedDate) : '';
+      return {
+        text: `by ${user?.name?.split(' ')[0] || 'Admin'}`,
+        subText: time
+      };
+    }
+
+    if (request.status === 'Ordered' && request.orderedBy) {
+      const user = getUserById(request.orderedBy);
+      return {
+        text: request.poNumber || '',
+        subText: `by ${user?.name?.split(' ')[0] || 'Admin'}`
+      };
+    }
+
+    if (request.status === 'Received' && request.receivedBy) {
+      const user = getUserById(request.receivedBy);
+      const date = request.receivedDate
+        ? new Date(request.receivedDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+        : '';
+      return {
+        text: `by ${user?.name?.split(' ')[0] || 'Admin'}`,
+        subText: date
+      };
+    }
+
+    if (request.status === 'Finalized' && request.finalizedBy) {
+      const user = getUserById(request.finalizedBy);
+      const date = request.paymentDate
+        ? new Date(request.paymentDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })
+        : '';
+      return {
+        text: `by ${user?.name?.split(' ')[0] || 'Admin'}`,
+        subText: date
+      };
+    }
+
+    return null;
   };
 
   // If viewing detail, show that instead
@@ -880,23 +937,38 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                   </div>
 
                   {/* Status */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 8px',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        color: status.color,
-                        backgroundColor: status.bg,
-                        borderRadius: '4px',
-                      }}
-                    >
-                      <span style={{ fontSize: '10px' }}>{status.icon}</span>
-                      {status.label}
-                    </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 8px',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: status.color,
+                          backgroundColor: status.bg,
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <span style={{ fontSize: '10px' }}>{status.icon}</span>
+                        {status.label}
+                      </span>
+                    </div>
+                    {/* Processor info for processing/ordered/received/finalized statuses */}
+                    {isProcessingTab && (() => {
+                      const processorInfo = getProcessorInfo(request);
+                      if (!processorInfo) return null;
+                      return (
+                        <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+                          {processorInfo.text}
+                          {processorInfo.subText && (
+                            <span style={{ color: '#9CA3AF' }}> · {processorInfo.subText}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* PO / Delivery Info - only for purchase processing */}

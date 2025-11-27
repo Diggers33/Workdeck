@@ -155,12 +155,20 @@ export interface Supplier {
   totalSpent: number;
 }
 
+// User lookup for audit trail display
+export interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+}
+
 interface SpendingContextType {
   requests: SpendingRequest[];
   suppliers: Supplier[];
   projects: Project[];
   activities: Activity[];
   tasks: Task[];
+  users: User[];
   currentUser: {
     id: string;
     name: string;
@@ -169,6 +177,7 @@ interface SpendingContextType {
     isPurchaseAdmin: boolean;
     directReports: string[];
   };
+  getUserById: (id: string) => User | undefined;
 
   // Project/Activity/Task helpers
   getActivitiesForProject: (projectId: string) => Activity[];
@@ -221,6 +230,20 @@ export const costTypeConfig: Record<CostType, { label: string; color: string }> 
 };
 
 export function SpendingProvider({ children }: { children: ReactNode }) {
+  // Mock users for audit trail display
+  const users: User[] = [
+    { id: 'user-1', name: 'Colm Test' },
+    { id: 'user-2', name: 'Sarah Chen' },
+    { id: 'user-3', name: 'Alex Morgan' },
+    { id: 'user-4', name: 'John Smith' },
+    { id: 'manager-1', name: 'Maria Garcia' },
+    { id: 'admin-1', name: 'David Wilson' },
+  ];
+
+  const getUserById = (id: string): User | undefined => {
+    return users.find(u => u.id === id);
+  };
+
   // Mock current user
   const currentUser = {
     id: 'user-1',
@@ -987,7 +1010,9 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
         projects,
         activities,
         tasks,
+        users,
         currentUser,
+        getUserById,
         getActivitiesForProject,
         getTasksForActivity,
         getProjectById,

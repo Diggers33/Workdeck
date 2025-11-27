@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Calendar, Package, CheckCircle } from 'lucide-react';
-import { SpendingRequest } from '../../../contexts/SpendingContext';
+import { X, Calendar, Package, CheckCircle, User } from 'lucide-react';
+import { SpendingRequest, useSpending } from '../../../contexts/SpendingContext';
 
 interface MarkAsOrderedModalProps {
   request: SpendingRequest;
@@ -9,6 +9,7 @@ interface MarkAsOrderedModalProps {
 }
 
 export function MarkAsOrderedModal({ request, onClose, onConfirm }: MarkAsOrderedModalProps) {
+  const { currentUser } = useSpending();
   const [poNumber, setPoNumber] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -89,12 +90,31 @@ export function MarkAsOrderedModal({ request, onClose, onConfirm }: MarkAsOrdere
               padding: '12px 16px',
               backgroundColor: '#F9FAFB',
               borderRadius: '8px',
-              marginBottom: '20px',
+              marginBottom: '16px',
             }}
           >
             <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
               {shortRef} · {request.purpose} · {formatCurrency(request.total)}
             </div>
+          </div>
+
+          {/* User confirmation */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              backgroundColor: '#EFF6FF',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #BFDBFE',
+            }}
+          >
+            <User size={16} color="#2563EB" />
+            <span style={{ fontSize: '13px', color: '#1E40AF' }}>
+              You ({currentUser.name}) are marking this as ordered
+            </span>
           </div>
 
           {/* PO Number */}
@@ -250,6 +270,7 @@ interface MarkAsReceivedModalProps {
 }
 
 export function MarkAsReceivedModal({ request, onClose, onConfirm }: MarkAsReceivedModalProps) {
+  const { currentUser } = useSpending();
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [receivedInFull, setReceivedInFull] = useState(true);
   const [notes, setNotes] = useState('');
@@ -330,7 +351,7 @@ export function MarkAsReceivedModal({ request, onClose, onConfirm }: MarkAsRecei
               padding: '12px 16px',
               backgroundColor: '#F9FAFB',
               borderRadius: '8px',
-              marginBottom: '20px',
+              marginBottom: '16px',
             }}
           >
             <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
@@ -341,6 +362,25 @@ export function MarkAsReceivedModal({ request, onClose, onConfirm }: MarkAsRecei
                 PO: {request.poNumber}
               </div>
             )}
+          </div>
+
+          {/* User confirmation */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              backgroundColor: '#F0FDF4',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #BBF7D0',
+            }}
+          >
+            <User size={16} color="#059669" />
+            <span style={{ fontSize: '13px', color: '#166534' }}>
+              You ({currentUser.name}) are marking this as received
+            </span>
           </div>
 
           {/* Received Date */}
@@ -510,6 +550,7 @@ interface MarkAsFinalizedModalProps {
 }
 
 export function MarkAsFinalizedModal({ request, onClose, onConfirm }: MarkAsFinalizedModalProps) {
+  const { currentUser } = useSpending();
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
@@ -590,12 +631,31 @@ export function MarkAsFinalizedModal({ request, onClose, onConfirm }: MarkAsFina
               padding: '12px 16px',
               backgroundColor: '#F9FAFB',
               borderRadius: '8px',
-              marginBottom: '20px',
+              marginBottom: '16px',
             }}
           >
             <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
               {shortRef} · {request.purpose} · {formatCurrency(request.total)}
             </div>
+          </div>
+
+          {/* User confirmation */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              backgroundColor: '#F0FDF4',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              border: '1px solid #BBF7D0',
+            }}
+          >
+            <User size={16} color="#059669" />
+            <span style={{ fontSize: '13px', color: '#166534' }}>
+              You ({currentUser.name}) are finalizing this expense
+            </span>
           </div>
 
           {/* Payment Reference */}

@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useLayoutEffect } from 'react';
-import { 
-  ArrowLeft, 
-  ShoppingCart, 
-  Trash2, 
-  Plus, 
-  Upload, 
-  X, 
-  Eye, 
+import {
+  ArrowLeft,
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Upload,
+  X,
+  Eye,
   Paperclip,
   Circle,
   CheckCircle2,
@@ -18,7 +18,9 @@ import {
   Download,
   Zap,
   Package,
-  CheckCheck
+  CheckCheck,
+  Send,
+  PlayCircle
 } from 'lucide-react';
 import { useSpending, SpendingRequest, Project, Activity, Task } from '../../../contexts/SpendingContext';
 import { AddSupplierModal } from './AddSupplierModal';
@@ -58,7 +60,8 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
     getTasksForActivity,
     getProjectById,
     getActivityById,
-    getTaskById
+    getTaskById,
+    getUserById
   } = useSpending();
   const purchase = requests.find(r => r.id === requestId && r.type === 'Purchase');
 
@@ -927,112 +930,220 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
           )}
         </div>
 
-        {/* Section 5: Activity (for non-draft) */}
-        {!isReadOnly && (
+        {/* Section 5: Processing History (for non-draft) */}
+        {purchase.status !== 'Draft' && (
           <div className="bg-white border rounded-xl" style={{ borderColor: '#E5E7EB', padding: '24px' }}>
             <div style={{ fontSize: '16px', fontWeight: 600, color: '#111827', paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '20px' }}>
-              Activity
+              Processing History
             </div>
 
             <div className="space-y-4">
-              {purchase.status === 'Received' && (
+              {/* Received */}
+              {purchase.status === 'Received' && purchase.receivedBy && (
                 <div className="flex gap-3">
-                  <div 
+                  <div
                     className="flex items-center justify-center rounded-full flex-shrink-0"
                     style={{ width: '32px', height: '32px', backgroundColor: '#ECFDF5', color: '#059669' }}
                   >
                     <CheckCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', color: '#111827' }}>
-                      Purchase Admin marked as Received
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Received
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.receivedBy)?.name || 'Admin'}
                     </div>
                     <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                      Dec 5, 2024 at 9:00 AM
+                      {purchase.receivedDate && new Date(purchase.receivedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
-                      "All items received and verified."
-                    </div>
+                    {purchase.receiveNotes && (
+                      <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
+                        "{purchase.receiveNotes}"
+                      </div>
+                    )}
+                    {purchase.receivedInFull !== undefined && (
+                      <div style={{ fontSize: '12px', color: purchase.receivedInFull ? '#059669' : '#D97706', marginTop: '4px' }}>
+                        {purchase.receivedInFull ? 'All items received in full' : 'Partial delivery'}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {(purchase.status === 'Ordered' || purchase.status === 'Received') && (
+              {/* Ordered */}
+              {(purchase.status === 'Ordered' || purchase.status === 'Received') && purchase.orderedBy && (
                 <div className="flex gap-3">
-                  <div 
+                  <div
                     className="flex items-center justify-center rounded-full flex-shrink-0"
                     style={{ width: '32px', height: '32px', backgroundColor: '#EFF6FF', color: '#2563EB' }}
                   >
                     <Package className="w-4 h-4" />
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', color: '#111827' }}>
-                      Purchase Admin marked as Ordered
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Marked as Ordered
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.orderedBy)?.name || 'Admin'}
                     </div>
                     <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                      Dec 1, 2024 at 2:30 PM
+                      {purchase.orderedDate && new Date(purchase.orderedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
-                      "PO-2024-0892 sent to suppliers"
+                    {purchase.poNumber && (
+                      <div style={{ fontSize: '13px', color: '#374151', marginTop: '6px' }}>
+                        PO: {purchase.poNumber}
+                      </div>
+                    )}
+                    {purchase.expectedDeliveryDate && (
+                      <div style={{ fontSize: '13px', color: '#374151', marginTop: '2px' }}>
+                        Expected: {new Date(purchase.expectedDeliveryDate).toLocaleDateString('en-GB', {
+                          day: 'numeric', month: 'short', year: 'numeric'
+                        })}
+                      </div>
+                    )}
+                    {purchase.orderNotes && (
+                      <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
+                        "{purchase.orderNotes}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Started */}
+              {['Processing', 'Ordered', 'Received'].includes(purchase.status) && purchase.processingStartedBy && (
+                <div className="flex gap-3">
+                  <div
+                    className="flex items-center justify-center rounded-full flex-shrink-0"
+                    style={{ width: '32px', height: '32px', backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Processing Started
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.processingStartedBy)?.name || 'Admin'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
+                      {purchase.processingStartedDate && new Date(purchase.processingStartedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </div>
                   </div>
                 </div>
               )}
 
-              {purchase.status === 'Approved' && (
+              {/* Approved */}
+              {['Approved', 'Processing', 'Ordered', 'Received'].includes(purchase.status) && purchase.approvedBy && (
                 <div className="flex gap-3">
-                  <div 
+                  <div
                     className="flex items-center justify-center rounded-full flex-shrink-0"
                     style={{ width: '32px', height: '32px', backgroundColor: '#ECFDF5', color: '#059669' }}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', color: '#111827' }}>
-                      Sarah Manager approved this purchase
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Approved
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.approvedBy)?.name || 'Manager'}
                     </div>
                     <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                      Nov 29, 2024 at 3:45 PM
+                      {purchase.approvedDate && new Date(purchase.approvedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
-                      "Approved. Good timing for onboarding."
-                    </div>
+                    {purchase.managerComment && (
+                      <div style={{ fontSize: '13px', color: '#374151', fontStyle: 'italic', marginTop: '6px' }}>
+                        "{purchase.managerComment}"
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {purchase.status === 'Pending' && (
+              {/* Denied */}
+              {purchase.status === 'Denied' && purchase.deniedBy && (
                 <div className="flex gap-3">
-                  <div 
+                  <div
+                    className="flex items-center justify-center rounded-full flex-shrink-0"
+                    style={{ width: '32px', height: '32px', backgroundColor: '#FEE2E2', color: '#DC2626' }}
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Denied
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.deniedBy)?.name || 'Manager'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
+                      {purchase.deniedDate && new Date(purchase.deniedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
+                    </div>
+                    {purchase.denialReason && (
+                      <div style={{ fontSize: '13px', color: '#DC2626', marginTop: '6px' }}>
+                        Reason: {purchase.denialReason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Submitted */}
+              {purchase.submittedDate && (
+                <div className="flex gap-3">
+                  <div
                     className="flex items-center justify-center rounded-full flex-shrink-0"
                     style={{ width: '32px', height: '32px', backgroundColor: '#F3F4F6', color: '#6B7280' }}
                   >
-                    <Circle className="w-4 h-4" />
+                    <Send className="w-4 h-4" />
                   </div>
                   <div>
-                    <div style={{ fontSize: '14px', color: '#111827' }}>
-                      You submitted this purchase
+                    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                      Submitted
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                      by {getUserById(purchase.userId)?.name || 'Requester'}
                     </div>
                     <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                      Nov 28, 2024 at 11:00 AM
+                      {new Date(purchase.submittedDate).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Created */}
               <div className="flex gap-3">
-                <div 
+                <div
                   className="flex items-center justify-center rounded-full flex-shrink-0"
                   style={{ width: '32px', height: '32px', backgroundColor: '#F3F4F6', color: '#6B7280' }}
                 >
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <div style={{ fontSize: '14px', color: '#111827' }}>
-                    You created this purchase
+                  <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>
+                    Created
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                    by {getUserById(purchase.userId)?.name || 'Requester'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>
-                    Nov 27, 2024 at 4:30 PM
+                    {new Date(purchase.createdAt).toLocaleDateString('en-GB', {
+                      day: 'numeric', month: 'short', year: 'numeric'
+                    })}
                   </div>
                 </div>
               </div>
