@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, Plus, Receipt, ShoppingCart } from 'lucide-react';
+import { Plus, Receipt, ShoppingCart } from 'lucide-react';
 import { useSpending, SpendingType } from '../../../contexts/SpendingContext';
 import { MyRequestsTab } from './MyRequestsTab';
 import { PendingApprovalTab } from './PendingApprovalTab';
@@ -104,21 +104,9 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
         }}
       >
         <div className="flex items-center justify-between h-full" style={{ padding: '0 24px' }}>
-          <div className="flex items-center gap-3">
-            <button 
-              className="flex items-center justify-center hover:bg-gray-50 transition-colors rounded-md"
-              style={{
-                width: '36px',
-                height: '36px',
-              }}
-              onClick={() => window.history.back()}
-            >
-              <ArrowLeft className="w-5 h-5" style={{ color: '#6B7280' }} />
-            </button>
-            <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#111827' }}>
-              Spending
-            </h1>
-          </div>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#111827' }}>
+            Spending
+          </h1>
 
           <button
             onClick={() => setShowNewRequestModal(true)}
