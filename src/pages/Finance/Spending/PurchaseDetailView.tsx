@@ -538,101 +538,101 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
           </div>
         )}
 
-        {/* Section 1: Default Allocation */}
+        {/* Section 1: Basic Information */}
         <div className="bg-white border rounded-xl mb-6" style={{ borderColor: '#E5E7EB', padding: '24px' }}>
           <div style={{ fontSize: '16px', fontWeight: 600, color: '#111827', paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '20px' }}>
-            Default Allocation
+            Basic Information
           </div>
 
-          {/* Default Project */}
-          <div className="mb-5">
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              DEFAULT PROJECT {useDefaultAllocation && <span style={{ color: '#DC2626' }}>*</span>}
-            </label>
-            {isReadOnly ? (
-              <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                {projectId ? `${getProjectById(projectId)?.code} - ${getProjectById(projectId)?.name}` : '—'}
-              </div>
-            ) : (
-              <select
-                value={projectId}
-                onChange={(e) => handleProjectChange(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                style={{
-                  fontSize: '14px',
-                  borderColor: errors.project ? '#DC2626' : '#E5E7EB',
-                  height: '44px'
-                }}
-              >
-                <option value="">Select project...</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
-                ))}
-              </select>
-            )}
-            {errors.project && (
-              <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '4px' }}>
-                {errors.project}
-              </div>
-            )}
+          {/* Project Allocation - Three columns */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            {/* Project */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                PROJECT {useDefaultAllocation && <span style={{ color: '#DC2626' }}>*</span>}
+              </label>
+              {isReadOnly ? (
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
+                  {projectId ? `${getProjectById(projectId)?.code}` : '—'}
+                </div>
+              ) : (
+                <select
+                  value={projectId}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  style={{
+                    fontSize: '14px',
+                    borderColor: errors.project ? '#DC2626' : '#E5E7EB',
+                    height: '40px'
+                  }}
+                >
+                  <option value="">Select...</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.code} - {p.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Activity */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                ACTIVITY
+              </label>
+              {isReadOnly ? (
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
+                  {activityId ? `${getActivityById(activityId)?.code} - ${getActivityById(activityId)?.name}` : '—'}
+                </div>
+              ) : (
+                <select
+                  value={activityId}
+                  onChange={(e) => handleActivityChange(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '40px' }}
+                  disabled={!projectId}
+                >
+                  <option value="">Select...</option>
+                  {availableActivities.map(a => (
+                    <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Task */}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                TASK
+              </label>
+              {isReadOnly ? (
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
+                  {taskId ? `${getTaskById(taskId)?.code} - ${getTaskById(taskId)?.name}` : '—'}
+                </div>
+              ) : (
+                <select
+                  value={taskId}
+                  onChange={(e) => handleTaskChange(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '40px' }}
+                  disabled={!activityId || availableTasks.length === 0}
+                >
+                  <option value="">Select...</option>
+                  {availableTasks.map(t => (
+                    <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
-
-          {/* Default Activity and Task - only show when project selected */}
-          {(projectId || isReadOnly) && (
-            <div className="grid grid-cols-2 gap-4 mb-5">
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                  DEFAULT ACTIVITY (optional)
-                </label>
-                {isReadOnly ? (
-                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                    {activityId ? `${getActivityById(activityId)?.code} - ${getActivityById(activityId)?.name}` : '—'}
-                  </div>
-                ) : (
-                  <select
-                    value={activityId}
-                    onChange={(e) => handleActivityChange(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
-                    disabled={!projectId}
-                  >
-                    <option value="">Select activity...</option>
-                    {availableActivities.map(a => (
-                      <option key={a.id} value={a.id}>{a.code} - {a.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                  DEFAULT TASK (optional)
-                </label>
-                {isReadOnly ? (
-                  <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                    {taskId ? `${getTaskById(taskId)?.code} - ${getTaskById(taskId)?.name}` : '—'}
-                  </div>
-                ) : (
-                  <select
-                    value={taskId}
-                    onChange={(e) => handleTaskChange(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
-                    disabled={!activityId || availableTasks.length === 0}
-                  >
-                    <option value="">Select task...</option>
-                    {availableTasks.map(t => (
-                      <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
+          {errors.project && (
+            <div style={{ fontSize: '12px', color: '#DC2626', marginBottom: '12px' }}>
+              {errors.project}
             </div>
           )}
 
-          {/* All items use defaults checkbox */}
+          {/* All items use defaults checkbox - inline */}
           {!isReadOnly && (
-            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg" style={{ backgroundColor: useDefaultAllocation ? '#EFF6FF' : '#F9FAFB', border: useDefaultAllocation ? '1px solid #BFDBFE' : '1px solid #E5E7EB' }}>
+            <label className="inline-flex items-center gap-2 cursor-pointer mb-5">
               <input
                 type="checkbox"
                 checked={useDefaultAllocation}
@@ -640,29 +640,25 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                 className="w-4 h-4 rounded"
                 style={{ accentColor: '#2563EB' }}
               />
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
-                  All items use these defaults
-                </div>
-                <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
-                  {useDefaultAllocation
-                    ? 'Line items will inherit the default project/activity/task'
-                    : 'Each line item can have different project allocation'}
-                </div>
-              </div>
+              <span style={{ fontSize: '13px', color: '#374151' }}>
+                All items use defaults
+              </span>
+              <span style={{ fontSize: '13px', color: '#9CA3AF' }}>
+                · Uncheck to allocate per line item
+              </span>
             </label>
           )}
 
-          <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '20px 0' }} />
+          <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '16px 0' }} />
 
-          {/* Office and Department */}
-          <div className="grid grid-cols-2 gap-4 mb-5">
+          {/* Office, Department, Cost Center - Three columns */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                 OFFICE <span style={{ color: '#DC2626' }}>*</span>
               </label>
               {isReadOnly ? (
-                <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
                   {office}
                 </div>
               ) : (
@@ -670,7 +666,7 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                   value={office}
                   onChange={(e) => setOffice(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
-                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '40px' }}
                 >
                   <option value="Barcelona">Barcelona</option>
                   <option value="Dublin">Dublin</option>
@@ -684,7 +680,7 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                 DEPARTMENT <span style={{ color: '#DC2626' }}>*</span>
               </label>
               {isReadOnly ? (
-                <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
                   {department}
                 </div>
               ) : (
@@ -692,9 +688,9 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
-                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
+                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '40px' }}
                 >
-                  <option value="">Select department...</option>
+                  <option value="">Select...</option>
                   <option value="Engineering">Engineering</option>
                   <option value="Marketing">Marketing</option>
                   <option value="Sales">Sales</option>
@@ -702,30 +698,29 @@ export function PurchaseDetailView({ requestId, onBack }: PurchaseDetailViewProp
                 </select>
               )}
             </div>
-          </div>
 
-          {/* Cost Center */}
-          <div className="mb-5">
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              COST CENTER (optional)
-            </label>
-            {isReadOnly ? (
-              <div style={{ padding: '12px 0', fontSize: '14px', color: '#111827' }}>
-                {costCenter || '—'}
-              </div>
-            ) : (
-              <select
-                value={costCenter}
-                onChange={(e) => setCostCenter(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '44px' }}
-              >
-                <option value="">Select cost center...</option>
-                <option value="R&D">R&D</option>
-                <option value="Operations">Operations</option>
-                <option value="Administration">Administration</option>
-              </select>
-            )}
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                COST CENTER
+              </label>
+              {isReadOnly ? (
+                <div style={{ padding: '10px 0', fontSize: '14px', color: '#111827' }}>
+                  {costCenter || '—'}
+                </div>
+              ) : (
+                <select
+                  value={costCenter}
+                  onChange={(e) => setCostCenter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  style={{ fontSize: '14px', borderColor: '#E5E7EB', height: '40px' }}
+                >
+                  <option value="">Select...</option>
+                  <option value="R&D">R&D</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Administration">Administration</option>
+                </select>
+              )}
+            </div>
           </div>
 
           <div style={{ height: '1px', backgroundColor: '#E5E7EB', margin: '20px 0' }} />
