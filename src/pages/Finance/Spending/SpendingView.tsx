@@ -7,6 +7,8 @@ import { PurchaseDetailView } from './PurchaseDetailView';
 
 type TabType = 'my-requests' | 'pending-approval' | 'team' | 'processing';
 type SavedView = 'all' | 'drafts' | 'pending' | 'needs-receipt' | 'this-month' | 'approved';
+type ProcessingTypeFilter = 'expenses' | 'purchases';
+type ProcessingSavedView = 'approved' | 'processing' | 'ordered' | 'received' | 'finalized';
 
 interface SpendingViewProps {
   scrollContainerRef?: React.RefObject<HTMLDivElement>;
@@ -20,6 +22,15 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
   const [detailView, setDetailView] = useState<{ type: SpendingType; requestId: string } | null>(null);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+
+  // Processing tab specific state
+  const [processingTypeFilter, setProcessingTypeFilter] = useState<ProcessingTypeFilter>(() => {
+    // Default to expenses if admin, otherwise purchases
+    if (currentUser.isExpenseAdmin) return 'expenses';
+    if (currentUser.isPurchaseAdmin) return 'purchases';
+    return 'expenses';
+  });
+  const [processingSavedView, setProcessingSavedView] = useState<ProcessingSavedView>('approved');
 
   // Scroll to top when detailView changes
   useEffect(() => {
@@ -49,12 +60,28 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
         return requests.filter(req =>
           currentUser.directReports.includes(req.userId) || req.userId === currentUser.id
         );
-      case 'processing':
-        return requests.filter(req => req.status === 'Approved' || req.status === 'Processing');
+      case 'processing': {
+        // Filter by type first (Expenses or Purchases)
+        const typeFilter = processingTypeFilter === 'expenses' ? 'Expense' : 'Purchase';
+        let filtered = requests.filter(req => req.type === typeFilter);
+
+        // For expenses: Approved, Processing, Finalized
+        // For purchases: Approved, Processing, Ordered, Received
+        if (processingTypeFilter === 'expenses') {
+          filtered = filtered.filter(req =>
+            ['Approved', 'Processing', 'Finalized'].includes(req.status)
+          );
+        } else {
+          filtered = filtered.filter(req =>
+            ['Approved', 'Processing', 'Ordered', 'Received'].includes(req.status)
+          );
+        }
+        return filtered;
+      }
       default:
         return [];
     }
-  }, [requests, currentUser, activeTab]);
+  }, [requests, currentUser, activeTab, processingTypeFilter]);
 
   // Apply saved view filter
   const filteredRequests = useMemo(() => {
@@ -62,24 +89,46 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    switch (savedView) {
-      case 'drafts':
-        filtered = filtered.filter(req => req.status === 'Draft');
-        break;
-      case 'pending':
-        filtered = filtered.filter(req => req.status === 'Pending');
-        break;
-      case 'needs-receipt':
-        filtered = filtered.filter(req =>
-          req.lineItems.some(item => !item.receiptUrl) && req.status !== 'Denied'
-        );
-        break;
-      case 'this-month':
-        filtered = filtered.filter(req => new Date(req.createdAt) >= startOfMonth);
-        break;
-      case 'approved':
-        filtered = filtered.filter(req => req.status === 'Approved');
-        break;
+    // Processing tab uses its own saved view
+    if (activeTab === 'processing') {
+      switch (processingSavedView) {
+        case 'approved':
+          filtered = filtered.filter(req => req.status === 'Approved');
+          break;
+        case 'processing':
+          filtered = filtered.filter(req => req.status === 'Processing');
+          break;
+        case 'ordered':
+          filtered = filtered.filter(req => req.status === 'Ordered');
+          break;
+        case 'received':
+          filtered = filtered.filter(req => req.status === 'Received');
+          break;
+        case 'finalized':
+          filtered = filtered.filter(req => req.status === 'Finalized');
+          break;
+      }
+    } else {
+      // Regular tabs use standard saved views
+      switch (savedView) {
+        case 'drafts':
+          filtered = filtered.filter(req => req.status === 'Draft');
+          break;
+        case 'pending':
+          filtered = filtered.filter(req => req.status === 'Pending');
+          break;
+        case 'needs-receipt':
+          filtered = filtered.filter(req =>
+            req.lineItems.some(item => !item.receiptUrl) && req.status !== 'Denied'
+          );
+          break;
+        case 'this-month':
+          filtered = filtered.filter(req => new Date(req.createdAt) >= startOfMonth);
+          break;
+        case 'approved':
+          filtered = filtered.filter(req => req.status === 'Approved');
+          break;
+      }
     }
 
     // Apply search
@@ -95,7 +144,7 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
     return filtered.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [tabRequests, savedView, searchQuery]);
+  }, [tabRequests, savedView, searchQuery, activeTab, processingSavedView]);
 
   // Saved view counts
   const viewCounts = useMemo(() => {
@@ -110,6 +159,17 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
       ).length,
       'this-month': tabRequests.filter(r => new Date(r.createdAt) >= startOfMonth).length,
       approved: tabRequests.filter(r => r.status === 'Approved').length,
+    };
+  }, [tabRequests]);
+
+  // Processing tab view counts
+  const processingViewCounts = useMemo(() => {
+    return {
+      approved: tabRequests.filter(r => r.status === 'Approved').length,
+      processing: tabRequests.filter(r => r.status === 'Processing').length,
+      ordered: tabRequests.filter(r => r.status === 'Ordered').length,
+      received: tabRequests.filter(r => r.status === 'Received').length,
+      finalized: tabRequests.filter(r => r.status === 'Finalized').length,
     };
   }, [tabRequests]);
 
@@ -371,41 +431,199 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
           gap: '8px',
         }}
       >
-        {savedViews.map(view => {
-          const isActive = savedView === view.id;
-          const hasItems = (view.count ?? 0) > 0;
-          return (
-            <button
-              key={view.id}
-              onClick={() => setSavedView(view.id)}
+        {activeTab === 'processing' ? (
+          <>
+            {/* Type toggle for Processing tab */}
+            <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                height: '28px',
-                padding: '0 10px',
-                fontSize: '12px',
-                fontWeight: 500,
-                color: isActive ? '#2563EB' : hasItems ? '#374151' : '#9CA3AF',
-                backgroundColor: isActive ? '#EFF6FF' : 'transparent',
-                border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+                backgroundColor: '#F3F4F6',
                 borderRadius: '6px',
-                cursor: hasItems || view.id === 'all' ? 'pointer' : 'default',
-                opacity: hasItems || view.id === 'all' ? 1 : 0.5,
+                padding: '2px',
+                marginRight: '12px',
               }}
             >
-              {view.label}
-              {view.count !== undefined && view.count > 0 && (
-                <span style={{
-                  color: isActive ? '#2563EB' : '#9CA3AF',
-                  fontSize: '11px',
-                }}>
-                  {view.count}
-                </span>
+              {currentUser.isExpenseAdmin && (
+                <button
+                  onClick={() => {
+                    setProcessingTypeFilter('expenses');
+                    setProcessingSavedView('approved');
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: processingTypeFilter === 'expenses' ? '#111827' : '#6B7280',
+                    backgroundColor: processingTypeFilter === 'expenses' ? 'white' : 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    boxShadow: processingTypeFilter === 'expenses' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  }}
+                >
+                  Expenses
+                </button>
               )}
-            </button>
-          );
-        })}
+              {currentUser.isPurchaseAdmin && (
+                <button
+                  onClick={() => {
+                    setProcessingTypeFilter('purchases');
+                    setProcessingSavedView('approved');
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: processingTypeFilter === 'purchases' ? '#111827' : '#6B7280',
+                    backgroundColor: processingTypeFilter === 'purchases' ? 'white' : 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    boxShadow: processingTypeFilter === 'purchases' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  }}
+                >
+                  Purchases
+                </button>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#E5E7EB' }} />
+
+            {/* Processing saved views based on type */}
+            {processingTypeFilter === 'expenses' ? (
+              // Expense processing views: Approved, Processing, Finalized
+              <>
+                {(['approved', 'processing', 'finalized'] as ProcessingSavedView[]).map(view => {
+                  const isActive = processingSavedView === view;
+                  const count = processingViewCounts[view];
+                  const hasItems = count > 0;
+                  const labels: Record<ProcessingSavedView, string> = {
+                    approved: 'Approved',
+                    processing: 'Processing',
+                    finalized: 'Finalized',
+                    ordered: 'Ordered',
+                    received: 'Received',
+                  };
+                  return (
+                    <button
+                      key={view}
+                      onClick={() => setProcessingSavedView(view)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        height: '28px',
+                        padding: '0 10px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: isActive ? '#2563EB' : hasItems ? '#374151' : '#9CA3AF',
+                        backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+                        border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {labels[view]}
+                      {count > 0 && (
+                        <span style={{
+                          color: isActive ? '#2563EB' : '#9CA3AF',
+                          fontSize: '11px',
+                        }}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            ) : (
+              // Purchase processing views: Approved, Processing, Ordered, Received
+              <>
+                {(['approved', 'processing', 'ordered', 'received'] as ProcessingSavedView[]).map(view => {
+                  const isActive = processingSavedView === view;
+                  const count = processingViewCounts[view];
+                  const hasItems = count > 0;
+                  const labels: Record<ProcessingSavedView, string> = {
+                    approved: 'Approved',
+                    processing: 'Processing',
+                    ordered: 'Ordered',
+                    received: 'Received',
+                    finalized: 'Finalized',
+                  };
+                  return (
+                    <button
+                      key={view}
+                      onClick={() => setProcessingSavedView(view)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        height: '28px',
+                        padding: '0 10px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: isActive ? '#2563EB' : hasItems ? '#374151' : '#9CA3AF',
+                        backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+                        border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {labels[view]}
+                      {count > 0 && (
+                        <span style={{
+                          color: isActive ? '#2563EB' : '#9CA3AF',
+                          fontSize: '11px',
+                        }}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </>
+        ) : (
+          // Regular saved views for other tabs
+          savedViews.map(view => {
+            const isActive = savedView === view.id;
+            const hasItems = (view.count ?? 0) > 0;
+            return (
+              <button
+                key={view.id}
+                onClick={() => setSavedView(view.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  height: '28px',
+                  padding: '0 10px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: isActive ? '#2563EB' : hasItems ? '#374151' : '#9CA3AF',
+                  backgroundColor: isActive ? '#EFF6FF' : 'transparent',
+                  border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+                  borderRadius: '6px',
+                  cursor: hasItems || view.id === 'all' ? 'pointer' : 'default',
+                  opacity: hasItems || view.id === 'all' ? 1 : 0.5,
+                }}
+              >
+                {view.label}
+                {view.count !== undefined && view.count > 0 && (
+                  <span style={{
+                    color: isActive ? '#2563EB' : '#9CA3AF',
+                    fontSize: '11px',
+                  }}>
+                    {view.count}
+                  </span>
+                )}
+              </button>
+            );
+          })
+        )}
       </div>
 
       {/* DATA TABLE */}
