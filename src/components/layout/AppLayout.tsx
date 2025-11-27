@@ -16,7 +16,7 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [activeWorkSubTab, setActiveWorkSubTab] = useState('Projects');
   const [activeTimeSubTab, setActiveTimeSubTab] = useState('My Calendar');
-  const [activeFinanceSubTab, setActiveFinanceSubTab] = useState('Expenses');
+  const [activeFinanceSubTab, setActiveFinanceSubTab] = useState('Spending');
   const [activePeopleSubTab, setActivePeopleSubTab] = useState('Directory');
   const [activeAnalyticsSubTab, setActiveAnalyticsSubTab] = useState('Reports');
 
@@ -25,7 +25,7 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
   const subMenus = {
     Work: ['Projects', 'My Tasks', 'Resource Planner', 'Manager View', 'Client Board'],
     Time: ['My Calendar', 'Timesheets', 'Leave', 'Team Leave', 'Approvals'],
-    Finance: ['Expenses', 'Purchases', 'Invoices', 'Billing'],
+    Finance: ['Spending', 'Invoices', 'Billing'],
     People: ['Directory', 'Org Chart', 'Team Profiles', 'Skills Matrix'],
     Analytics: ['Reports', 'AI Insights', 'Utilization', 'Forecasting']
   };
@@ -57,8 +57,7 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
       else if (path.startsWith('/time/approvals')) setActiveTimeSubTab('Approvals');
     } else if (path.startsWith('/finance')) {
       setActiveTab('Finance');
-      if (path.startsWith('/finance/expenses')) setActiveFinanceSubTab('Expenses');
-      else if (path.startsWith('/finance/purchases')) setActiveFinanceSubTab('Purchases');
+      if (path.startsWith('/finance/spending')) setActiveFinanceSubTab('Spending');
       else if (path.startsWith('/finance/invoices')) setActiveFinanceSubTab('Invoices');
       else if (path.startsWith('/finance/billing')) setActiveFinanceSubTab('Billing');
     } else if (path.startsWith('/people')) {
@@ -87,7 +86,7 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
     } else if (tab === 'Time') {
       navigate('/time/my-calendar');
     } else if (tab === 'Finance') {
-      navigate('/finance/expenses');
+      navigate('/finance/spending');
     } else if (tab === 'People') {
       navigate('/people/directory');
     } else if (tab === 'Analytics') {
@@ -124,10 +123,8 @@ export function AppLayout({ children, onSettingsClick }: AppLayoutProps) {
       }
     } else if (menu === 'Finance') {
       setActiveFinanceSubTab(subTab);
-      if (subTab === 'Expenses') {
-        navigate('/finance/expenses');
-      } else if (subTab === 'Purchases') {
-        navigate('/finance/purchases');
+      if (subTab === 'Spending') {
+        navigate('/finance/spending');
       } else if (subTab === 'Invoices') {
         navigate('/finance/invoices');
       } else if (subTab === 'Billing') {

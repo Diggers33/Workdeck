@@ -5,6 +5,7 @@ import ProjectsApp from './pages/Projects/ProjectsApp';
 import ProjectWizardPage from './pages/Projects/ProjectWizardPage';
 import MyCalendarApp from './pages/Time/Calendar/MyCalendarApp';
 import MyTasksApp from './pages/Work/MyTasks/MyTasksApp';
+import SpendingApp from './pages/Finance/Spending/SpendingApp';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
 import { AppLayout } from './components/layout/AppLayout';
 import { SettingsDashboardRedesigned } from './pages/Settings/SettingsDashboardRedesigned';
@@ -56,17 +57,8 @@ function App() {
             onBack={() => window.history.back()}
           /></AppLayout>} />
 
-        {/* FINANCE TAB PENDING SCREENS */}
-        <Route path="/finance/expenses" element={<AppLayout><PendingScreen title="Expenses"
-            category="FINANCE MANAGEMENT"
-            description="Submit and track expense reports with receipt management."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
-        <Route path="/finance/purchases" element={<AppLayout><PendingScreen title="Purchase Orders"
-            category="FINANCE MANAGEMENT"
-            description="Create and manage purchase orders with approval workflows."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
+        {/* FINANCE TAB SCREENS */}
+        <Route path="/finance/spending" element={<SpendingApp />} />
         <Route path="/finance/invoices" element={<AppLayout><PendingScreen title="Invoices"
             category="FINANCE MANAGEMENT"
             description="Generate client invoices and track payment status."
