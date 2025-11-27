@@ -495,9 +495,9 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                   {/* Reference */}
                   <div
                     style={{
-                      fontSize: '12px',
-                      color: '#6B7280',
-                      fontFamily: 'monospace',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: '#111827',
                       display: 'flex',
                       alignItems: 'center',
                     }}
@@ -509,7 +509,8 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                     <span
                       style={{
-                        fontSize: '13px',
+                        fontSize: '14px',
+                        fontWeight: 400,
                         color: '#111827',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -529,7 +530,7 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                   {/* Amount */}
                   <div
                     style={{
-                      fontSize: '13px',
+                      fontSize: '14px',
                       fontWeight: 500,
                       color: '#111827',
                       textAlign: 'right',
