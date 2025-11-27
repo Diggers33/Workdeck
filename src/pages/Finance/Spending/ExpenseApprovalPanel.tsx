@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronRightCollapse, AlertTriangle, CheckCircle2, Paperclip, Check, Receipt } from 'lucide-react';
 import { SpendingRequest, useSpending, leaveTypeConfig } from '../../../contexts/SpendingContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ExpenseApprovalPanelProps {
   request: SpendingRequest;
