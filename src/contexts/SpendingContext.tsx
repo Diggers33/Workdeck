@@ -113,9 +113,33 @@ export interface SpendingRequest {
   denialReason?: string;
   processedDate?: string;
   completedDate?: string;
-  
+
+  // Processing fields (for admin workflow)
+  processingStartedDate?: string;
+  processingStartedBy?: string;
+
+  // Purchase ordering fields
+  poNumber?: string;
+  expectedDeliveryDate?: string;
+  orderedDate?: string;
+  orderedBy?: string;
+  orderNotes?: string;
+
+  // Receiving fields
+  receivedDate?: string;
+  receivedBy?: string;
+  receivedInFull?: boolean;
+  receiveNotes?: string;
+
+  // Expense finalization fields
+  paymentReference?: string;
+  paymentDate?: string;
+  finalizedDate?: string;
+  finalizedBy?: string;
+  finalizationNotes?: string;
+
   managerComment?: string;
-  
+
   createdAt: string;
   updatedAt: string;
 }
@@ -165,6 +189,12 @@ interface SpendingContextType {
   deleteLineItem: (requestId: string, itemId: string) => void;
 
   addSupplier: (supplier: Omit<Supplier, 'id' | 'purchaseCount' | 'totalSpent'>) => void;
+
+  // Processing actions
+  startProcessing: (id: string) => void;
+  markAsOrdered: (id: string, poNumber?: string, expectedDeliveryDate?: string, notes?: string) => void;
+  markAsReceived: (id: string, receivedDate: string, receivedInFull: boolean, notes?: string) => void;
+  markAsFinalized: (id: string, paymentReference?: string, paymentDate?: string, notes?: string) => void;
 }
 
 const SpendingContext = createContext<SpendingContextType | undefined>(undefined);
@@ -878,6 +908,77 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
     setSuppliers(prev => [...prev, newSupplier]);
   };
 
+  // Processing actions
+  const startProcessing = (id: string) => {
+    setRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'Processing' as SpendingStatus,
+          processingStartedDate: new Date().toISOString(),
+          processingStartedBy: currentUser.id,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return req;
+    }));
+  };
+
+  const markAsOrdered = (id: string, poNumber?: string, expectedDeliveryDate?: string, notes?: string) => {
+    setRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'Ordered' as SpendingStatus,
+          poNumber,
+          expectedDeliveryDate,
+          orderNotes: notes,
+          orderedDate: new Date().toISOString(),
+          orderedBy: currentUser.id,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return req;
+    }));
+  };
+
+  const markAsReceived = (id: string, receivedDate: string, receivedInFull: boolean, notes?: string) => {
+    setRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'Received' as SpendingStatus,
+          receivedDate,
+          receivedInFull,
+          receiveNotes: notes,
+          receivedBy: currentUser.id,
+          completedDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return req;
+    }));
+  };
+
+  const markAsFinalized = (id: string, paymentReference?: string, paymentDate?: string, notes?: string) => {
+    setRequests(prev => prev.map(req => {
+      if (req.id === id) {
+        return {
+          ...req,
+          status: 'Finalized' as SpendingStatus,
+          paymentReference,
+          paymentDate: paymentDate || new Date().toISOString().split('T')[0],
+          finalizationNotes: notes,
+          finalizedDate: new Date().toISOString(),
+          finalizedBy: currentUser.id,
+          completedDate: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      return req;
+    }));
+  };
+
   return (
     <SpendingContext.Provider
       value={{
@@ -902,6 +1003,10 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
         updateLineItem,
         deleteLineItem,
         addSupplier,
+        startProcessing,
+        markAsOrdered,
+        markAsReceived,
+        markAsFinalized,
       }}
     >
       {children}

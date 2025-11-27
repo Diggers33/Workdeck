@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Receipt, ShoppingCart, Paperclip, Zap, MoreHorizontal, ChevronDown } from 'lucide-react';
+import { Plus, Search, Receipt, ShoppingCart, Paperclip, Zap, MoreHorizontal, ChevronDown, Play, Package, CheckCircle } from 'lucide-react';
 import { useSpending, SpendingType, SpendingRequest, SpendingStatus } from '../../../contexts/SpendingContext';
 import { NewRequestModal } from './NewRequestModal';
 import { ExpenseDetailView } from './ExpenseDetailView';
 import { PurchaseDetailView } from './PurchaseDetailView';
+import { MarkAsOrderedModal, MarkAsReceivedModal, MarkAsFinalizedModal } from './ProcessingActionModals';
 
 type TabType = 'my-requests' | 'pending-approval' | 'team' | 'processing';
 type SavedView = 'all' | 'drafts' | 'pending' | 'needs-receipt' | 'this-month' | 'approved';
@@ -15,7 +16,14 @@ interface SpendingViewProps {
 }
 
 export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
-  const { requests, currentUser } = useSpending();
+  const {
+    requests,
+    currentUser,
+    startProcessing,
+    markAsOrdered,
+    markAsReceived,
+    markAsFinalized
+  } = useSpending();
   const [activeTab, setActiveTab] = useState<TabType>('my-requests');
   const [savedView, setSavedView] = useState<SavedView>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +39,20 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
     return 'expenses';
   });
   const [processingSavedView, setProcessingSavedView] = useState<ProcessingSavedView>('approved');
+
+  // Processing action modals
+  const [orderModalRequest, setOrderModalRequest] = useState<SpendingRequest | null>(null);
+  const [receivedModalRequest, setReceivedModalRequest] = useState<SpendingRequest | null>(null);
+  const [finalizedModalRequest, setFinalizedModalRequest] = useState<SpendingRequest | null>(null);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // Show toast helper
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Scroll to top when detailView changes
   useEffect(() => {
@@ -657,7 +679,9 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '32px 100px 1fr 100px 80px 40px',
+                gridTemplateColumns: activeTab === 'processing' && processingTypeFilter === 'purchases'
+                  ? '32px 80px 1fr 90px 80px 140px 120px'
+                  : '32px 100px 1fr 100px 80px 120px',
                 gap: '12px',
                 padding: '10px 16px',
                 backgroundColor: '#F9FAFB',
@@ -674,7 +698,10 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
               <div>Description</div>
               <div style={{ textAlign: 'right' }}>Amount</div>
               <div>Status</div>
-              <div></div>
+              {activeTab === 'processing' && processingTypeFilter === 'purchases' && (
+                <div>PO / Delivery</div>
+              )}
+              <div style={{ textAlign: 'right' }}>Actions</div>
             </div>
 
             {/* Table Rows */}
@@ -683,6 +710,96 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
               const isHovered = hoveredRow === request.id;
               const needsReceipt = hasReceiptIssue(request);
               const isUrgent = request.isAsap;
+              const isProcessingTab = activeTab === 'processing';
+              const isPurchaseProcessing = isProcessingTab && processingTypeFilter === 'purchases';
+
+              // Get PO/Delivery info for ordered purchases
+              const getDeliveryInfo = () => {
+                if (!request.poNumber && !request.expectedDeliveryDate) return null;
+                const parts = [];
+                if (request.poNumber) parts.push(request.poNumber);
+                if (request.expectedDeliveryDate) {
+                  const expDate = new Date(request.expectedDeliveryDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  if (diffDays < 0) {
+                    parts.push(`Overdue ${Math.abs(diffDays)}d`);
+                  } else if (diffDays === 0) {
+                    parts.push('Due today');
+                  } else {
+                    parts.push(`Due in ${diffDays}d`);
+                  }
+                }
+                return parts.join(' · ');
+              };
+
+              // Get action button for processing tab
+              const getProcessingAction = () => {
+                if (!isProcessingTab) return null;
+
+                if (request.type === 'Expense') {
+                  if (request.status === 'Approved') {
+                    return {
+                      label: 'Start Processing',
+                      icon: Play,
+                      color: '#2563EB',
+                      bg: '#EFF6FF',
+                      onClick: () => {
+                        startProcessing(request.id);
+                        const shortRef = request.referenceNumber.replace('EXP-2024-', 'E');
+                        showToast(`Started processing ${shortRef}`);
+                      }
+                    };
+                  }
+                  if (request.status === 'Processing') {
+                    return {
+                      label: 'Mark Finalized',
+                      icon: CheckCircle,
+                      color: '#059669',
+                      bg: '#ECFDF5',
+                      onClick: () => setFinalizedModalRequest(request)
+                    };
+                  }
+                } else {
+                  // Purchase
+                  if (request.status === 'Approved') {
+                    return {
+                      label: 'Start Processing',
+                      icon: Play,
+                      color: '#2563EB',
+                      bg: '#EFF6FF',
+                      onClick: () => {
+                        startProcessing(request.id);
+                        const shortRef = request.referenceNumber.replace('PUR-2024-', 'P');
+                        showToast(`Started processing ${shortRef}`);
+                      }
+                    };
+                  }
+                  if (request.status === 'Processing') {
+                    return {
+                      label: 'Mark Ordered',
+                      icon: Package,
+                      color: '#7C3AED',
+                      bg: '#F5F3FF',
+                      onClick: () => setOrderModalRequest(request)
+                    };
+                  }
+                  if (request.status === 'Ordered') {
+                    return {
+                      label: 'Mark Received',
+                      icon: CheckCircle,
+                      color: '#059669',
+                      bg: '#ECFDF5',
+                      onClick: () => setReceivedModalRequest(request)
+                    };
+                  }
+                }
+                return null;
+              };
+
+              const processingAction = getProcessingAction();
+              const deliveryInfo = getDeliveryInfo();
 
               return (
                 <div
@@ -692,7 +809,9 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                   onMouseLeave={() => setHoveredRow(null)}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '32px 100px 1fr 100px 80px 40px',
+                    gridTemplateColumns: isPurchaseProcessing
+                      ? '32px 80px 1fr 90px 80px 140px 120px'
+                      : '32px 100px 1fr 100px 80px 120px',
                     gap: '12px',
                     padding: '12px 16px',
                     borderBottom: '1px solid #F3F4F6',
@@ -780,28 +899,72 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
                     </span>
                   </div>
 
+                  {/* PO / Delivery Info - only for purchase processing */}
+                  {isPurchaseProcessing && (
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      {deliveryInfo ? (
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            color: deliveryInfo.includes('Overdue') ? '#DC2626' : '#6B7280',
+                            fontWeight: deliveryInfo.includes('Overdue') ? 500 : 400,
+                          }}
+                        >
+                          {deliveryInfo}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#9CA3AF' }}>—</span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isHovered && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    {isProcessingTab && processingAction ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          // TODO: Show actions menu
+                          processingAction.onClick();
                         }}
                         style={{
-                          width: '24px',
-                          height: '24px',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'none',
-                          border: 'none',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                          color: processingAction.color,
+                          backgroundColor: isHovered ? processingAction.bg : 'transparent',
+                          border: `1px solid ${isHovered ? processingAction.color : 'transparent'}`,
+                          borderRadius: '6px',
                           cursor: 'pointer',
-                          borderRadius: '4px',
+                          transition: 'all 100ms',
                         }}
                       >
-                        <MoreHorizontal size={14} color="#6B7280" />
+                        <processingAction.icon size={14} />
+                        {processingAction.label}
                       </button>
+                    ) : (
+                      isHovered && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          <MoreHorizontal size={14} color="#6B7280" />
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -818,6 +981,87 @@ export function SpendingView({ scrollContainerRef }: SpendingViewProps) {
           onRequestCreated={handleRequestCreated}
         />
       )}
+
+      {/* Processing Action Modals */}
+      {orderModalRequest && (
+        <MarkAsOrderedModal
+          request={orderModalRequest}
+          onClose={() => setOrderModalRequest(null)}
+          onConfirm={(poNumber, expectedDeliveryDate, notes) => {
+            markAsOrdered(orderModalRequest.id, poNumber, expectedDeliveryDate, notes);
+            const shortRef = orderModalRequest.referenceNumber.replace('PUR-2024-', 'P');
+            showToast(`${shortRef} marked as ordered`);
+            setOrderModalRequest(null);
+          }}
+        />
+      )}
+
+      {receivedModalRequest && (
+        <MarkAsReceivedModal
+          request={receivedModalRequest}
+          onClose={() => setReceivedModalRequest(null)}
+          onConfirm={(receivedDate, receivedInFull, notes) => {
+            markAsReceived(receivedModalRequest.id, receivedDate, receivedInFull, notes);
+            const shortRef = receivedModalRequest.referenceNumber.replace('PUR-2024-', 'P');
+            showToast(`${shortRef} marked as received`);
+            setReceivedModalRequest(null);
+          }}
+        />
+      )}
+
+      {finalizedModalRequest && (
+        <MarkAsFinalizedModal
+          request={finalizedModalRequest}
+          onClose={() => setFinalizedModalRequest(null)}
+          onConfirm={(paymentReference, paymentDate, notes) => {
+            markAsFinalized(finalizedModalRequest.id, paymentReference, paymentDate, notes);
+            const shortRef = finalizedModalRequest.referenceNumber.replace('EXP-2024-', 'E');
+            showToast(`${shortRef} finalized`);
+            setFinalizedModalRequest(null);
+          }}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '12px 20px',
+            backgroundColor: toast.type === 'success' ? '#059669' : '#2563EB',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 500,
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 1000,
+            animation: 'slideUp 0.2s ease-out',
+          }}
+        >
+          <CheckCircle size={16} />
+          {toast.message}
+        </div>
+      )}
+
+      {/* Toast animation styles */}
+      <style>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
