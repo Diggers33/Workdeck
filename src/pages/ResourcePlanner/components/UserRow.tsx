@@ -115,19 +115,6 @@ export function UserRow({
     return bars;
   };
   
-  // Check if date is start or end of a bar
-  const isBarStart = (date: Date, bar: ActivityBar): boolean => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() === bar.startDate.getTime();
-  };
-  
-  const isBarEnd = (date: Date, bar: ActivityBar): boolean => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() === bar.endDate.getTime();
-  };
-  
   // Handle cell hover with delay
   const handleCellMouseEnter = (
     date: Date,
@@ -212,7 +199,7 @@ export function UserRow({
       <div
         className="flex transition-colors"
         style={{
-          minHeight: '64px',
+          height: '56px',
           background: isSelected ? colors.bgSelected : colors.bgWhite,
           borderBottom: `1px solid ${colors.borderDefault}`,
           borderLeft: isSelected ? `3px solid ${colors.barBlue}` : 'none',
@@ -225,7 +212,7 @@ export function UserRow({
           style={{
             width: '240px',
             padding: '12px',
-            minHeight: '64px',
+            height: '56px',
             background: isSelected ? colors.bgSelected : colors.bgWhite,
             borderRight: `1px solid ${colors.borderDefault}`,
             transition: 'background-color 150ms ease',
@@ -313,38 +300,46 @@ export function UserRow({
           </span>
         </div>
         
-        {/* Capacity Cells with Overlaid Activity Bars */}
+        {/* Capacity Cells - Capacity-first view */}
         <div className="flex">
           {dates.map((date) => {
             const allocation = allocations.get(date.toISOString().split('T')[0]);
-            const percentUsed = allocation
-              ? (allocation.plannedHours / allocation.totalCapacity) * 100
-              : 0;
+            const plannedHours = allocation?.plannedHours || 0;
+            const totalCapacity = allocation?.totalCapacity || 8;
+            const percentUsed = totalCapacity > 0 ? (plannedHours / totalCapacity) * 100 : 0;
 
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-            const capacityColor = percentUsed === 0
-              ? isWeekend ? colors.bgSubtle : colors.bgWhite
-              : percentUsed < 50
-              ? isWeekend ? '#E0F7ED' : '#D1FAE5'
-              : percentUsed < 100
-              ? '#FEF3C7'
-              : '#FEE2E2';
-            
-            const activityBars = getActivityBarsForDate(date);
-            const barCount = activityBars.length;
             const isOverallocated = percentUsed > 100;
-            
+
+            // Subtle background tints based on capacity
+            const getBackgroundColor = () => {
+              if (isWeekend && plannedHours === 0) return colors.bgSubtle;
+              if (percentUsed > 100) return 'rgba(220, 38, 38, 0.08)'; // subtle red
+              if (percentUsed > 85) return 'rgba(217, 119, 6, 0.05)'; // barely visible amber
+              return colors.bgWhite;
+            };
+
+            // Progress bar color
+            const getProgressBarColor = () => {
+              if (percentUsed > 100) return colors.statusRed;
+              if (percentUsed > 85) return colors.statusAmber;
+              if (percentUsed > 50) return colors.statusGreen;
+              return colors.statusGray;
+            };
+
+            const activityBars = getActivityBarsForDate(date);
+
             return (
               <div
                 key={date.toISOString()}
                 ref={(el) => {
                   if (el) cellRefs.current.set(date.toISOString(), el);
                 }}
-                className="min-w-[120px] relative flex flex-col items-center justify-center transition-all duration-150 hover:brightness-95 cursor-pointer"
+                className="min-w-[120px] relative flex items-center justify-center cursor-pointer transition-colors"
                 style={{
-                  minHeight: '64px',
-                  background: capacityColor,
-                  borderLeft: `1px solid ${colors.borderDefault}`,
+                  height: '56px',
+                  backgroundColor: getBackgroundColor(),
+                  borderLeft: `1px solid ${colors.borderLight}`,
                 }}
                 onClick={() => onUserClick(user.id)}
                 onMouseEnter={(e) => {
@@ -352,114 +347,74 @@ export function UserRow({
                   if (cellElement) {
                     handleCellMouseEnter(date, activityBars, allocation || null, percentUsed, isWeekend, cellElement);
                   }
+                  // Hover background
+                  if (!isOverallocated) {
+                    e.currentTarget.style.backgroundColor = colors.bgHover;
+                  }
                 }}
-                onMouseLeave={handleCellMouseLeave}
+                onMouseLeave={(e) => {
+                  handleCellMouseLeave();
+                  e.currentTarget.style.backgroundColor = getBackgroundColor();
+                }}
               >
-                {/* Overallocation Warning Icon */}
-                {isOverallocated && (
-                  <div className="absolute top-1 right-1 z-20">
-                    <AlertCircle
+                {/* Cell content */}
+                {plannedHours > 0 ? (
+                  <>
+                    {/* Hours display - centered */}
+                    <span
                       style={{
-                        width: '14px',
-                        height: '14px',
-                        color: colors.statusRed,
+                        fontSize: typography.md,
+                        fontWeight: typography.medium,
+                        color: isOverallocated ? colors.statusRed : colors.textPrimary,
                       }}
-                    />
-                  </div>
-                )}
+                    >
+                      {plannedHours}h
+                    </span>
 
-                {/* Empty cell indicator */}
-                {activityBars.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    {isWeekend ? (
-                      <span
-                        className="select-none"
+                    {/* Overallocation indicator */}
+                    {isOverallocated && (
+                      <AlertCircle
                         style={{
-                          fontSize: '10px',
-                          fontWeight: typography.semibold,
-                          color: colors.textMuted,
-                          letterSpacing: '0.05em',
-                          opacity: 0.3,
+                          width: '12px',
+                          height: '12px',
+                          color: colors.statusRed,
+                          marginLeft: '4px',
                         }}
-                      >
-                        WEEKEND
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: typography.sm, color: colors.borderDefault }}>—</span>
+                      />
                     )}
-                  </div>
-                )}
-                
-                {/* Activity Bars - Stacked vertically with 2px gap */}
-                {activityBars.length > 0 && (
-                  <div
-                    className="absolute inset-0 flex flex-col justify-center pointer-events-none"
-                    style={{ padding: '4px 8px' }}
-                  >
-                    <div className="flex flex-col" style={{ gap: '2px' }}>
-                      {activityBars.slice(0, 2).map((bar, idx) => {
-                        const isStart = isBarStart(date, bar);
-                        const isEnd = isBarEnd(date, bar);
-                        const isTentative = bar.task.status === 'tentative';
 
-                        // Generate activity key for hover coordination
-                        const activityKey = `${bar.projectId}-${bar.activityName}`;
-                        const isHovered = hoveredActivity === activityKey;
-
-                        return (
-                          <div
-                            key={`${bar.task.id}-${idx}`}
-                            className="relative cursor-pointer pointer-events-auto flex items-center overflow-hidden"
-                            style={{
-                              height: '24px',
-                              width: '100%',
-                              backgroundColor: bar.projectColor,
-                              opacity: isTentative ? 0.5 : isHovered ? 1.0 : 0.85,
-                              borderRadius: isStart && isEnd ? '4px' : isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : '0',
-                              border: isTentative ? `1px dashed ${bar.projectColor}` : 'none',
-                              transform: isHovered ? 'scale(1.01)' : 'scale(1)',
-                              transition: 'opacity 150ms ease, transform 150ms ease',
-                              padding: '0 8px',
-                            }}
-                            onMouseEnter={() => onActivityHover?.(activityKey)}
-                            onMouseLeave={() => onActivityHover?.(null)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onBarClick(bar.task);
-                            }}
-                          >
-                            {/* Bar text - only show on start cell or if single-day */}
-                            {(isStart || (isStart && isEnd)) && (
-                              <span
-                                className="truncate"
-                                style={{
-                                  fontSize: typography.xs,
-                                  fontWeight: typography.medium,
-                                  color: 'white',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {bar.activityName}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {activityBars.length > 2 && (
-                        <div
-                          className="pointer-events-none"
-                          style={{
-                            fontSize: typography.xs,
-                            fontWeight: typography.medium,
-                            color: colors.textSecondary,
-                            textAlign: 'center',
-                          }}
-                        >
-                          +{activityBars.length - 2} more
-                        </div>
-                      )}
+                    {/* Capacity progress bar at bottom */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        backgroundColor: colors.borderLight,
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(percentUsed, 100)}%`,
+                          backgroundColor: getProgressBarColor(),
+                          transition: 'width 200ms ease',
+                        }}
+                      />
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  // Empty cell
+                  <span
+                    style={{
+                      fontSize: typography.sm,
+                      color: isWeekend ? colors.textMuted : colors.borderDefault,
+                      opacity: isWeekend ? 0.5 : 1,
+                    }}
+                  >
+                    {isWeekend ? '—' : '—'}
+                  </span>
                 )}
               </div>
             );
@@ -467,161 +422,116 @@ export function UserRow({
         </div>
       </div>
       
-      {/* Single Global Tooltip - Only ONE at a time */}
+      {/* Hover Tooltip - Task breakdown */}
       {tooltip.visible && tooltip.position && tooltip.date && (
         <div
           className="fixed pointer-events-none"
           style={{
             top: `${tooltip.position.top}px`,
             left: `${tooltip.position.left}px`,
-            width: '320px',
+            width: '280px',
             zIndex: 1000,
             animation: 'tooltipFadeIn 150ms ease-out',
           }}
         >
           <div
-            className="rounded-lg shadow-2xl"
+            className="rounded-lg"
             style={{
               background: '#1F2937',
-              padding: '16px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.20)',
+              padding: '12px 16px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
             }}
           >
-            {/* Date Header */}
-            <div 
-              className="font-semibold mb-3"
+            {/* Header: Date · Hours */}
+            <div
               style={{
-                color: 'white',
-                fontSize: '14px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: tooltip.activities.length > 0 ? '10px' : '0',
+                paddingBottom: tooltip.activities.length > 0 ? '10px' : '0',
+                borderBottom: tooltip.activities.length > 0 ? '1px solid #374151' : 'none',
               }}
             >
-              {format(tooltip.date, 'EEEE, MMM d')}
+              <span
+                style={{
+                  fontSize: typography.sm,
+                  fontWeight: typography.medium,
+                  color: 'white',
+                }}
+              >
+                {format(tooltip.date, 'EEE MMM d')}
+              </span>
+              {tooltip.allocation && (
+                <span
+                  style={{
+                    fontSize: typography.sm,
+                    color: tooltip.percentUsed > 100 ? '#F87171' : '#9CA3AF',
+                  }}
+                >
+                  {tooltip.allocation.plannedHours}h / {tooltip.allocation.totalCapacity}h
+                </span>
+              )}
             </div>
-            
-            {/* Activities List */}
+
+            {/* Task breakdown list */}
             {tooltip.activities.length > 0 ? (
-              <div className="space-y-3 mb-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {tooltip.activities.map((bar, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <div
-                      className="rounded-full flex-shrink-0"
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    {/* Project color dot */}
+                    <span
                       style={{
-                        width: '12px',
-                        height: '12px',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
                         backgroundColor: bar.projectColor,
-                        marginTop: '2px',
+                        flexShrink: 0,
                       }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div 
-                        className="font-medium"
-                        style={{
-                          color: 'white',
-                          fontSize: '14px',
-                          lineHeight: '1.4',
-                        }}
-                      >
-                        {bar.activityName} ({bar.hours}h)
-                      </div>
-                      <div 
-                        style={{
-                          color: '#D1D5DB',
-                          fontSize: '12px',
-                          marginTop: '2px',
-                          paddingLeft: '20px',
-                        }}
-                      >
-                        {bar.projectName}
-                      </div>
-                    </div>
+                    {/* Project name */}
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: typography.sm,
+                        color: '#E5E7EB',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {bar.projectName}
+                    </span>
+                    {/* Hours */}
+                    <span
+                      style={{
+                        fontSize: typography.sm,
+                        color: '#9CA3AF',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {bar.hours}h
+                    </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div 
-                className="mb-4"
+              <div
                 style={{
-                  color: '#9CA3AF',
-                  fontSize: '13px',
+                  fontSize: typography.sm,
+                  color: '#6B7280',
                 }}
               >
-                {tooltip.isWeekend ? 'Weekend - No work scheduled' : 'No tasks scheduled'}
+                {tooltip.isWeekend ? 'Weekend' : 'No tasks scheduled'}
               </div>
             )}
-            
-            {/* Separator */}
-            {tooltip.activities.length > 0 && (
-              <div 
-                style={{
-                  borderTop: '1px solid #374151',
-                  marginBottom: '12px',
-                }}
-              />
-            )}
-            
-            {/* Total and Status */}
-            {tooltip.allocation && (
-              <div className="space-y-1">
-                <div 
-                  className="font-medium"
-                  style={{
-                    color: 'white',
-                    fontSize: '13px',
-                  }}
-                >
-                  Total: {tooltip.allocation.plannedHours}h / {tooltip.allocation.totalCapacity}h capacity
-                </div>
-                <div 
-                  className="flex items-center gap-1"
-                  style={{
-                    fontSize: '13px',
-                    color: tooltip.percentUsed < 50 
-                      ? '#34D399' 
-                      : tooltip.percentUsed < 100 
-                      ? '#FBBF24' 
-                      : '#F87171',
-                  }}
-                >
-                  Status: {
-                    tooltip.percentUsed < 50 ? '✓ Available' :
-                    tooltip.percentUsed < 100 ? '✓ Optimal' :
-                    '⚠️ Overallocated'
-                  }
-                </div>
-              </div>
-            )}
-            
-            {/* CTA */}
-            {tooltip.activities.length > 0 && (
-              <div 
-                className="mt-3 pt-3"
-                style={{
-                  borderTop: '1px solid #374151',
-                  color: '#93C5FD',
-                  fontSize: '13px',
-                }}
-              >
-                → Click for details
-              </div>
-            )}
-          </div>
-          
-          {/* Arrow pointing to cell */}
-          <div
-            style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              color: '#1F2937',
-              fontSize: '16px',
-              lineHeight: '8px',
-              ...(tooltip.position.top < 300 
-                ? { top: '-8px' } 
-                : { bottom: '-8px', transform: 'translateX(-50%) rotate(180deg)' }
-              ),
-            }}
-          >
-            ▼
           </div>
         </div>
       )}
