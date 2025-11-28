@@ -81,6 +81,14 @@ export function InvoiceReviewStep({
                       </div>
                     </div>
                     <div className="text-right">
+                      {settings.companyLogo && (
+                        <img
+                          src={settings.companyLogo}
+                          alt="Company logo"
+                          style={{ maxHeight: '60px', marginLeft: 'auto', marginBottom: '8px' }}
+                          className="object-contain"
+                        />
+                      )}
                       <div className="text-gray-900 mb-1" style={{ fontSize: '14px', fontWeight: 600 }}>{settings.companyName}</div>
                       <div className="text-gray-500 text-xs leading-relaxed whitespace-pre-line">
                         {settings.companyAddress}
