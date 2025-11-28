@@ -10,7 +10,7 @@ import { mockUsers, mockTasks, mockProjects, departments, mockLeaves } from './d
 import { Task } from './types';
 import { toast } from 'sonner';
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { colors, typography, utilizationColors } from './constants/designTokens';
+import { colors, typography } from './constants/designTokens';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'heatmap' | 'allocation'>('heatmap');
@@ -101,63 +101,73 @@ export default function App() {
             className="flex items-center justify-between"
             style={{
               height: '44px',
-              padding: '0 24px',
-              backgroundColor: colors.bgHover,
+              padding: '0 16px',
+              backgroundColor: colors.bgSubtle,
               borderBottom: `1px solid ${colors.borderDefault}`,
             }}
           >
             {/* Left: Team & Projects count */}
-            <div style={{ fontSize: typography.md, color: colors.textSecondary }}>
+            <div style={{ fontSize: typography.base, color: colors.textSecondary }}>
               {summaryStats.teamCount} Team Members · {summaryStats.activeProjects} Active Projects
             </div>
 
-            {/* Center: Capacity badges */}
-            <div className="flex items-center" style={{ gap: '8px' }}>
-              <span
-                style={{
-                  fontSize: typography.sm,
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontWeight: typography.medium,
-                  backgroundColor: utilizationColors.over.bg,
-                  color: utilizationColors.over.text,
-                  border: `1px solid ${utilizationColors.over.border}`,
-                }}
-              >
+            {/* Center: Capacity status with dots */}
+            <div
+              className="flex items-center"
+              style={{
+                gap: '16px',
+                fontSize: typography.sm,
+                color: colors.textSecondary,
+              }}
+            >
+              <span className="flex items-center" style={{ gap: '6px' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: colors.statusRed,
+                  }}
+                />
                 {summaryStats.overCapacity} Over
               </span>
-              <span
-                style={{
-                  fontSize: typography.sm,
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontWeight: typography.medium,
-                  backgroundColor: utilizationColors.optimal.bg,
-                  color: utilizationColors.optimal.text,
-                  border: `1px solid ${utilizationColors.optimal.border}`,
-                }}
-              >
+              <span className="flex items-center" style={{ gap: '6px' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: colors.statusGreen,
+                  }}
+                />
                 {summaryStats.optimalCapacity} Optimal
               </span>
-              <span
-                style={{
-                  fontSize: typography.sm,
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                  fontWeight: typography.medium,
-                  backgroundColor: utilizationColors.warning.bg,
-                  color: utilizationColors.warning.text,
-                  border: `1px solid ${utilizationColors.warning.border}`,
-                }}
-              >
+              <span className="flex items-center" style={{ gap: '6px' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: colors.statusGray,
+                  }}
+                />
                 {summaryStats.underCapacity} Under
               </span>
             </div>
 
             {/* Right: Avg Utilization with trend */}
-            <div className="flex items-center gap-1.5">
-              <span style={{ fontSize: typography.md, fontWeight: typography.semibold, color: colors.textPrimary }}>
-                {summaryStats.avgUtilization}% Avg Utilization
+            <div className="flex items-center" style={{ gap: '6px' }}>
+              <span
+                style={{
+                  fontSize: typography.base,
+                  fontWeight: typography.medium,
+                  color: colors.textPrimary,
+                }}
+              >
+                {summaryStats.avgUtilization}%
+              </span>
+              <span style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                Avg Utilization
               </span>
               {summaryStats.trendUp ? (
                 <TrendingUp size={14} style={{ color: colors.statusGreen }} />
