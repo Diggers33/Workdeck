@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { isValidEmail } from '../../services/authService';
 import './LoginPage.css';
 
 // Slideshow images for background
@@ -42,6 +44,9 @@ const MicrosoftIcon = () => (
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, loginWithGoogle, loginWithMicrosoft, isAuthenticated, isLoading, error: authError, clearError } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -53,38 +58,78 @@ const LoginPage: React.FC = () => {
   // Shuffle images once on mount
   const shuffledImages = useMemo(() => shuffleArray(slideshowImages), []);
 
+  // Get redirect destination from location state
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate, from]);
+
+  // Sync auth context error with local error state
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+    }
+  }, [authError]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    clearError();
+
+    // Validate fields
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    // Validate email format
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Mock login - replace with actual authentication
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const success = await login(email, password, remember);
 
-      if (email && password) {
-        // Success - navigate to dashboard
-        navigate('/');
+      if (success) {
+        // Navigate to intended destination or dashboard
+        navigate(from, { replace: true });
       } else {
-        setError('Please enter email and password');
+        // Error is set by auth context
+        setPassword(''); // Clear password on error
       }
     } catch (err) {
-      setError('Invalid email or password');
+      setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    // Implement Google OAuth
-    console.log('Google login clicked');
+    loginWithGoogle(remember);
   };
 
   const handleMicrosoftLogin = () => {
-    // Implement Microsoft OAuth
-    console.log('Microsoft login clicked');
+    loginWithMicrosoft(remember);
   };
+
+  // Show loading if checking auth
+  if (isLoading && isAuthenticated) {
+    return (
+      <div className="login-outer">
+        <div className="auth-loading">
+          <div className="auth-loading-spinner" />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-outer">
@@ -137,8 +182,9 @@ const LoginPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
-                    autoComplete="off"
+                    autoComplete="email"
                     className={error ? 'input-error' : ''}
+                    disabled={isSubmitting}
                   />
 
                   <input
@@ -146,7 +192,9 @@ const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
+                    autoComplete="current-password"
                     className={error ? 'input-error' : ''}
+                    disabled={isSubmitting}
                   />
 
                   <label className="remember-checkbox">
@@ -154,6 +202,7 @@ const LoginPage: React.FC = () => {
                       type="checkbox"
                       checked={remember}
                       onChange={(e) => setRemember(e.target.checked)}
+                      disabled={isSubmitting}
                     />
                     <span>Remember me</span>
                   </label>
@@ -189,6 +238,7 @@ const LoginPage: React.FC = () => {
                     type="button"
                     className="oauth-button google"
                     onClick={handleGoogleLogin}
+                    disabled={isSubmitting}
                   >
                     <GoogleIcon />
                     Sign in with Google
@@ -199,6 +249,7 @@ const LoginPage: React.FC = () => {
                     type="button"
                     className="oauth-button microsoft"
                     onClick={handleMicrosoftLogin}
+                    disabled={isSubmitting}
                   >
                     <MicrosoftIcon />
                     Sign in with Microsoft
