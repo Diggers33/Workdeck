@@ -33,8 +33,13 @@ export interface User {
 }
 
 export interface LoginResponse {
-  token?: string;
+  status?: string;
+  result?: string; // Token is in "result" field when status is "OK"
   error?: string;
+}
+
+export interface LoginErrorResponse {
+  status?: string;
   result?: {
     code: string;
     message: string;
@@ -136,16 +141,22 @@ export async function login(
       }),
     });
 
-    const data: LoginResponse = await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-      const errorMessage = data.result?.message || data.error || 'Login failed';
+      // Error response: { status: "ERROR", result: { code, message } }
+      const errorData = data as LoginErrorResponse;
+      const errorMessage =
+        (typeof errorData.result === 'object' && errorData.result?.message) ||
+        data.error ||
+        'Login failed';
       return { success: false, error: errorMessage };
     }
 
-    if (data.token) {
+    // Success response: { status: "OK", result: "jwt_token_string" }
+    if (data.status === 'OK' && data.result && typeof data.result === 'string') {
       // Store the token
-      setToken(data.token);
+      setToken(data.result);
 
       // Fetch user data
       const user = await fetchCurrentUser();
