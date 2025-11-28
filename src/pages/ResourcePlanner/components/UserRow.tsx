@@ -194,12 +194,25 @@ export function UserRow({
     };
   }, []);
   
+  // Check if date is start or end of a bar (for rounded corners)
+  const isBarStart = (date: Date, bar: ActivityBar): boolean => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === bar.startDate.getTime();
+  };
+
+  const isBarEnd = (date: Date, bar: ActivityBar): boolean => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() === bar.endDate.getTime();
+  };
+
   return (
     <>
       <div
         className="flex transition-colors"
         style={{
-          height: '56px',
+          height: '72px',
           background: isSelected ? colors.bgSelected : colors.bgWhite,
           borderBottom: `1px solid ${colors.borderDefault}`,
           borderLeft: isSelected ? `3px solid ${colors.barBlue}` : 'none',
@@ -212,7 +225,7 @@ export function UserRow({
           style={{
             width: '240px',
             padding: '12px',
-            height: '56px',
+            height: '72px',
             background: isSelected ? colors.bgSelected : colors.bgWhite,
             borderRight: `1px solid ${colors.borderDefault}`,
             transition: 'background-color 150ms ease',
@@ -299,35 +312,30 @@ export function UserRow({
             {Math.round(utilizationPercent)}%
           </span>
         </div>
-        
-        {/* Capacity Cells - Capacity-first view */}
+
+        {/* Capacity Cells with Project Bars */}
         <div className="flex">
           {dates.map((date) => {
             const allocation = allocations.get(date.toISOString().split('T')[0]);
             const plannedHours = allocation?.plannedHours || 0;
-            const totalCapacity = allocation?.totalCapacity || 8;
-            const percentUsed = totalCapacity > 0 ? (plannedHours / totalCapacity) * 100 : 0;
+            const cellCapacity = allocation?.totalCapacity || 8;
+            const percentUsed = cellCapacity > 0 ? (plannedHours / cellCapacity) * 100 : 0;
 
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const isOverallocated = percentUsed > 100;
 
-            // Subtle background tints based on capacity
+            // Get activity bars and sort by hours (largest first)
+            const activityBars = getActivityBarsForDate(date).sort((a, b) => b.hours - a.hours);
+            const hasActivities = activityBars.length > 0;
+            const overflowCount = Math.max(0, activityBars.length - 2);
+            const overflowHours = activityBars.slice(2).reduce((sum, bar) => sum + bar.hours, 0);
+
+            // Subtle background tints
             const getBackgroundColor = () => {
-              if (isWeekend && plannedHours === 0) return colors.bgSubtle;
-              if (percentUsed > 100) return 'rgba(220, 38, 38, 0.08)'; // subtle red
-              if (percentUsed > 85) return 'rgba(217, 119, 6, 0.05)'; // barely visible amber
+              if (isWeekend && !hasActivities) return colors.bgSubtle;
+              if (isOverallocated) return 'rgba(220, 38, 38, 0.06)';
               return colors.bgWhite;
             };
-
-            // Progress bar color
-            const getProgressBarColor = () => {
-              if (percentUsed > 100) return colors.statusRed;
-              if (percentUsed > 85) return colors.statusAmber;
-              if (percentUsed > 50) return colors.statusGreen;
-              return colors.statusGray;
-            };
-
-            const activityBars = getActivityBarsForDate(date);
 
             return (
               <div
@@ -335,9 +343,9 @@ export function UserRow({
                 ref={(el) => {
                   if (el) cellRefs.current.set(date.toISOString(), el);
                 }}
-                className="min-w-[120px] relative flex items-center justify-center cursor-pointer transition-colors"
+                className="min-w-[120px] relative cursor-pointer transition-colors"
                 style={{
-                  height: '56px',
+                  height: '72px',
                   backgroundColor: getBackgroundColor(),
                   borderLeft: `1px solid ${colors.borderLight}`,
                 }}
@@ -347,74 +355,118 @@ export function UserRow({
                   if (cellElement) {
                     handleCellMouseEnter(date, activityBars, allocation || null, percentUsed, isWeekend, cellElement);
                   }
-                  // Hover background
-                  if (!isOverallocated) {
-                    e.currentTarget.style.backgroundColor = colors.bgHover;
-                  }
                 }}
-                onMouseLeave={(e) => {
-                  handleCellMouseLeave();
-                  e.currentTarget.style.backgroundColor = getBackgroundColor();
-                }}
+                onMouseLeave={handleCellMouseLeave}
               >
-                {/* Cell content */}
-                {plannedHours > 0 ? (
+                {hasActivities ? (
                   <>
-                    {/* Hours display - centered */}
-                    <span
+                    {/* Capacity indicator - top right corner */}
+                    <div
+                      className="absolute flex items-center gap-1"
                       style={{
-                        fontSize: typography.md,
-                        fontWeight: typography.medium,
-                        color: isOverallocated ? colors.statusRed : colors.textPrimary,
+                        top: '4px',
+                        right: '6px',
+                        fontSize: typography.xs,
+                        color: isOverallocated ? colors.statusRed : colors.textMuted,
                       }}
                     >
-                      {plannedHours}h
-                    </span>
+                      {isOverallocated ? (
+                        <>
+                          <span style={{ fontWeight: typography.medium }}>{plannedHours}h</span>
+                          <AlertCircle style={{ width: '10px', height: '10px' }} />
+                        </>
+                      ) : (
+                        <span>{plannedHours}h</span>
+                      )}
+                    </div>
 
-                    {/* Overallocation indicator */}
-                    {isOverallocated && (
-                      <AlertCircle
-                        style={{
-                          width: '12px',
-                          height: '12px',
-                          color: colors.statusRed,
-                          marginLeft: '4px',
-                        }}
-                      />
-                    )}
-
-                    {/* Capacity progress bar at bottom */}
+                    {/* Project bars - stacked vertically */}
                     <div
                       style={{
                         position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        backgroundColor: colors.borderLight,
+                        top: '20px',
+                        left: '4px',
+                        right: '4px',
+                        bottom: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px',
                       }}
                     >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${Math.min(percentUsed, 100)}%`,
-                          backgroundColor: getProgressBarColor(),
-                          transition: 'width 200ms ease',
-                        }}
-                      />
+                      {/* Show top 2 bars (by hours) */}
+                      {activityBars.slice(0, 2).map((bar, idx) => {
+                        const barIsStart = isBarStart(date, bar);
+                        const barIsEnd = isBarEnd(date, bar);
+                        const activityKey = `${bar.projectId}-${bar.activityName}`;
+                        const isHovered = hoveredActivity === activityKey;
+
+                        return (
+                          <div
+                            key={`${bar.task.id}-${idx}`}
+                            className="flex items-center overflow-hidden cursor-pointer"
+                            style={{
+                              height: '20px',
+                              backgroundColor: bar.projectColor,
+                              opacity: isHovered ? 1.0 : 0.85,
+                              borderRadius: barIsStart && barIsEnd ? '3px' : barIsStart ? '3px 0 0 3px' : barIsEnd ? '0 3px 3px 0' : '0',
+                              padding: '0 6px',
+                              transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+                              transition: 'opacity 150ms ease, transform 150ms ease',
+                            }}
+                            onMouseEnter={() => onActivityHover?.(activityKey)}
+                            onMouseLeave={() => onActivityHover?.(null)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBarClick(bar.task);
+                            }}
+                          >
+                            {/* Show name only on start cell */}
+                            {barIsStart && (
+                              <span
+                                className="truncate"
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: typography.medium,
+                                  color: 'white',
+                                }}
+                              >
+                                {bar.activityName}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Overflow indicator with hours context */}
+                      {overflowCount > 0 && (
+                        <div
+                          style={{
+                            height: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px',
+                            fontWeight: typography.medium,
+                            color: colors.textMuted,
+                          }}
+                        >
+                          +{overflowCount} more ({overflowHours}h)
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
                   // Empty cell
-                  <span
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
                     style={{
                       fontSize: typography.sm,
                       color: isWeekend ? colors.textMuted : colors.borderDefault,
-                      opacity: isWeekend ? 0.5 : 1,
+                      opacity: isWeekend ? 0.4 : 0.6,
                     }}
                   >
-                    {isWeekend ? '—' : '—'}
-                  </span>
+                    —
+                  </div>
                 )}
               </div>
             );
