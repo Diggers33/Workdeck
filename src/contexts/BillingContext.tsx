@@ -247,24 +247,38 @@ const generateMockInvoices = (): Invoice[] => {
   ];
 };
 
+const defaultSettings: BillingSettings = {
+  companyName: 'Workdeck Inc',
+  companyAddress: '100 Market Street\nSan Francisco, CA 94105',
+  vatNumber: 'IE-123456789',
+  bankName: 'Bank of Ireland',
+  iban: 'IE12 BOFI 9000 1234 5678 90',
+  paymentInstructions: 'Please include invoice number in payment reference.',
+  defaultTaxRate: 21,
+  defaultPaymentTerms: 'NET 30',
+  defaultTimeEntryFormat: 'grouped-person-task',
+  defaultExpenseFormat: 'detailed',
+  defaultCurrency: 'EUR',
+  invoicePrefix: 'INV-',
+  includeYear: true,
+  nextNumber: 6,
+};
+
+const loadSettingsFromStorage = (): BillingSettings => {
+  try {
+    const stored = localStorage.getItem('billingSettings');
+    if (stored) {
+      return { ...defaultSettings, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.error('Failed to load billing settings from localStorage:', e);
+  }
+  return defaultSettings;
+};
+
 export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [invoices, setInvoices] = useState<Invoice[]>(generateMockInvoices());
-  const [settings, setSettings] = useState<BillingSettings>({
-    companyName: 'Workdeck Inc',
-    companyAddress: '100 Market Street\nSan Francisco, CA 94105',
-    vatNumber: 'IE-123456789',
-    bankName: 'Bank of Ireland',
-    iban: 'IE12 BOFI 9000 1234 5678 90',
-    paymentInstructions: 'Please include invoice number in payment reference.',
-    defaultTaxRate: 21,
-    defaultPaymentTerms: 'NET 30',
-    defaultTimeEntryFormat: 'grouped-person-task',
-    defaultExpenseFormat: 'detailed',
-    defaultCurrency: 'EUR',
-    invoicePrefix: 'INV-',
-    includeYear: true,
-    nextNumber: 6,
-  });
+  const [settings, setSettings] = useState<BillingSettings>(loadSettingsFromStorage);
 
   const addInvoice = (invoice: Invoice) => {
     setInvoices(prev => [invoice, ...prev]);
@@ -299,7 +313,15 @@ export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateSettings = (newSettings: Partial<BillingSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem('billingSettings', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save billing settings to localStorage:', e);
+      }
+      return updated;
+    });
   };
 
   const getNextInvoiceNumber = (): string => {
