@@ -78,8 +78,8 @@ export function HeatMap({
   });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // Detail panel state - Sarah Mitchell (u1) selected by default to show populated state
-  const [selectedUserId, setSelectedUserId] = useState<string | null>('u1');
+  // Detail panel state - no user selected by default
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const selectedUser = selectedUserId ? users.find(u => u.id === selectedUserId) : null;
   
