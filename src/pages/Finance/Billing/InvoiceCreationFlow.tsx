@@ -535,9 +535,19 @@ export const InvoiceCreationFlow: React.FC<InvoiceCreationFlowProps> = ({
               </div>
             </div>
 
-            {/* Line Items - Only show after project selected */}
+            {/* Line Items Section - Only show after project selected */}
             {hasLineItems && (
               <>
+                {/* Section Header */}
+                <div style={{ marginBottom: '12px' }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                    Line Items
+                  </h2>
+                  <p style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>
+                    Select items to include on this invoice
+                  </p>
+                </div>
+
                 {/* Time Entries Section */}
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden" style={{ marginBottom: '12px' }}>
                   <button
@@ -836,9 +846,14 @@ export const InvoiceCreationFlow: React.FC<InvoiceCreationFlowProps> = ({
                 </div>
 
                 {/* Notes Section */}
+                <div style={{ marginTop: '20px', marginBottom: '12px' }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>
+                    Notes
+                  </h2>
+                </div>
                 <div className="bg-white border border-gray-200 rounded-lg" style={{ padding: '16px' }}>
                   <label className="block mb-2" style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Notes
+                    Invoice Notes
                   </label>
                   <textarea
                     value={formData.notes || ''}
@@ -847,6 +862,9 @@ export const InvoiceCreationFlow: React.FC<InvoiceCreationFlowProps> = ({
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-600 text-gray-900 placeholder-gray-400 text-sm resize-none"
                   />
+                  <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px' }}>
+                    Appears on invoice
+                  </p>
                 </div>
               </>
             )}

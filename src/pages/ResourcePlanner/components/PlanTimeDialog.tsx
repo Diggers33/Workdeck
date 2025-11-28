@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar, Clock, AlertTriangle, TrendingUp, Sparkles, X } from 'lucide-react';
+import { Calendar, AlertTriangle } from 'lucide-react';
 import { User, Task, Project } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
@@ -383,10 +383,9 @@ export function PlanTimeDialog({
               className="rounded-lg border"
               style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}
             >
-              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#E2E8F0' }}>
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                <span className="text-xs font-semibold" style={{ color: '#64748B' }}>
-                  SUGGESTED MATCHES
+              <div className="px-3 py-2 border-b" style={{ borderColor: '#E2E8F0' }}>
+                <span className="text-xs font-medium tracking-wide" style={{ color: '#64748B' }}>
+                  Suggested Matches
                 </span>
               </div>
               <div className="divide-y" style={{ borderColor: '#E2E8F0' }}>
@@ -412,15 +411,14 @@ export function PlanTimeDialog({
                         </div>
                       </div>
                     </div>
-                    <div
-                      className="text-xs font-semibold px-2 py-0.5 rounded"
+                    <span
+                      className="text-xs font-semibold"
                       style={{
-                        backgroundColor: match.matchPercent >= 90 ? '#D1FAE5' : match.matchPercent >= 80 ? '#FEF3C7' : '#F1F5F9',
-                        color: match.matchPercent >= 90 ? '#059669' : match.matchPercent >= 80 ? '#D97706' : '#64748B',
+                        color: idx === 0 ? '#059669' : idx === 1 ? '#6B7280' : '#9CA3AF',
                       }}
                     >
-                      {match.matchPercent}% match
-                    </div>
+                      {match.matchPercent}%
+                    </span>
                   </button>
                 ))}
               </div>

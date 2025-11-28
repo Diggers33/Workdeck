@@ -3,6 +3,7 @@ import { Calendar, ChevronDown, ChevronRight, ChevronLeft, Maximize2, ChevronsDo
 import { User, Task, Project, TimeResolution, Leave } from '../types';
 import { UserRow } from './UserRow';
 import { SimplifiedDetailPanel } from './SimplifiedDetailPanel';
+import { MonthView } from './MonthView';
 import { Button } from './ui/button';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
@@ -534,131 +535,148 @@ export function HeatMap({
         </div>
       )}
       
-      {/* Heat Map Grid */}
-      <div className="flex-1 overflow-auto relative" ref={scrollContainerRef}>
-        <div className="min-w-max">
-          {/* Header Row */}
-          <div className="sticky top-0 z-20 bg-white border-b-2 border-gray-300 flex">
-            <div className="sticky left-0 z-30 bg-white border-r border-gray-300 p-3" style={{ width: '240px' }}>
-              <div className="font-medium text-sm">Team Member</div>
+      {/* Heat Map Grid - Day/Week View */}
+      {resolution !== 'month' && (
+        <div className="flex-1 overflow-auto relative" ref={scrollContainerRef}>
+          <div className="min-w-max">
+            {/* Header Row */}
+            <div className="sticky top-0 z-20 bg-white border-b-2 border-gray-300 flex">
+              <div className="sticky left-0 z-30 bg-white border-r border-gray-300 p-3" style={{ width: '240px' }}>
+                <div className="font-medium text-sm">Team Member</div>
+              </div>
+              <div className="flex">
+                {dates.map(date => {
+                  const isToday = new Date().toDateString() === date.toDateString();
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+                  return (
+                    <div
+                      key={date.toISOString()}
+                      className={`min-w-[120px] p-2 transition-colors ${
+                        isToday ? 'bg-blue-50' : ''
+                      }`}
+                      style={{
+                        background: isToday ? '#EFF6FF' : isWeekend ? '#FAFAFC' : 'white',
+                        borderLeft: isWeekend ? '1px dashed #E3E6EB' : '1px solid #E5E7EB',
+                      }}
+                    >
+                      <div className="text-center">
+                        <div className="text-[13px] font-semibold" style={{
+                          letterSpacing: '-0.01em',
+                          color: isWeekend ? '#9CA3AF' : '#111827'
+                        }}>
+                          {format(date, 'EEE')}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {format(date, 'MMM d')}
+                        </div>
+                        {isWeekend && (
+                          <div
+                            className="text-[10px] mt-0.5"
+                            style={{
+                              color: '#D1D5DB',
+                              letterSpacing: '0.05em',
+                              fontWeight: 600
+                            }}
+                          >
+                            WEEKEND
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex">
-              {dates.map(date => {
-                const isToday = new Date().toDateString() === date.toDateString();
-                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                
+
+            {/* Rows (Department Headers + User Rows) */}
+            {visibleUsersFlat.slice(0, visibleCount + visibleUsersFlat.filter(v => v.type === 'dept').length).map((item, idx) => {
+              if (item.type === 'dept') {
+                const isCollapsed = collapsedDepartments.has(item.dept);
                 return (
                   <div
-                    key={date.toISOString()}
-                    className={`min-w-[120px] p-2 transition-colors ${
-                      isToday ? 'bg-blue-50' : ''
-                    }`}
-                    style={{
-                      background: isToday ? '#EFF6FF' : isWeekend ? '#FAFAFC' : 'white',
-                      borderLeft: isWeekend ? '1px dashed #E3E6EB' : '1px solid #E5E7EB',
-                    }}
+                    key={`dept-${item.dept}`}
+                    className="flex bg-gray-100 border-b border-gray-200 hover:bg-gray-150 transition-colors cursor-pointer"
+                    onClick={() => toggleDepartment(item.dept)}
                   >
-                    <div className="text-center">
-                      <div className="text-[13px] font-semibold" style={{ 
-                        letterSpacing: '-0.01em',
-                        color: isWeekend ? '#9CA3AF' : '#111827'
-                      }}>
-                        {format(date, 'EEE')}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {format(date, 'MMM d')}
-                      </div>
-                      {isWeekend && (
-                        <div 
-                          className="text-[10px] mt-0.5"
-                          style={{ 
-                            color: '#D1D5DB',
-                            letterSpacing: '0.05em',
-                            fontWeight: 600
-                          }}
-                        >
-                          WEEKEND
-                        </div>
+                    <div className="sticky left-0 z-10 bg-gray-100 border-r border-gray-300 p-3 flex items-center gap-2" style={{ width: '240px' }}>
+                      {isCollapsed ? (
+                        <ChevronRight className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
                       )}
+                      <span className="font-medium text-sm">{item.dept} ({item.count})</span>
+                    </div>
+                    <div className="flex">
+                      {dates.map(date => (
+                        <div
+                          key={date.toISOString()}
+                          className="min-w-24 border-l border-gray-200"
+                        />
+                      ))}
                     </div>
                   </div>
                 );
-              })}
+              } else {
+                const capacity = userCapacities[item.userIndex];
+                return (
+                  <UserRow
+                    key={`user-${item.user.id}`}
+                    user={item.user}
+                    tasks={tasks}
+                    projects={projects}
+                    dates={dates}
+                    allocations={capacity.allocations}
+                    totalPlanned={capacity.totalPlanned}
+                    totalCapacity={capacity.totalCapacity}
+                    resolution={resolution}
+                    leaves={leaves}
+                    onUserClick={handleUserClick}
+                    onBarClick={handleBarClick}
+                    hoveredActivity={hoveredActivity}
+                    onActivityHover={setHoveredActivity}
+                    isSelected={selectedUserId === item.user.id}
+                  />
+                );
+              }
+            })}
+          </div>
+
+          {/* Virtual Scrolling Indicator */}
+          <div className="sticky left-0 bg-white border-t border-gray-200 p-3">
+            <div className="flex items-center justify-between text-sm text-gray-600">
+              <span>
+                Showing {actualVisibleCount > 0 ? 1 : 0}-{actualVisibleCount} of {totalUserCount} team members
+              </span>
+              {showScrollHint && actualVisibleCount < totalUserCount && (
+                <span className="text-blue-600 animate-pulse">
+                  Scroll for more ↓
+                </span>
+              )}
+              {!showScrollHint && actualVisibleCount < totalUserCount && (
+                <Button variant="outline" size="sm" onClick={loadMore}>
+                  Load More
+                </Button>
+              )}
             </div>
           </div>
-          
-          {/* Rows (Department Headers + User Rows) */}
-          {visibleUsersFlat.slice(0, visibleCount + visibleUsersFlat.filter(v => v.type === 'dept').length).map((item, idx) => {
-            if (item.type === 'dept') {
-              const isCollapsed = collapsedDepartments.has(item.dept);
-              return (
-                <div
-                  key={`dept-${item.dept}`}
-                  className="flex bg-gray-100 border-b border-gray-200 hover:bg-gray-150 transition-colors cursor-pointer"
-                  onClick={() => toggleDepartment(item.dept)}
-                >
-                  <div className="sticky left-0 z-10 bg-gray-100 border-r border-gray-300 p-3 flex items-center gap-2" style={{ width: '240px' }}>
-                    {isCollapsed ? (
-                      <ChevronRight className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
-                    )}
-                    <span className="font-medium text-sm">{item.dept} ({item.count})</span>
-                  </div>
-                  <div className="flex">
-                    {dates.map(date => (
-                      <div
-                        key={date.toISOString()}
-                        className="min-w-24 border-l border-gray-200"
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            } else {
-              const capacity = userCapacities[item.userIndex];
-              return (
-                <UserRow
-                  key={`user-${item.user.id}`}
-                  user={item.user}
-                  tasks={tasks}
-                  projects={projects}
-                  dates={dates}
-                  allocations={capacity.allocations}
-                  totalPlanned={capacity.totalPlanned}
-                  totalCapacity={capacity.totalCapacity}
-                  resolution={resolution}
-                  leaves={leaves}
-                  onUserClick={handleUserClick}
-                  onBarClick={handleBarClick}
-                  hoveredActivity={hoveredActivity}
-                  onActivityHover={setHoveredActivity}
-                  isSelected={selectedUserId === item.user.id}
-                />
-              );
-            }
-          })}
         </div>
-        
-        {/* Virtual Scrolling Indicator */}
-        <div className="sticky left-0 bg-white border-t border-gray-200 p-3">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>
-              Showing {actualVisibleCount > 0 ? 1 : 0}-{actualVisibleCount} of {totalUserCount} team members
-            </span>
-            {showScrollHint && actualVisibleCount < totalUserCount && (
-              <span className="text-blue-600 animate-pulse">
-                Scroll for more ↓
-              </span>
-            )}
-            {!showScrollHint && actualVisibleCount < totalUserCount && (
-              <Button variant="outline" size="sm" onClick={loadMore}>
-                Load More
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
+
+      {/* Month View */}
+      {resolution === 'month' && (
+        <MonthView
+          users={filteredUsers}
+          tasks={tasks}
+          projects={projects}
+          departments={departments}
+          currentMonth={startDate}
+          collapsedDepartments={collapsedDepartments}
+          onToggleDepartment={toggleDepartment}
+          onUserClick={handleUserClick}
+          selectedUserId={selectedUserId}
+        />
+      )}
       
       {/* Filter Panel */}
       <FilterPanel
