@@ -6,6 +6,7 @@ import ProjectWizardPage from './pages/Projects/ProjectWizardPage';
 import MyCalendarApp from './pages/Time/Calendar/MyCalendarApp';
 import MyTasksApp from './pages/Work/MyTasks/MyTasksApp';
 import SpendingApp from './pages/Finance/Spending/SpendingApp';
+import BillingApp from './pages/Finance/Billing/BillingApp';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
 import { AppLayout } from './components/layout/AppLayout';
 import { SettingsDashboardRedesigned } from './pages/Settings/SettingsDashboardRedesigned';
@@ -59,16 +60,7 @@ function App() {
 
         {/* FINANCE TAB SCREENS */}
         <Route path="/finance/spending" element={<SpendingApp />} />
-        <Route path="/finance/invoices" element={<AppLayout><PendingScreen title="Invoices"
-            category="FINANCE MANAGEMENT"
-            description="Generate client invoices and track payment status."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
-        <Route path="/finance/billing" element={<AppLayout><PendingScreen title="Billing Dashboard"
-            category="FINANCE MANAGEMENT"
-            description="Overview of billing cycles, revenue tracking, and financial metrics."
-            onBack={() => window.history.back()}
-          /></AppLayout>} />
+        <Route path="/finance/billing" element={<BillingApp />} />
 
         {/* PEOPLE TAB PENDING SCREENS */}
         <Route path="/people/directory" element={<AppLayout><PendingScreen title="People Directory"
