@@ -10,11 +10,13 @@ import BillingApp from './pages/Finance/Billing/BillingApp';
 import { PendingScreen } from './pages/Dashboard/components/PendingScreen';
 import { AppLayout } from './components/layout/AppLayout';
 import { SettingsDashboardRedesigned } from './pages/Settings/SettingsDashboardRedesigned';
+import { LoginPage } from './pages/Login';
 
 function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<DashboardApp />} />
         <Route path="/planner" element={<ResourcePlannerApp />} />
         <Route path="/projects" element={<ProjectsApp />} />
