@@ -736,7 +736,6 @@ export function HeatMap({
                 // User row for Day view
                 const user = item.user;
                 const userTasks = tasks.filter(t => t.assigneeId === user.id);
-                const capacity = userCapacities[item.userIndex];
 
                 // Get tasks for this specific day
                 const dayTasks = userTasks.filter(task => {
@@ -749,12 +748,53 @@ export function HeatMap({
                   return day >= taskStart && day <= taskEnd;
                 });
 
+                // Distribute tasks across hours (8am-6pm = 11 hours, but work day is ~8 hours)
+                // Calculate time slots for each task
+                interface TimeSlot {
+                  task: Task;
+                  project: Project | undefined;
+                  startHour: number;
+                  endHour: number;
+                  row: number;
+                }
+
+                const timeSlots: TimeSlot[] = [];
+                let currentHour = 8; // Start at 8am
+
+                // Sort tasks by planned hours (largest first)
+                const sortedTasks = [...dayTasks].sort((a, b) => b.plannedHours - a.plannedHours);
+
+                sortedTasks.forEach((task, idx) => {
+                  const project = projects.find(p => p.id === task.projectId);
+                  const taskHours = Math.min(task.plannedHours, 10); // Cap at 10 hours
+
+                  // Calculate start hour - stack tasks sequentially
+                  const startHour = currentHour;
+                  const endHour = Math.min(startHour + taskHours, 18); // Don't go past 6pm
+
+                  timeSlots.push({
+                    task,
+                    project,
+                    startHour,
+                    endHour,
+                    row: 0, // Single row for now
+                  });
+
+                  currentHour = endHour;
+                });
+
+                // Calculate total hours for capacity display
+                const totalHours = dayTasks.reduce((sum, t) => sum + t.plannedHours, 0);
+                const isOverallocated = totalHours > 8;
+
+                const hours = getHoursInDay(selectedDay);
+
                 return (
                   <div
                     key={`user-${user.id}`}
                     className="flex transition-colors"
                     style={{
-                      height: '56px',
+                      height: '72px',
                       backgroundColor: selectedUserId === user.id ? colors.bgSelected : colors.bgWhite,
                       borderBottom: `1px solid ${colors.borderDefault}`,
                       borderLeft: selectedUserId === user.id ? `3px solid ${colors.barBlue}` : 'none',
@@ -796,67 +836,100 @@ export function HeatMap({
                           {user.role}
                         </div>
                       </div>
+                      {/* Hours indicator */}
+                      {totalHours > 0 && (
+                        <span
+                          style={{
+                            fontSize: typography.xs,
+                            fontWeight: typography.medium,
+                            color: isOverallocated ? colors.statusRed : colors.textMuted,
+                          }}
+                        >
+                          {totalHours}h
+                        </span>
+                      )}
                     </div>
 
-                    {/* Hour cells */}
-                    <div className="flex">
-                      {getHoursInDay(selectedDay).map(hourSlot => {
-                        // Find tasks that overlap this hour
-                        // For now, show a simplified view - tasks span all work hours
-                        const hasTask = dayTasks.length > 0;
-                        const taskForHour = hasTask ? dayTasks[0] : null;
-                        const project = taskForHour ? projects.find(p => p.id === taskForHour.projectId) : null;
+                    {/* Hour cells with spanning bars */}
+                    <div className="flex relative" style={{ position: 'relative' }}>
+                      {/* Grid cells (for borders) */}
+                      {hours.map(hourSlot => (
+                        <div
+                          key={hourSlot.hour}
+                          className="min-w-[80px]"
+                          style={{
+                            height: '72px',
+                            borderLeft: `1px solid ${colors.borderLight}`,
+                          }}
+                        />
+                      ))}
 
-                        return (
-                          <div
-                            key={hourSlot.hour}
-                            className="min-w-[80px] relative flex items-center justify-center cursor-pointer transition-colors"
-                            style={{
-                              height: '56px',
-                              backgroundColor: colors.bgWhite,
-                              borderLeft: `1px solid ${colors.borderLight}`,
-                            }}
-                            onClick={() => handleUserClick(user.id)}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = colors.bgHover;
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = colors.bgWhite;
-                            }}
-                          >
-                            {hasTask && project && (
-                              <div
+                      {/* Overlay: Task bars spanning multiple columns */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {timeSlots.map((slot, idx) => {
+                          // Calculate position based on start/end hours
+                          // Each column is 80px wide, hours start at 8
+                          const columnWidth = 80;
+                          const leftOffset = (slot.startHour - 8) * columnWidth;
+                          const barWidth = (slot.endHour - slot.startHour) * columnWidth;
+
+                          return (
+                            <div
+                              key={`${slot.task.id}-${idx}`}
+                              className="absolute cursor-pointer"
+                              style={{
+                                left: `${leftOffset + 4}px`,
+                                width: `${barWidth - 8}px`,
+                                top: `${12 + idx * 24}px`,
+                                height: '22px',
+                                backgroundColor: slot.project?.color || colors.barBlue,
+                                borderRadius: '4px',
+                                opacity: 0.9,
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '0 8px',
+                                overflow: 'hidden',
+                                pointerEvents: 'auto',
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onTaskClick(slot.task);
+                              }}
+                            >
+                              <span
+                                className="truncate"
                                 style={{
-                                  position: 'absolute',
-                                  top: '8px',
-                                  left: '4px',
-                                  right: '4px',
-                                  bottom: '8px',
-                                  backgroundColor: project.color || colors.barBlue,
-                                  borderRadius: '4px',
-                                  opacity: 0.85,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  padding: '0 4px',
-                                  overflow: 'hidden',
+                                  fontSize: typography.xs,
+                                  fontWeight: typography.medium,
+                                  color: 'white',
                                 }}
                               >
-                                <span
-                                  className="truncate"
-                                  style={{
-                                    fontSize: typography.xs,
-                                    fontWeight: typography.medium,
-                                    color: 'white',
-                                  }}
-                                >
-                                  {hourSlot.hour === 8 ? taskForHour?.activity || project.name : ''}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                                {slot.task.activity || slot.project?.name || 'Task'}
+                              </span>
+                              <span
+                                style={{
+                                  marginLeft: 'auto',
+                                  fontSize: '10px',
+                                  color: 'rgba(255,255,255,0.8)',
+                                  flexShrink: 0,
+                                  paddingLeft: '8px',
+                                }}
+                              >
+                                {slot.endHour - slot.startHour}h
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 );
