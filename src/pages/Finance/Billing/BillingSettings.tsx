@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Upload, Save, X } from 'lucide-react';
 import { useBilling } from '../../../contexts/BillingContext';
 
 export function BillingSettings() {
@@ -7,10 +7,43 @@ export function BillingSettings() {
   const [formData, setFormData] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (field: string, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image must be less than 2MB');
+        return;
+      }
+      // Convert to base64 for storage
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setFormData(prev => ({ ...prev, companyLogo: base64String }));
+        setHasChanges(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData(prev => ({ ...prev, companyLogo: undefined }));
+    setHasChanges(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSave = () => {
@@ -43,16 +76,39 @@ export function BillingSettings() {
             <div>
               <label className="block mb-2" style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>Company Logo</label>
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                <div className="relative w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
                   {formData.companyLogo ? (
-                    <img src={formData.companyLogo} alt="Company logo" className="max-w-full max-h-full" />
+                    <>
+                      <img src={formData.companyLogo} alt="Company logo" className="max-w-full max-h-full object-contain" />
+                      <button
+                        onClick={handleRemoveLogo}
+                        className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        title="Remove logo"
+                      >
+                        <X size={12} />
+                      </button>
+                    </>
                   ) : (
                     <Upload size={24} className="text-gray-400" />
                   )}
                 </div>
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm">
-                  Upload Logo
-                </button>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    {formData.companyLogo ? 'Change Logo' : 'Upload Logo'}
+                  </button>
+                  <span className="text-xs text-gray-500">PNG, JPG up to 2MB</span>
+                </div>
               </div>
             </div>
 
