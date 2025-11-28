@@ -37,6 +37,35 @@ interface HeatMapProps {
   onPlanTime: (userId: string) => void;
 }
 
+// Hour slot interface for Day view
+interface HourSlot {
+  hour: number;
+  label: string;
+  date: Date;
+}
+
+// Get hours for a single day (8am - 6pm = 11 hours)
+const getHoursInDay = (date: Date): HourSlot[] => {
+  const hours: HourSlot[] = [];
+  for (let hour = 8; hour <= 18; hour++) {
+    const hourDate = new Date(date);
+    hourDate.setHours(hour, 0, 0, 0);
+
+    // Format: 8am, 9am, 10am, 11am, 12pm, 1pm, etc.
+    let label: string;
+    if (hour === 12) {
+      label = '12pm';
+    } else if (hour > 12) {
+      label = `${hour - 12}pm`;
+    } else {
+      label = `${hour}am`;
+    }
+
+    hours.push({ hour, label, date: hourDate });
+  }
+  return hours;
+};
+
 export function HeatMap({
   users,
   tasks,
@@ -47,6 +76,8 @@ export function HeatMap({
   onPlanTime,
 }: HeatMapProps) {
   const [resolution, setResolution] = useState<TimeResolution>('week');
+  // For Day view - single selected day
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
   const [startDate, setStartDate] = useState<Date>(() => {
     const date = new Date();
     // For week view, start from Monday of current week
@@ -63,6 +94,15 @@ export function HeatMap({
     date.setDate(date.getDate() + diff + 6); // Add 6 days to get to Sunday
     return date;
   });
+
+  // Handle resolution change
+  const handleResolutionChange = (newResolution: TimeResolution) => {
+    setResolution(newResolution);
+    if (newResolution === 'day') {
+      // Set selected day to today or current start date
+      setSelectedDay(new Date());
+    }
+  };
   const [expandAll, setExpandAll] = useState(false);
   const [collapsedDepartments, setCollapsedDepartments] = useState<Set<string>>(new Set());
   const [visibleCount, setVisibleCount] = useState(15);
@@ -248,8 +288,8 @@ export function HeatMap({
   
   const handlePreviousPeriod = () => {
     if (resolution === 'day') {
-      setStartDate(subDays(startDate, 7));
-      setEndDate(subDays(endDate, 7));
+      // Move back by 1 day
+      setSelectedDay(subDays(selectedDay, 1));
     } else if (resolution === 'week') {
       // Move back by 7 days (one week)
       setStartDate(subDays(startDate, 7));
@@ -259,11 +299,11 @@ export function HeatMap({
       setEndDate(subMonths(endDate, 1));
     }
   };
-  
+
   const handleNextPeriod = () => {
     if (resolution === 'day') {
-      setStartDate(addDays(startDate, 7));
-      setEndDate(addDays(endDate, 7));
+      // Move forward by 1 day
+      setSelectedDay(addDays(selectedDay, 1));
     } else if (resolution === 'week') {
       // Move forward by 7 days (one week)
       setStartDate(addDays(startDate, 7));
@@ -326,43 +366,63 @@ export function HeatMap({
           {/* LEFT SECTION */}
           <div className="flex items-center gap-3">
             {/* View Toggle */}
-            <Tabs value={resolution} onValueChange={(v) => setResolution(v as TimeResolution)}>
+            <Tabs value={resolution} onValueChange={(v) => handleResolutionChange(v as TimeResolution)}>
               <TabsList className="bg-gray-100">
                 <TabsTrigger value="day">Day</TabsTrigger>
                 <TabsTrigger value="week">Week</TabsTrigger>
                 <TabsTrigger value="month">Month</TabsTrigger>
               </TabsList>
             </Tabs>
-            
-            {/* Date Range Picker */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-4" align="start">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Start Date</label>
-                    <CalendarComponent
-                      mode="single"
-                      selected={startDate}
-                      onSelect={(date) => date && setStartDate(date)}
-                    />
+
+            {/* Date Picker - Different for Day view vs Week/Month */}
+            {resolution === 'day' ? (
+              // Single date picker for Day view
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Calendar className="h-4 w-4" />
+                    {format(selectedDay, 'EEE, MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDay}
+                    onSelect={(date) => date && setSelectedDay(date)}
+                  />
+                </PopoverContent>
+              </Popover>
+            ) : (
+              // Date range picker for Week/Month view
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Calendar className="h-4 w-4" />
+                    {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="start">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Start Date</label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={startDate}
+                        onSelect={(date) => date && setStartDate(date)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">End Date</label>
+                      <CalendarComponent
+                        mode="single"
+                        selected={endDate}
+                        onSelect={(date) => date && setEndDate(date)}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">End Date</label>
-                    <CalendarComponent
-                      mode="single"
-                      selected={endDate}
-                      onSelect={(date) => date && setEndDate(date)}
-                    />
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverContent>
+              </Popover>
+            )}
             
             {/* Navigation Arrows */}
             <div className="flex items-center gap-1">
@@ -548,8 +608,266 @@ export function HeatMap({
         </div>
       )}
       
-      {/* Heat Map Grid - Day/Week View */}
-      {resolution !== 'month' && (
+      {/* Heat Map Grid - Day View (Hourly Columns) */}
+      {resolution === 'day' && (
+        <div className="flex-1 overflow-auto relative" ref={scrollContainerRef}>
+          <div className="min-w-max">
+            {/* Header Row - Hour columns */}
+            <div
+              className="sticky top-0 z-20 flex"
+              style={{
+                backgroundColor: colors.bgWhite,
+                borderBottom: `1px solid ${colors.borderDefault}`,
+              }}
+            >
+              <div
+                className="sticky left-0 z-30"
+                style={{
+                  width: '240px',
+                  padding: '12px',
+                  backgroundColor: colors.bgWhite,
+                  borderRight: `1px solid ${colors.borderDefault}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: typography.sm,
+                    fontWeight: typography.medium,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  Team Member
+                </div>
+              </div>
+              <div className="flex">
+                {getHoursInDay(selectedDay).map(hourSlot => {
+                  const now = new Date();
+                  const isCurrentHour =
+                    selectedDay.toDateString() === now.toDateString() &&
+                    hourSlot.hour === now.getHours();
+
+                  return (
+                    <div
+                      key={hourSlot.hour}
+                      className="min-w-[80px] relative"
+                      style={{
+                        padding: '12px 8px',
+                        backgroundColor: colors.bgWhite,
+                        borderLeft: `1px solid ${colors.borderLight}`,
+                      }}
+                    >
+                      <div
+                        className="text-center"
+                        style={{
+                          fontSize: typography.sm,
+                          fontWeight: typography.medium,
+                          color: isCurrentHour ? '#3B82F6' : colors.textSecondary,
+                        }}
+                      >
+                        {hourSlot.label}
+                      </div>
+                      {/* Current hour indicator */}
+                      {isCurrentHour && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: '2px',
+                            backgroundColor: '#3B82F6',
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Day View Rows */}
+            {visibleUsersFlat.slice(0, visibleCount + visibleUsersFlat.filter(v => v.type === 'dept').length).map((item) => {
+              if (item.type === 'dept') {
+                const isCollapsed = collapsedDepartments.has(item.dept);
+                return (
+                  <div
+                    key={`dept-${item.dept}`}
+                    className="flex cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: colors.bgSubtle,
+                      borderBottom: `1px solid ${colors.borderDefault}`,
+                      borderLeft: `2px solid ${colors.borderDefault}`,
+                    }}
+                    onClick={() => toggleDepartment(item.dept)}
+                  >
+                    <div
+                      className="sticky left-0 z-10 flex items-center gap-2"
+                      style={{
+                        width: '240px',
+                        padding: '8px 12px',
+                        backgroundColor: colors.bgSubtle,
+                        borderRight: `1px solid ${colors.borderDefault}`,
+                      }}
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight style={{ width: '12px', height: '12px', color: colors.textMuted }} />
+                      ) : (
+                        <ChevronDown style={{ width: '12px', height: '12px', color: colors.textMuted }} />
+                      )}
+                      <span style={{ fontSize: typography.base, fontWeight: typography.medium, color: colors.textSecondary }}>
+                        {item.dept}
+                      </span>
+                      <span style={{ fontSize: typography.base, color: colors.textMuted }}>
+                        ({item.count})
+                      </span>
+                    </div>
+                    <div className="flex">
+                      {getHoursInDay(selectedDay).map(hourSlot => (
+                        <div
+                          key={hourSlot.hour}
+                          className="min-w-[80px]"
+                          style={{ borderLeft: `1px solid ${colors.borderLight}` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              } else {
+                // User row for Day view
+                const user = item.user;
+                const userTasks = tasks.filter(t => t.assigneeId === user.id);
+                const capacity = userCapacities[item.userIndex];
+
+                // Get tasks for this specific day
+                const dayTasks = userTasks.filter(task => {
+                  const taskStart = new Date(task.startDate);
+                  const taskEnd = new Date(task.endDate);
+                  taskStart.setHours(0, 0, 0, 0);
+                  taskEnd.setHours(23, 59, 59, 999);
+                  const day = new Date(selectedDay);
+                  day.setHours(12, 0, 0, 0);
+                  return day >= taskStart && day <= taskEnd;
+                });
+
+                return (
+                  <div
+                    key={`user-${user.id}`}
+                    className="flex transition-colors"
+                    style={{
+                      height: '56px',
+                      backgroundColor: selectedUserId === user.id ? colors.bgSelected : colors.bgWhite,
+                      borderBottom: `1px solid ${colors.borderDefault}`,
+                      borderLeft: selectedUserId === user.id ? `3px solid ${colors.barBlue}` : 'none',
+                    }}
+                  >
+                    {/* User info column */}
+                    <div
+                      className="sticky left-0 z-10 flex items-center gap-3 cursor-pointer"
+                      style={{
+                        width: '240px',
+                        padding: '12px',
+                        backgroundColor: selectedUserId === user.id ? colors.bgSelected : colors.bgWhite,
+                        borderRight: `1px solid ${colors.borderDefault}`,
+                      }}
+                      onClick={() => handleUserClick(user.id)}
+                    >
+                      <div
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: colors.bgSubtle,
+                          border: `1px solid ${colors.borderDefault}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: typography.xs,
+                          color: colors.textSecondary,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {user.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate" style={{ fontSize: typography.md, fontWeight: typography.medium, color: colors.textPrimary }}>
+                          {user.name}
+                        </div>
+                        <div className="truncate" style={{ fontSize: typography.sm, color: colors.textSecondary }}>
+                          {user.role}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hour cells */}
+                    <div className="flex">
+                      {getHoursInDay(selectedDay).map(hourSlot => {
+                        // Find tasks that overlap this hour
+                        // For now, show a simplified view - tasks span all work hours
+                        const hasTask = dayTasks.length > 0;
+                        const taskForHour = hasTask ? dayTasks[0] : null;
+                        const project = taskForHour ? projects.find(p => p.id === taskForHour.projectId) : null;
+
+                        return (
+                          <div
+                            key={hourSlot.hour}
+                            className="min-w-[80px] relative flex items-center justify-center cursor-pointer transition-colors"
+                            style={{
+                              height: '56px',
+                              backgroundColor: colors.bgWhite,
+                              borderLeft: `1px solid ${colors.borderLight}`,
+                            }}
+                            onClick={() => handleUserClick(user.id)}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = colors.bgHover;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = colors.bgWhite;
+                            }}
+                          >
+                            {hasTask && project && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  left: '4px',
+                                  right: '4px',
+                                  bottom: '8px',
+                                  backgroundColor: project.color || colors.barBlue,
+                                  borderRadius: '4px',
+                                  opacity: 0.85,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '0 4px',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                <span
+                                  className="truncate"
+                                  style={{
+                                    fontSize: typography.xs,
+                                    fontWeight: typography.medium,
+                                    color: 'white',
+                                  }}
+                                >
+                                  {hourSlot.hour === 8 ? taskForHour?.activity || project.name : ''}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Heat Map Grid - Week View */}
+      {resolution === 'week' && (
         <div className="flex-1 overflow-auto relative" ref={scrollContainerRef}>
           <div className="min-w-max">
             {/* Header Row */}
