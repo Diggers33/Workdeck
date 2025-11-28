@@ -1,10 +1,9 @@
 import { AlertCircle } from 'lucide-react';
 import { User, Task, Project, TimeResolution, Leave } from '../types';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { format, isSameDay, isWithinInterval } from 'date-fns';
+import { format } from 'date-fns';
 import React from 'react';
-import { LeaveCell } from './LeaveCell';
-import { LeaveTooltip } from './LeaveTooltip';
+import { colors, typography } from '../constants/designTokens';
 
 interface UserRowProps {
   user: User;
@@ -210,59 +209,108 @@ export function UserRow({
   
   return (
     <>
-      <div 
-        className="flex border-b border-gray-200 transition-colors"
+      <div
+        className="flex transition-colors"
         style={{
-          background: isSelected ? '#F0F9FF' : 'white',
-          borderLeft: isSelected ? '3px solid #3B82F6' : 'none',
+          height: '56px',
+          background: isSelected ? colors.bgSelected : colors.bgWhite,
+          borderBottom: `1px solid ${colors.borderDefault}`,
+          borderLeft: isSelected ? `3px solid ${colors.barBlue}` : 'none',
+          transition: 'background-color 150ms ease',
         }}
       >
         {/* User Info Column - 240px */}
-        <div 
-          className="sticky left-0 z-10 border-r border-gray-200 flex items-center gap-3 transition-colors cursor-pointer"
-          style={{ 
-            width: '240px', 
+        <div
+          className="sticky left-0 z-10 flex items-center gap-3 cursor-pointer"
+          style={{
+            width: '240px',
             padding: '12px',
-            background: isSelected ? '#F0F9FF' : 'white',
+            height: '56px',
+            background: isSelected ? colors.bgSelected : colors.bgWhite,
+            borderRight: `1px solid ${colors.borderDefault}`,
+            transition: 'background-color 150ms ease',
           }}
           onClick={() => onUserClick(user.id)}
           onMouseEnter={(e) => {
             if (!isSelected) {
-              e.currentTarget.style.background = '#F9FAFB';
+              e.currentTarget.style.background = colors.bgHover;
             }
           }}
           onMouseLeave={(e) => {
             if (!isSelected) {
-              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.background = colors.bgWhite;
             }
           }}
         >
-          {/* Avatar */}
-          <Avatar className="h-8 w-8 flex-shrink-0">
+          {/* Avatar - 32px with border */}
+          <Avatar
+            className="flex-shrink-0"
+            style={{
+              width: '32px',
+              height: '32px',
+              border: `1px solid ${colors.borderDefault}`,
+              borderRadius: '50%',
+            }}
+          >
             <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="text-xs" style={{ fontSize: '11px' }}>
+            <AvatarFallback
+              style={{
+                fontSize: typography.xs,
+                color: colors.textSecondary,
+              }}
+            >
               {user.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
-          
+
           {/* User Details */}
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">{user.name}</div>
-            <div className="text-xs text-gray-600 truncate">{user.role}</div>
+            <div
+              className="truncate"
+              style={{
+                fontSize: typography.md,
+                fontWeight: typography.medium,
+                color: colors.textPrimary,
+              }}
+            >
+              {user.name}
+            </div>
+            <div
+              className="truncate"
+              style={{
+                fontSize: typography.sm,
+                fontWeight: typography.normal,
+                color: colors.textSecondary,
+              }}
+            >
+              {user.role}
+            </div>
           </div>
-          
-          {/* Utilization Badge */}
-          <div
-            className="px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0"
+
+          {/* Utilization Badge - Subtle text with dot */}
+          <span
+            className="flex items-center gap-1.5 flex-shrink-0"
             style={{
-              background: utilizationPercent > 100 ? '#FEE2E2' :
-                         utilizationPercent >= 80 ? '#FEF3C7' : '#D1FAE5',
-              color: utilizationPercent > 100 ? '#991B1B' :
-                     utilizationPercent >= 80 ? '#92400E' : '#065F46',
+              fontSize: typography.sm,
+              color: colors.textSecondary,
             }}
           >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: utilizationPercent > 100
+                  ? colors.statusRed
+                  : utilizationPercent > 85
+                  ? colors.statusAmber
+                  : utilizationPercent > 50
+                  ? colors.statusGreen
+                  : colors.statusGray,
+              }}
+            />
             {Math.round(utilizationPercent)}%
-          </div>
+          </span>
         </div>
         
         {/* Capacity Cells with Overlaid Activity Bars */}
@@ -272,10 +320,10 @@ export function UserRow({
             const percentUsed = allocation
               ? (allocation.plannedHours / allocation.totalCapacity) * 100
               : 0;
-            
+
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
             const capacityColor = percentUsed === 0
-              ? isWeekend ? '#FAFAFC' : 'white'
+              ? isWeekend ? colors.bgSubtle : colors.bgWhite
               : percentUsed < 50
               ? isWeekend ? '#E0F7ED' : '#D1FAE5'
               : percentUsed < 100
@@ -292,10 +340,11 @@ export function UserRow({
                 ref={(el) => {
                   if (el) cellRefs.current.set(date.toISOString(), el);
                 }}
-                className="min-w-[120px] h-[60px] relative flex flex-col items-center justify-center transition-all duration-150 hover:brightness-95 cursor-pointer"
+                className="min-w-[120px] relative flex flex-col items-center justify-center transition-all duration-150 hover:brightness-95 cursor-pointer"
                 style={{
+                  height: '56px',
                   background: capacityColor,
-                  borderLeft: '1px solid #E5E7EB',
+                  borderLeft: `1px solid ${colors.borderDefault}`,
                 }}
                 onClick={() => onUserClick(user.id)}
                 onMouseEnter={(e) => {
@@ -316,11 +365,11 @@ export function UserRow({
                 {/* Capacity Text - At top of cell */}
                 <div className="absolute top-2 left-0 right-0 text-center px-2 pointer-events-none z-10">
                   {allocation && allocation.plannedHours > 0 ? (
-                    <div 
-                      className="font-medium" 
-                      style={{ 
-                        fontSize: '12px',
-                        color: percentUsed > 100 ? '#DC2626' : percentUsed >= 50 ? '#92400E' : '#065F46'
+                    <div
+                      style={{
+                        fontSize: typography.sm,
+                        fontWeight: typography.medium,
+                        color: percentUsed > 100 ? colors.statusRed : percentUsed >= 50 ? colors.statusAmber : colors.statusGreen
                       }}
                     >
                       {allocation.plannedHours}h / {allocation.totalCapacity}h
@@ -328,12 +377,12 @@ export function UserRow({
                   ) : (
                     <div>
                       {isWeekend ? (
-                        <div 
+                        <div
                           className="select-none"
-                          style={{ 
+                          style={{
                             fontSize: '10px',
-                            fontWeight: 600,
-                            color: '#9CA3AF',
+                            fontWeight: typography.semibold,
+                            color: colors.textMuted,
                             letterSpacing: '0.05em',
                             opacity: 0.3
                           }}
@@ -341,7 +390,7 @@ export function UserRow({
                           WEEKEND
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">-</span>
+                        <span style={{ fontSize: typography.sm, color: colors.textMuted }}>-</span>
                       )}
                     </div>
                   )}
