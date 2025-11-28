@@ -26,6 +26,7 @@ export function InvoiceSetupStep({ formData, updateFormData, onNext, onCancel, s
   const canProceed = formData.clientName && formData.projectName && formData.invoiceNumber;
 
   const formatDateDisplay = (dateString: string) => {
+    if (!dateString) return null;
     return new Date(dateString).toLocaleDateString('en-GB', {
       month: 'short',
       day: 'numeric',
@@ -35,15 +36,13 @@ export function InvoiceSetupStep({ formData, updateFormData, onNext, onCancel, s
 
   return (
     <div className="flex-1 flex flex-col" style={{ backgroundColor: '#F9FAFB' }}>
-      {/* Content - vertically centered using calc for explicit height */}
+      {/* Content - 2 column layout */}
       <div
-        className="flex flex-col justify-center"
-        style={{
-          minHeight: 'calc(100vh - 160px)', /* viewport minus header(48px) + footer(56px) + nav(~56px) */
-          padding: '24px'
-        }}
+        className="flex-1 flex items-start justify-center"
+        style={{ padding: '24px', overflow: 'auto' }}
       >
-        <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', width: '100%', maxWidth: '1100px' }}>
+          {/* Left Column - Form */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Section 1: Invoice Setup */}
             <div className="bg-white border border-gray-200 rounded-xl" style={{ padding: '20px' }}>
@@ -235,10 +234,92 @@ export function InvoiceSetupStep({ formData, updateFormData, onNext, onCancel, s
               </div>
             </div>
           </div>
+
+          {/* Right Column - Live Preview */}
+          <div className="bg-white border border-gray-200 rounded-xl" style={{ padding: '20px', height: 'fit-content' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
+              Preview
+            </div>
+
+            {/* Mini Invoice Preview */}
+            <div style={{ backgroundColor: '#F9FAFB', borderRadius: '8px', padding: '16px' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Invoice</div>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: formData.invoiceNumber ? '#111827' : '#D1D5DB' }}>
+                    {formData.invoiceNumber || 'INV-0000'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  {settings.companyLogo && (
+                    <img
+                      src={settings.companyLogo}
+                      alt="Logo"
+                      style={{ maxHeight: '32px', marginLeft: 'auto', marginBottom: '4px' }}
+                    />
+                  )}
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>{settings.companyName}</div>
+                </div>
+              </div>
+
+              {/* Bill To */}
+              <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: '10px', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Bill To</div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: formData.clientName ? '#111827' : '#D1D5DB' }}>
+                  {formData.clientName || 'Select client...'}
+                </div>
+                <div style={{ fontSize: '12px', color: formData.projectName ? '#6B7280' : '#D1D5DB', marginTop: '2px' }}>
+                  {formData.projectName || 'Select project...'}
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
+                <div>
+                  <div style={{ color: '#9CA3AF', marginBottom: '2px' }}>Invoice Date</div>
+                  <div style={{ color: formData.invoiceDate ? '#111827' : '#D1D5DB', fontWeight: 500 }}>
+                    {formatDateDisplay(formData.invoiceDate) || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#9CA3AF', marginBottom: '2px' }}>Due Date</div>
+                  <div style={{ color: formData.dueDate ? '#111827' : '#D1D5DB', fontWeight: 500 }}>
+                    {formatDateDisplay(formData.dueDate) || '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#9CA3AF', marginBottom: '2px' }}>Payment Terms</div>
+                  <div style={{ color: '#111827', fontWeight: 500 }}>
+                    {formData.paymentTerms || 'NET 30'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: '#9CA3AF', marginBottom: '2px' }}>Tax Rate</div>
+                  <div style={{ color: '#111827', fontWeight: 500 }}>
+                    {formData.taxRate ?? settings.defaultTaxRate}%
+                  </div>
+                </div>
+                {formData.poNumber && (
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ color: '#9CA3AF', marginBottom: '2px' }}>PO Number</div>
+                    <div style={{ color: '#111827', fontWeight: 500 }}>{formData.poNumber}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Placeholder for line items */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: '11px', color: '#9CA3AF', textAlign: 'center', padding: '12px 0' }}>
+                  Line items will be added in the next step
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Footer - fixed at bottom */}
+      {/* Footer */}
       <div
         className="flex-none bg-white border-t flex items-center justify-between px-6"
         style={{
