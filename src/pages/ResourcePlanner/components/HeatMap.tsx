@@ -377,19 +377,68 @@ export function HeatMap({
             </div>
           </div>
           
-          {/* CENTER SECTION */}
-          <div className="flex-1 max-w-md relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search people, projects, or tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-16"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded">
-              ⌘K
-            </kbd>
+          {/* CENTER SECTION - Filters + Search */}
+          <div className="flex items-center gap-2 flex-1">
+            {/* Inline Filter Dropdowns */}
+            <Select
+              value={activeFilters.departments.length === 1 ? activeFilters.departments[0] : 'all'}
+              onValueChange={(value) => {
+                if (value === 'all') {
+                  setActiveFilters(prev => ({ ...prev, departments: [] }));
+                } else {
+                  setActiveFilters(prev => ({ ...prev, departments: [value] }));
+                }
+              }}
+            >
+              <SelectTrigger
+                className="bg-white border-gray-200 text-gray-700"
+                style={{ width: '140px', height: '36px', fontSize: '13px' }}
+              >
+                <SelectValue placeholder="All Departments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map(dept => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value="all"
+              onValueChange={(value) => {
+                // Project filter - would need to add projectFilter state if needed
+              }}
+            >
+              <SelectTrigger
+                className="bg-white border-gray-200 text-gray-700"
+                style={{ width: '140px', height: '36px', fontSize: '13px' }}
+              >
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Search Input */}
+            <div className="flex-1 max-w-sm relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search people, projects, or tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-16"
+                style={{ height: '36px' }}
+              />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-400 bg-gray-100 border border-gray-200 rounded">
+                ⌘K
+              </kbd>
+            </div>
           </div>
           
           {/* RIGHT SECTION */}
