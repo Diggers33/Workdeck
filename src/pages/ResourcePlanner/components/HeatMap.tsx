@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Calendar, ChevronDown, ChevronRight, ChevronLeft, Maximize2, ChevronsDownUp, Search, SlidersHorizontal, Download, Settings } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronRight, ChevronLeft, Search, SlidersHorizontal, Download, Settings } from 'lucide-react';
 import { User, Task, Project, TimeResolution, Leave } from '../types';
 import { UserRow } from './UserRow';
 import { SimplifiedDetailPanel } from './SimplifiedDetailPanel';
@@ -12,6 +12,7 @@ import { Calendar as CalendarComponent } from './ui/calendar';
 import { Badge } from './ui/badge';
 import { FilterPanel, FilterState } from './FilterPanel';
 import { LeaveLegend } from './LeaveLegend';
+import { colors, typography } from '../constants/designTokens';
 import {
   getDatesInRange,
   getWeeksInRange,
@@ -312,9 +313,15 @@ export function HeatMap({
   const hasActiveFilters = activeFilterCount > 0 || searchQuery.length > 0;
   
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full" style={{ backgroundColor: colors.bgSubtle }}>
       {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div
+        className="px-6 py-4"
+        style={{
+          backgroundColor: colors.bgWhite,
+          borderBottom: `1px solid ${colors.borderDefault}`,
+        }}
+      >
         <div className="flex items-center justify-between gap-6">
           {/* LEFT SECTION */}
           <div className="flex items-center gap-3">
@@ -469,7 +476,13 @@ export function HeatMap({
       
       {/* Active Filters Chips */}
       {hasActiveFilters && (
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div
+          className="px-6 py-3"
+          style={{
+            backgroundColor: colors.bgWhite,
+            borderBottom: `1px solid ${colors.borderDefault}`,
+          }}
+        >
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-600">Active filters:</span>
             
@@ -540,9 +553,31 @@ export function HeatMap({
         <div className="flex-1 overflow-auto relative" ref={scrollContainerRef}>
           <div className="min-w-max">
             {/* Header Row */}
-            <div className="sticky top-0 z-20 bg-white border-b-2 border-gray-300 flex">
-              <div className="sticky left-0 z-30 bg-white border-r border-gray-300 p-3" style={{ width: '240px' }}>
-                <div className="font-medium text-sm">Team Member</div>
+            <div
+              className="sticky top-0 z-20 flex"
+              style={{
+                backgroundColor: colors.bgWhite,
+                borderBottom: `1px solid ${colors.borderDefault}`,
+              }}
+            >
+              <div
+                className="sticky left-0 z-30"
+                style={{
+                  width: '240px',
+                  padding: '12px',
+                  backgroundColor: colors.bgWhite,
+                  borderRight: `1px solid ${colors.borderDefault}`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: typography.sm,
+                    fontWeight: typography.medium,
+                    color: colors.textSecondary,
+                  }}
+                >
+                  Team Member
+                </div>
               </div>
               <div className="flex">
                 {dates.map(date => {
@@ -552,37 +587,50 @@ export function HeatMap({
                   return (
                     <div
                       key={date.toISOString()}
-                      className={`min-w-[120px] p-2 transition-colors ${
-                        isToday ? 'bg-blue-50' : ''
-                      }`}
+                      className="min-w-[120px] relative"
                       style={{
-                        background: isToday ? '#EFF6FF' : isWeekend ? '#FAFAFC' : 'white',
-                        borderLeft: isWeekend ? '1px dashed #E3E6EB' : '1px solid #E5E7EB',
+                        padding: '8px 12px',
+                        backgroundColor: isWeekend ? colors.bgSubtle : colors.bgWhite,
+                        borderLeft: `1px solid ${colors.borderLight}`,
                       }}
                     >
                       <div className="text-center">
-                        <div className="text-[13px] font-semibold" style={{
-                          letterSpacing: '-0.01em',
-                          color: isWeekend ? '#9CA3AF' : '#111827'
-                        }}>
+                        {/* Day name - uppercase */}
+                        <div
+                          style={{
+                            fontSize: typography.sm,
+                            fontWeight: typography.medium,
+                            color: isWeekend ? colors.textMuted : colors.textSecondary,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
                           {format(date, 'EEE')}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
+                        {/* Date */}
+                        <div
+                          style={{
+                            fontSize: typography.base,
+                            color: isWeekend ? colors.textMuted : colors.textPrimary,
+                            marginTop: '2px',
+                          }}
+                        >
                           {format(date, 'MMM d')}
                         </div>
-                        {isWeekend && (
-                          <div
-                            className="text-[10px] mt-0.5"
-                            style={{
-                              color: '#D1D5DB',
-                              letterSpacing: '0.05em',
-                              fontWeight: 600
-                            }}
-                          >
-                            WEEKEND
-                          </div>
-                        )}
                       </div>
+                      {/* Today indicator - blue bottom border */}
+                      {isToday && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: '2px',
+                            backgroundColor: '#3B82F6',
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -596,24 +644,72 @@ export function HeatMap({
                 return (
                   <div
                     key={`dept-${item.dept}`}
-                    className="flex bg-gray-100 border-b border-gray-200 hover:bg-gray-150 transition-colors cursor-pointer"
+                    className="flex cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: colors.bgSubtle,
+                      borderBottom: `1px solid ${colors.borderDefault}`,
+                      borderLeft: `2px solid ${colors.borderDefault}`,
+                    }}
                     onClick={() => toggleDepartment(item.dept)}
                   >
-                    <div className="sticky left-0 z-10 bg-gray-100 border-r border-gray-300 p-3 flex items-center gap-2" style={{ width: '240px' }}>
+                    <div
+                      className="sticky left-0 z-10 flex items-center gap-2"
+                      style={{
+                        width: '240px',
+                        padding: '8px 12px',
+                        backgroundColor: colors.bgSubtle,
+                        borderRight: `1px solid ${colors.borderDefault}`,
+                      }}
+                    >
                       {isCollapsed ? (
-                        <ChevronRight className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                        <ChevronRight
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            color: colors.textMuted,
+                          }}
+                        />
                       ) : (
-                        <ChevronDown className="h-3.5 w-3.5" style={{ color: '#6B7280' }} />
+                        <ChevronDown
+                          style={{
+                            width: '12px',
+                            height: '12px',
+                            color: colors.textMuted,
+                          }}
+                        />
                       )}
-                      <span className="font-medium text-sm">{item.dept} ({item.count})</span>
+                      <span
+                        style={{
+                          fontSize: typography.base,
+                          fontWeight: typography.medium,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {item.dept}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: typography.base,
+                          color: colors.textMuted,
+                        }}
+                      >
+                        ({item.count})
+                      </span>
                     </div>
                     <div className="flex">
-                      {dates.map(date => (
-                        <div
-                          key={date.toISOString()}
-                          className="min-w-24 border-l border-gray-200"
-                        />
-                      ))}
+                      {dates.map(date => {
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        return (
+                          <div
+                            key={date.toISOString()}
+                            className="min-w-[120px]"
+                            style={{
+                              borderLeft: `1px solid ${colors.borderLight}`,
+                              backgroundColor: isWeekend ? 'rgba(250, 251, 252, 0.5)' : 'transparent',
+                            }}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -643,8 +739,20 @@ export function HeatMap({
           </div>
 
           {/* Virtual Scrolling Indicator */}
-          <div className="sticky left-0 bg-white border-t border-gray-200 p-3">
-            <div className="flex items-center justify-between text-sm text-gray-600">
+          <div
+            className="sticky left-0 p-3"
+            style={{
+              backgroundColor: colors.bgWhite,
+              borderTop: `1px solid ${colors.borderDefault}`,
+            }}
+          >
+            <div
+              className="flex items-center justify-between"
+              style={{
+                fontSize: typography.sm,
+                color: colors.textSecondary,
+              }}
+            >
               <span>
                 Showing {actualVisibleCount > 0 ? 1 : 0}-{actualVisibleCount} of {totalUserCount} team members
               </span>
