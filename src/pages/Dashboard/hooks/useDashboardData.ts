@@ -4,6 +4,19 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+
+// Debug logging helper
+const DEBUG = true; // Set to false to disable logging
+const log = (message: string, data?: any) => {
+  if (DEBUG) {
+    console.log(`[Dashboard API] ${message}`, data !== undefined ? data : '');
+  }
+};
+const logError = (message: string, error: any) => {
+  if (DEBUG) {
+    console.error(`[Dashboard API] ${message}`, error);
+  }
+};
 import {
   Widget,
   WIDGET_TYPES,
@@ -120,18 +133,22 @@ export function useDashboardData(): UseDashboardDataReturn {
 
   // Load all dashboard data
   const loadDashboardData = useCallback(async () => {
+    log('Starting dashboard data load...');
     setLoading(true);
     setError(null);
 
     try {
       // First, get user's widget configuration
+      log('Fetching user widgets...');
       let widgets: Widget[] = [];
       try {
         widgets = await getUserWidgets();
+        log('User widgets received:', widgets);
       } catch (err) {
-        console.warn('Could not fetch widgets, using defaults:', err);
+        logError('Could not fetch widgets, using defaults:', err);
         // Use default widget configuration if API fails
         widgets = getDefaultWidgets();
+        log('Using default widgets:', widgets);
       }
 
       setData(prev => ({ ...prev, widgets }));
@@ -140,89 +157,128 @@ export function useDashboardData(): UseDashboardDataReturn {
       const enabledTypes = widgets
         .filter(w => w.enabled !== false)
         .map(w => w.type);
+      log('Enabled widget types:', enabledTypes);
 
       // Fetch data for each enabled widget in parallel
       const fetchPromises: Promise<void>[] = [];
 
       if (enabledTypes.includes(WIDGET_TYPES.FYI)) {
+        log('Fetching FYI/Whats New...');
         fetchPromises.push(
           getWhatsNew()
-            .then(whatsNew => setData(prev => ({ ...prev, whatsNew })))
-            .catch(err => console.error('Error fetching whats new:', err))
+            .then(whatsNew => {
+              log('FYI data received:', whatsNew);
+              setData(prev => ({ ...prev, whatsNew }));
+            })
+            .catch(err => logError('Error fetching whats new:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.PENDING)) {
+        log('Fetching Pending Approvals...');
         fetchPromises.push(
           getWhatsPending()
-            .then(whatsPending => setData(prev => ({ ...prev, whatsPending })))
-            .catch(err => console.error('Error fetching pending:', err))
+            .then(whatsPending => {
+              log('Pending data received:', whatsPending);
+              setData(prev => ({ ...prev, whatsPending }));
+            })
+            .catch(err => logError('Error fetching pending:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.DAILY_STATUS)) {
+        log('Fetching Portfolio...');
         fetchPromises.push(
           getPortfolio()
-            .then(portfolio => setData(prev => ({ ...prev, portfolio })))
-            .catch(err => console.error('Error fetching portfolio:', err))
+            .then(portfolio => {
+              log('Portfolio data received:', portfolio);
+              setData(prev => ({ ...prev, portfolio }));
+            })
+            .catch(err => logError('Error fetching portfolio:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.TASK_COUNT)) {
+        log('Fetching Task Count...');
         fetchPromises.push(
           getTaskCount()
-            .then(taskCount => setData(prev => ({ ...prev, taskCount })))
-            .catch(err => console.error('Error fetching task count:', err))
+            .then(taskCount => {
+              log('Task count data received:', taskCount);
+              setData(prev => ({ ...prev, taskCount }));
+            })
+            .catch(err => logError('Error fetching task count:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.EXPENSES)) {
+        log('Fetching Expenses...');
         fetchPromises.push(
           getExpenses()
-            .then(expenses => setData(prev => ({ ...prev, expenses })))
-            .catch(err => console.error('Error fetching expenses:', err))
+            .then(expenses => {
+              log('Expenses data received:', expenses);
+              setData(prev => ({ ...prev, expenses }));
+            })
+            .catch(err => logError('Error fetching expenses:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.PURCHASES)) {
+        log('Fetching Purchases...');
         fetchPromises.push(
           getPurchases()
-            .then(purchases => setData(prev => ({ ...prev, purchases })))
-            .catch(err => console.error('Error fetching purchases:', err))
+            .then(purchases => {
+              log('Purchases data received:', purchases);
+              setData(prev => ({ ...prev, purchases }));
+            })
+            .catch(err => logError('Error fetching purchases:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.MILESTONES)) {
+        log('Fetching Milestones...');
         fetchPromises.push(
           getMilestones()
-            .then(milestones => setData(prev => ({ ...prev, milestones })))
-            .catch(err => console.error('Error fetching milestones:', err))
+            .then(milestones => {
+              log('Milestones data received:', milestones);
+              setData(prev => ({ ...prev, milestones }));
+            })
+            .catch(err => logError('Error fetching milestones:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.RED_ZONE)) {
+        log('Fetching Red Zone...');
         fetchPromises.push(
           getRedZone()
-            .then(redZone => setData(prev => ({ ...prev, redZone })))
-            .catch(err => console.error('Error fetching red zone:', err))
+            .then(redZone => {
+              log('Red Zone data received:', redZone);
+              setData(prev => ({ ...prev, redZone }));
+            })
+            .catch(err => logError('Error fetching red zone:', err))
         );
       }
 
       if (enabledTypes.includes(WIDGET_TYPES.TODO_LIST)) {
+        log('Fetching Checklist/Todo...');
         fetchPromises.push(
           getChecklist()
-            .then(checklist => setData(prev => ({ ...prev, checklist })))
-            .catch(err => console.error('Error fetching checklist:', err))
+            .then(checklist => {
+              log('Checklist data received:', checklist);
+              setData(prev => ({ ...prev, checklist }));
+            })
+            .catch(err => logError('Error fetching checklist:', err))
         );
       }
 
       await Promise.all(fetchPromises);
+      log('All dashboard data loaded successfully');
 
     } catch (err) {
-      console.error('Dashboard load error:', err);
+      logError('Dashboard load error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
       setLoading(false);
+      log('Dashboard loading complete');
     }
   }, []);
 

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight } from 'lucide-react';
+import { ChecklistItem as ApiChecklistItem } from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
+  items?: ApiChecklistItem[];
   onDragStart: (task: any) => void;
   onDragEnd: () => void;
   onTaskClick?: (task: any) => void;
@@ -27,21 +29,8 @@ interface Task {
   priority?: 'high' | 'medium' | 'low';
 }
 
-export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
-  const [expandedGroups, setExpandedGroups] = useState({
-    assigned: true,
-    personal: true
-  });
-
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
-  const [showNewMenu, setShowNewMenu] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [quickAddValue, setQuickAddValue] = useState('');
-  const [convertingTask, setConvertingTask] = useState<string | null>(null);
-  const [showPriorityMenu, setShowPriorityMenu] = useState<string | null>(null);
-
-  // State for managing tasks
-  const [assignedTasks, setAssignedTasks] = useState<Task[]>([
+// Default mock data for assigned tasks when no API data
+const defaultAssignedTasks: Task[] = [
     { 
       id: 'a1', 
       title: 'Review project budget', 
@@ -86,20 +75,21 @@ export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoList
       completed: false,
       priority: 'high'
     },
-    { 
-      id: 'a4', 
-      title: 'Code review PR #234', 
-      project: 'APEX', 
-      projectColor: '#60A5FA', 
-      category: 'Dev', 
-      due: 'Today', 
-      duration: '45m', 
+    {
+      id: 'a4',
+      title: 'Code review PR #234',
+      project: 'APEX',
+      projectColor: '#60A5FA',
+      category: 'Dev',
+      due: 'Today',
+      duration: '45m',
       completed: false,
       priority: 'low'
     },
-  ]);
+];
 
-  const [personalTasks, setPersonalTasks] = useState<Task[]>([
+// Default mock data for personal tasks when no API data
+const defaultPersonalTasks: Task[] = [
     { 
       id: 'p1', 
       title: 'Prepare team standup notes', 
@@ -124,16 +114,75 @@ export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoList
         { id: 'c9', label: 'Key takeaways summary', completed: false }
       ]
     },
-    { 
-      id: 'p3', 
-      title: 'Update personal OKRs', 
-      category: 'Strategy', 
-      due: 'Tomorrow', 
-      duration: '1h', 
+    {
+      id: 'p3',
+      title: 'Update personal OKRs',
+      category: 'Strategy',
+      due: 'Tomorrow',
+      duration: '1h',
       completed: false,
       priority: 'medium'
     },
-  ]);
+];
+
+// Helper function to convert API checklist items to Task format
+function convertApiItemsToTasks(items: ApiChecklistItem[]): Task[] {
+  return items.map(item => ({
+    id: item.id,
+    title: item.text,
+    category: 'Personal',
+    due: formatDate(item.createdAt),
+    duration: '30m',
+    completed: item.completed,
+    priority: 'medium' as const,
+  }));
+}
+
+// Helper to format date
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString();
+  } catch {
+    return dateStr;
+  }
+}
+
+export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
+  // Check if we have API data
+  const hasApiData = items && items.length > 0;
+
+  const [expandedGroups, setExpandedGroups] = useState({
+    assigned: true,
+    personal: true
+  });
+
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [showNewMenu, setShowNewMenu] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddValue, setQuickAddValue] = useState('');
+  const [convertingTask, setConvertingTask] = useState<string | null>(null);
+  const [showPriorityMenu, setShowPriorityMenu] = useState<string | null>(null);
+
+  // State for managing tasks - initialize with API data if available
+  const [assignedTasks, setAssignedTasks] = useState<Task[]>(defaultAssignedTasks);
+  const [personalTasks, setPersonalTasks] = useState<Task[]>(
+    hasApiData ? convertApiItemsToTasks(items) : defaultPersonalTasks
+  );
+
+  // Update personal tasks when API items change
+  useEffect(() => {
+    if (items && items.length > 0) {
+      setPersonalTasks(convertApiItemsToTasks(items));
+    }
+  }, [items]);
 
   const toggleGroup = (group: 'assigned' | 'personal') => {
     setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }));
@@ -695,6 +744,9 @@ export function TodoListWidget({ onDragStart, onDragEnd, onTaskClick }: TodoList
         <div className="flex items-center gap-1.5">
           <CheckSquare className="w-4 h-4 text-[#60A5FA]" />
           <h3 className="text-[14px] font-medium text-[#1F2937]">To-Do</h3>
+          {hasApiData && (
+            <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
+          )}
         </div>
         <div className="relative">
           <button 
