@@ -253,14 +253,23 @@ export function InvoiceDocumentView({
 
             {/* Header */}
             <div className="flex items-start justify-between mb-12">
-              <div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#2563EB', marginBottom: '8px' }}>
-                  {settings.companyName}
-                </div>
-                <div className="text-gray-600 whitespace-pre-line text-sm">{settings.companyAddress}</div>
-                {settings.vatNumber && (
-                  <div className="text-gray-600 mt-2 text-sm">VAT: {settings.vatNumber}</div>
+              <div className="flex items-start gap-4">
+                {settings.companyLogo && (
+                  <img
+                    src={settings.companyLogo}
+                    alt="Company logo"
+                    className="w-16 h-16 object-contain"
+                  />
                 )}
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 700, color: '#2563EB', marginBottom: '8px' }}>
+                    {settings.companyName}
+                  </div>
+                  <div className="text-gray-600 whitespace-pre-line text-sm">{settings.companyAddress}</div>
+                  {settings.vatNumber && (
+                    <div className="text-gray-600 mt-2 text-sm">VAT: {settings.vatNumber}</div>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 <h1 style={{ fontSize: '32px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>INVOICE</h1>
