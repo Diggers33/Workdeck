@@ -748,44 +748,73 @@ export function HeatMap({
                   return day >= taskStart && day <= taskEnd;
                 });
 
-                // Distribute tasks across hours (8am-6pm = 11 hours, but work day is ~8 hours)
                 // Calculate time slots for each task
+                // Distribute daily hours across the working day (8am-6pm)
                 interface TimeSlot {
                   task: Task;
                   project: Project | undefined;
                   startHour: number;
                   endHour: number;
-                  row: number;
+                  dailyHours: number;
                 }
 
                 const timeSlots: TimeSlot[] = [];
                 let currentHour = 8; // Start at 8am
 
-                // Sort tasks by planned hours (largest first)
-                const sortedTasks = [...dayTasks].sort((a, b) => b.plannedHours - a.plannedHours);
+                // Calculate daily hours for each task
+                // If task spans multiple days, divide hours evenly
+                const tasksWithDailyHours = dayTasks.map(task => {
+                  const taskStart = new Date(task.startDate);
+                  const taskEnd = new Date(task.endDate);
+                  taskStart.setHours(0, 0, 0, 0);
+                  taskEnd.setHours(0, 0, 0, 0);
 
-                sortedTasks.forEach((task, idx) => {
+                  // Count working days (exclude weekends)
+                  let workingDays = 0;
+                  const current = new Date(taskStart);
+                  while (current <= taskEnd) {
+                    const dayOfWeek = current.getDay();
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                      workingDays++;
+                    }
+                    current.setDate(current.getDate() + 1);
+                  }
+
+                  // Calculate daily hours (minimum 1 day to avoid division by zero)
+                  const dailyHours = Math.round((task.plannedHours / Math.max(workingDays, 1)) * 10) / 10;
+
+                  return { task, dailyHours: Math.min(dailyHours, 8) }; // Cap at 8h per day
+                });
+
+                // Sort by daily hours (largest first) for better visual hierarchy
+                tasksWithDailyHours.sort((a, b) => b.dailyHours - a.dailyHours);
+
+                tasksWithDailyHours.forEach(({ task, dailyHours }) => {
+                  if (dailyHours < 0.5) return; // Skip tasks with minimal daily allocation
+
                   const project = projects.find(p => p.id === task.projectId);
-                  const taskHours = Math.min(task.plannedHours, 10); // Cap at 10 hours
 
                   // Calculate start hour - stack tasks sequentially
                   const startHour = currentHour;
-                  const endHour = Math.min(startHour + taskHours, 18); // Don't go past 6pm
+                  const endHour = Math.min(startHour + dailyHours, 18); // Don't go past 6pm
 
-                  timeSlots.push({
-                    task,
-                    project,
-                    startHour,
-                    endHour,
-                    row: 0, // Single row for now
-                  });
+                  // Only add if there's room in the day
+                  if (startHour < 18) {
+                    timeSlots.push({
+                      task,
+                      project,
+                      startHour,
+                      endHour,
+                      dailyHours,
+                    });
 
-                  currentHour = endHour;
+                    currentHour = endHour;
+                  }
                 });
 
-                // Calculate total hours for capacity display
-                const totalHours = dayTasks.reduce((sum, t) => sum + t.plannedHours, 0);
-                const isOverallocated = totalHours > 8;
+                // Calculate total DAILY hours for capacity display
+                const totalDailyHours = timeSlots.reduce((sum, slot) => sum + slot.dailyHours, 0);
+                const isOverallocated = totalDailyHours > 8;
 
                 const hours = getHoursInDay(selectedDay);
 
@@ -837,7 +866,7 @@ export function HeatMap({
                         </div>
                       </div>
                       {/* Hours indicator */}
-                      {totalHours > 0 && (
+                      {totalDailyHours > 0 && (
                         <span
                           style={{
                             fontSize: typography.xs,
@@ -845,7 +874,7 @@ export function HeatMap({
                             color: isOverallocated ? colors.statusRed : colors.textMuted,
                           }}
                         >
-                          {totalHours}h
+                          {Math.round(totalDailyHours * 10) / 10}h
                         </span>
                       )}
                     </div>
@@ -924,7 +953,7 @@ export function HeatMap({
                                   paddingLeft: '8px',
                                 }}
                               >
-                                {slot.endHour - slot.startHour}h
+                                {Math.round(slot.dailyHours * 10) / 10}h
                               </span>
                             </div>
                           );
