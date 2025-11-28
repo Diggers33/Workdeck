@@ -212,7 +212,7 @@ export function UserRow({
       <div
         className="flex transition-colors"
         style={{
-          height: '56px',
+          minHeight: '64px',
           background: isSelected ? colors.bgSelected : colors.bgWhite,
           borderBottom: `1px solid ${colors.borderDefault}`,
           borderLeft: isSelected ? `3px solid ${colors.barBlue}` : 'none',
@@ -225,7 +225,7 @@ export function UserRow({
           style={{
             width: '240px',
             padding: '12px',
-            height: '56px',
+            minHeight: '64px',
             background: isSelected ? colors.bgSelected : colors.bgWhite,
             borderRight: `1px solid ${colors.borderDefault}`,
             transition: 'background-color 150ms ease',
@@ -342,7 +342,7 @@ export function UserRow({
                 }}
                 className="min-w-[120px] relative flex flex-col items-center justify-center transition-all duration-150 hover:brightness-95 cursor-pointer"
                 style={{
-                  height: '56px',
+                  minHeight: '64px',
                   background: capacityColor,
                   borderLeft: `1px solid ${colors.borderDefault}`,
                 }}
@@ -357,71 +357,69 @@ export function UserRow({
               >
                 {/* Overallocation Warning Icon */}
                 {isOverallocated && (
-                  <div className="absolute top-1 right-1 z-20 animate-pulse">
-                    <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+                  <div className="absolute top-1 right-1 z-20">
+                    <AlertCircle
+                      style={{
+                        width: '14px',
+                        height: '14px',
+                        color: colors.statusRed,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Empty cell indicator */}
+                {activityBars.length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    {isWeekend ? (
+                      <span
+                        className="select-none"
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: typography.semibold,
+                          color: colors.textMuted,
+                          letterSpacing: '0.05em',
+                          opacity: 0.3,
+                        }}
+                      >
+                        WEEKEND
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: typography.sm, color: colors.borderDefault }}>—</span>
+                    )}
                   </div>
                 )}
                 
-                {/* Capacity Text - At top of cell */}
-                <div className="absolute top-2 left-0 right-0 text-center px-2 pointer-events-none z-10">
-                  {allocation && allocation.plannedHours > 0 ? (
-                    <div
-                      style={{
-                        fontSize: typography.sm,
-                        fontWeight: typography.medium,
-                        color: percentUsed > 100 ? colors.statusRed : percentUsed >= 50 ? colors.statusAmber : colors.statusGreen
-                      }}
-                    >
-                      {allocation.plannedHours}h / {allocation.totalCapacity}h
-                    </div>
-                  ) : (
-                    <div>
-                      {isWeekend ? (
-                        <div
-                          className="select-none"
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: typography.semibold,
-                            color: colors.textMuted,
-                            letterSpacing: '0.05em',
-                            opacity: 0.3
-                          }}
-                        >
-                          WEEKEND
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: typography.sm, color: colors.textMuted }}>-</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Activity Bars - Centered in cell, below text */}
+                {/* Activity Bars - Stacked vertically with 2px gap */}
                 {activityBars.length > 0 && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ paddingTop: '20px' }}>
-                    <div className="flex flex-col items-center gap-0.5" style={{ width: '102px' }}>
-                      {activityBars.slice(0, 3).map((bar, idx) => {
-                        const barHeight = barCount === 1 ? 8 : barCount === 2 ? 7 : 6;
+                  <div
+                    className="absolute inset-0 flex flex-col justify-center pointer-events-none"
+                    style={{ padding: '4px 8px' }}
+                  >
+                    <div className="flex flex-col" style={{ gap: '2px' }}>
+                      {activityBars.slice(0, 2).map((bar, idx) => {
                         const isStart = isBarStart(date, bar);
                         const isEnd = isBarEnd(date, bar);
-                        const baseOpacity = isWeekend ? 0.7 : 0.9;
-                        
+                        const isTentative = bar.task.status === 'tentative';
+
                         // Generate activity key for hover coordination
                         const activityKey = `${bar.projectId}-${bar.activityName}`;
                         const isHovered = hoveredActivity === activityKey;
-                        
+
                         return (
                           <div
                             key={`${bar.task.id}-${idx}`}
-                            className="transition-all duration-200 relative cursor-pointer pointer-events-auto"
+                            className="relative cursor-pointer pointer-events-auto flex items-center overflow-hidden"
                             style={{
-                              height: `${barHeight}px`,
+                              height: '24px',
                               width: '100%',
                               backgroundColor: bar.projectColor,
-                              opacity: baseOpacity,
+                              opacity: isTentative ? 0.5 : isHovered ? 1.0 : 0.85,
                               borderRadius: isStart && isEnd ? '4px' : isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : '0',
-                              filter: isHovered ? 'brightness(1.15)' : 'brightness(1)',
-                              boxShadow: isHovered ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none',
+                              border: isTentative ? `1px dashed ${bar.projectColor}` : 'none',
+                              transform: isHovered ? 'scale(1.01)' : 'scale(1)',
+                              transition: 'opacity 150ms ease, transform 150ms ease',
+                              padding: '0 8px',
                             }}
                             onMouseEnter={() => onActivityHover?.(activityKey)}
                             onMouseLeave={() => onActivityHover?.(null)}
@@ -429,15 +427,35 @@ export function UserRow({
                               e.stopPropagation();
                               onBarClick(bar.task);
                             }}
-                          />
+                          >
+                            {/* Bar text - only show on start cell or if single-day */}
+                            {(isStart || (isStart && isEnd)) && (
+                              <span
+                                className="truncate"
+                                style={{
+                                  fontSize: typography.xs,
+                                  fontWeight: typography.medium,
+                                  color: 'white',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {bar.activityName}
+                              </span>
+                            )}
+                          </div>
                         );
                       })}
-                      {activityBars.length > 3 && (
-                        <div 
-                          className="text-gray-600 font-semibold pointer-events-none"
-                          style={{ fontSize: '9px', marginTop: '2px' }}
+                      {activityBars.length > 2 && (
+                        <div
+                          className="pointer-events-none"
+                          style={{
+                            fontSize: typography.xs,
+                            fontWeight: typography.medium,
+                            color: colors.textSecondary,
+                            textAlign: 'center',
+                          }}
                         >
-                          +{activityBars.length - 3}
+                          +{activityBars.length - 2} more
                         </div>
                       )}
                     </div>
