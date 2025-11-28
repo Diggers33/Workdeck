@@ -1,14 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Calendar, AlertTriangle } from 'lucide-react';
-import { User, Task, Project } from '../types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { User } from '../types';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Alert, AlertDescription } from './ui/alert';
 import { Calendar as CalendarComponent } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Textarea } from './ui/textarea';
@@ -42,7 +40,7 @@ interface SuggestedMatch {
   rate: number;
 }
 
-// Mock data for projects and activities
+// Mock data
 const mockProjects = [
   { id: 'p1', name: 'E-Commerce Platform', color: '#3B82F6' },
   { id: 'p2', name: 'Mobile App Redesign', color: '#8B5CF6' },
@@ -88,51 +86,26 @@ export function PlanTimeDialog({
   const [notes, setNotes] = useState('');
   const [allocationType, setAllocationType] = useState<'hard' | 'soft'>('hard');
 
-  const selectedProject = mockProjects.find(p => p.id === selectedProjectId);
   const selectedUser = mockUsers.find(u => u.id === selectedUserId);
 
-  // Filter activities based on selected project
   const availableActivities = useMemo(() => {
     if (!selectedProjectId) return [];
     return mockActivities.filter(a => a.projectIds.includes(selectedProjectId));
   }, [selectedProjectId]);
 
-  // Generate AI suggested matches
   const suggestedMatches: SuggestedMatch[] = useMemo(() => {
-    // Mock AI suggestions based on project/activity
     return [
-      {
-        user: mockUsers[0],
-        matchPercent: 94,
-        skills: ['Python', 'ML'],
-        availability: 60,
-        rate: 85,
-      },
-      {
-        user: mockUsers[1],
-        matchPercent: 87,
-        skills: ['Python'],
-        availability: 40,
-        rate: 75,
-      },
-      {
-        user: mockUsers[2],
-        matchPercent: 72,
-        skills: ['ML', 'Data'],
-        availability: 80,
-        rate: 90,
-      },
+      { user: mockUsers[0], matchPercent: 94, skills: ['Python', 'ML'], availability: 60, rate: 85 },
+      { user: mockUsers[1], matchPercent: 87, skills: ['Python'], availability: 40, rate: 75 },
+      { user: mockUsers[2], matchPercent: 72, skills: ['ML', 'Data'], availability: 80, rate: 90 },
     ];
   }, [selectedProjectId, selectedActivityId]);
 
-  // Calculate days between dates
   const dayCount = useMemo(() => {
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   }, [startDate, endDate]);
 
-  // Sync total hours with hours per day
   const handleHoursPerDayChange = (value: number) => {
     setHoursPerDay(value);
     setTotalHours(value * dayCount);
@@ -143,14 +116,10 @@ export function PlanTimeDialog({
     setHoursPerDay(Math.round((value / dayCount) * 10) / 10);
   };
 
-  // Check for capacity conflicts
   const hasConflict = useMemo(() => {
     if (!selectedUserId) return false;
-    // Mock conflict detection - in real app would check actual allocations
     return hoursPerDay > 6;
-  }, [selectedUserId, hoursPerDay, startDate, endDate]);
-
-  const conflictDates = 'Nov 20-22'; // Mock conflict dates
+  }, [selectedUserId, hoursPerDay]);
 
   const handleSelectSuggestion = (match: SuggestedMatch) => {
     setSelectedUserId(match.user.id);
@@ -172,7 +141,6 @@ export function PlanTimeDialog({
         allocationType,
       });
       onClose();
-      // Reset form
       setSelectedProjectId('');
       setSelectedActivityId('');
       setSelectedUserId('');
@@ -182,351 +150,296 @@ export function PlanTimeDialog({
 
   const canSave = selectedProjectId && selectedActivityId && selectedUserId;
 
+  // Label style
+  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px', display: 'block' };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent
+        className="max-w-[560px] p-0 bg-white"
+        style={{
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        }}
+      >
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 z-10">
-          <DialogTitle style={{ fontSize: '18px', fontWeight: 600 }}>Plan Time Allocation</DialogTitle>
-          <DialogDescription className="mt-1">
+        <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid #E5E7EB' }}>
+          <DialogTitle style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>
+            Plan Time Allocation
+          </DialogTitle>
+          <DialogDescription style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>
             Allocate time for a team member to a project activity
           </DialogDescription>
         </div>
 
-        <div className="px-6 py-4 space-y-5">
-          {/* Section 1: Project & Activity */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Project & Activity
-            </div>
+        {/* Content */}
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>
-                  Project <span className="text-red-500">*</span>
-                </Label>
-                <Select value={selectedProjectId} onValueChange={(v) => {
-                  setSelectedProjectId(v);
-                  setSelectedActivityId('');
-                }}>
-                  <SelectTrigger style={{ height: '40px' }}>
-                    <SelectValue placeholder="Select project..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockProjects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: project.color }}
-                          />
-                          {project.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>
-                  Activity <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={selectedActivityId}
-                  onValueChange={setSelectedActivityId}
-                  disabled={!selectedProjectId}
-                >
-                  <SelectTrigger style={{ height: '40px' }}>
-                    <SelectValue placeholder={selectedProjectId ? "Select activity..." : "Select project first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableActivities.map(activity => (
-                      <SelectItem key={activity.id} value={activity.id}>
-                        {activity.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Date Range */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Date Range
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start h-10">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                      {format(startDate, 'MMM d, yyyy')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={startDate}
-                      onSelect={(date) => date && setStartDate(date)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start h-10">
-                      <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                      {format(endDate, 'MMM d, yyyy')}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={endDate}
-                      onSelect={(date) => date && setEndDate(date)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Allocation Type */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Allocation Type
-            </div>
-
-            <RadioGroup
-              value={allocationType}
-              onValueChange={(v: 'hard' | 'soft') => setAllocationType(v)}
-              className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="hard" id="hard" />
-                <Label htmlFor="hard" className="cursor-pointer text-sm">
-                  Hard (Confirmed)
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="soft" id="soft" />
-                <Label htmlFor="soft" className="cursor-pointer text-sm">
-                  Soft (Tentative)
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Section 4: Team Member Selection */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Team Member
-            </div>
-
-            <div className="space-y-1.5">
-              <Label style={{ fontSize: '13px' }}>
-                Assign To <span className="text-red-500">*</span>
-              </Label>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger style={{ height: '40px' }}>
-                  {selectedUser ? (
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
-                        <AvatarFallback>{selectedUser.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <span>{selectedUser.name}</span>
-                      <span className="text-xs text-gray-500">({selectedUser.role})</span>
-                    </div>
-                  ) : (
-                    <SelectValue placeholder="Select team member..." />
-                  )}
+          {/* Project & Activity Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Project <span style={{ color: '#DC2626' }}>*</span></label>
+              <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); setSelectedActivityId(''); }}>
+                <SelectTrigger style={{ height: '40px', backgroundColor: '#FFFFFF' }}>
+                  <SelectValue placeholder="Select project..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
+                  {mockProjects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={user.avatar} alt={user.name} />
-                          <AvatarFallback>{user.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <span>{user.name}</span>
-                        <span className="text-xs text-gray-500">({user.role})</span>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: project.color }} />
+                        {project.name}
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label style={labelStyle}>Activity <span style={{ color: '#DC2626' }}>*</span></label>
+              <Select value={selectedActivityId} onValueChange={setSelectedActivityId} disabled={!selectedProjectId}>
+                <SelectTrigger style={{ height: '40px', backgroundColor: '#FFFFFF' }}>
+                  <SelectValue placeholder={selectedProjectId ? "Select activity..." : "Select project first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableActivities.map(activity => (
+                    <SelectItem key={activity.id} value={activity.id}>{activity.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-            {/* Suggested Matches */}
-            <div
-              className="rounded-lg border"
-              style={{ backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }}
-            >
-              <div className="px-3 py-2 border-b" style={{ borderColor: '#E2E8F0' }}>
-                <span className="text-xs font-medium tracking-wide" style={{ color: '#64748B' }}>
-                  Suggested Matches
-                </span>
+          {/* Date Range Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Start Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start" style={{ height: '40px', backgroundColor: '#FFFFFF' }}>
+                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                    {format(startDate, 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={startDate} onSelect={(date) => date && setStartDate(date)} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <label style={labelStyle}>End Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start" style={{ height: '40px', backgroundColor: '#FFFFFF' }}>
+                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                    {format(endDate, 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={endDate} onSelect={(date) => date && setEndDate(date)} />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Allocation Type */}
+          <div>
+            <label style={labelStyle}>Allocation Type</label>
+            <RadioGroup value={allocationType} onValueChange={(v: 'hard' | 'soft') => setAllocationType(v)} className="flex gap-6">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="hard" id="hard" />
+                <label htmlFor="hard" style={{ fontSize: '13px', color: '#374151', cursor: 'pointer' }}>Hard (Confirmed)</label>
               </div>
-              <div className="divide-y" style={{ borderColor: '#E2E8F0' }}>
-                {suggestedMatches.map((match, idx) => (
-                  <button
-                    key={match.user.id}
-                    onClick={() => handleSelectSuggestion(match)}
-                    className={`w-full px-3 py-2.5 flex items-center justify-between hover:bg-white transition-colors text-left ${
-                      selectedUserId === match.user.id ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={match.user.avatar} alt={match.user.name} />
-                        <AvatarFallback>{match.user.name[0]}</AvatarFallback>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="soft" id="soft" />
+                <label htmlFor="soft" style={{ fontSize: '13px', color: '#374151', cursor: 'pointer' }}>Soft (Tentative)</label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Team Member */}
+          <div>
+            <label style={labelStyle}>Assign To <span style={{ color: '#DC2626' }}>*</span></label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger style={{ height: '40px', backgroundColor: '#FFFFFF' }}>
+                {selectedUser ? (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={selectedUser.avatar} alt={selectedUser.name} />
+                      <AvatarFallback>{selectedUser.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <span style={{ fontSize: '13px' }}>{selectedUser.name}</span>
+                    <span style={{ fontSize: '12px', color: '#6B7280' }}>({selectedUser.role})</span>
+                  </div>
+                ) : (
+                  <SelectValue placeholder="Select team member..." />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {mockUsers.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>{user.name[0]}</AvatarFallback>
                       </Avatar>
-                      <div>
-                        <div className="font-medium text-sm" style={{ color: '#1E293B' }}>
-                          {match.user.name}
-                        </div>
-                        <div className="text-xs" style={{ color: '#64748B' }}>
-                          {match.skills.join(', ')} · {match.availability}% available · €{match.rate}/h
-                        </div>
+                      <span>{user.name}</span>
+                      <span className="text-xs text-gray-500">({user.role})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Suggested Matches */}
+          <div style={{ backgroundColor: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid #E5E7EB' }}>
+              <span style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Suggested Matches
+              </span>
+            </div>
+            <div>
+              {suggestedMatches.map((match, idx) => (
+                <button
+                  key={match.user.id}
+                  onClick={() => handleSelectSuggestion(match)}
+                  style={{
+                    width: '100%',
+                    height: '44px',
+                    padding: '0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: selectedUserId === match.user.id ? '#EFF6FF' : 'transparent',
+                    borderBottom: idx < suggestedMatches.length - 1 ? '1px solid #E5E7EB' : 'none',
+                    cursor: 'pointer',
+                    border: 'none',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => { if (selectedUserId !== match.user.id) e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                  onMouseLeave={(e) => { if (selectedUserId !== match.user.id) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={match.user.avatar} alt={match.user.name} />
+                      <AvatarFallback>{match.user.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#1F2937' }}>{match.user.name}</div>
+                      <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                        {match.skills.join(', ')} · {match.availability}% available · €{match.rate}/h
                       </div>
                     </div>
-                    <span
-                      className="text-xs font-semibold"
-                      style={{
-                        color: idx === 0 ? '#059669' : idx === 1 ? '#6B7280' : '#9CA3AF',
-                      }}
-                    >
-                      {match.matchPercent}%
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="px-3 py-2 text-xs" style={{ color: '#94A3B8' }}>
-                Match based on: skills, availability, past project performance
-              </div>
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: idx === 0 ? '#059669' : '#9CA3AF' }}>
+                    {match.matchPercent}%
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Section 5: Hours & Rate */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Hours & Rate
+          {/* Hours & Rate Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Hours/Day</label>
+              <Input
+                type="number"
+                min="0.5"
+                max="24"
+                step="0.5"
+                value={hoursPerDay}
+                onChange={(e) => handleHoursPerDayChange(parseFloat(e.target.value) || 0)}
+                style={{ height: '40px', backgroundColor: '#FFFFFF' }}
+              />
             </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>Hours/Day</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0.5"
-                    max="24"
-                    step="0.5"
-                    value={hoursPerDay}
-                    onChange={(e) => handleHoursPerDayChange(parseFloat(e.target.value) || 0)}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>Total Hours</Label>
+            <div>
+              <label style={labelStyle}>Total Hours</label>
+              <Input
+                type="number"
+                min="1"
+                value={totalHours}
+                onChange={(e) => handleTotalHoursChange(parseFloat(e.target.value) || 0)}
+                style={{ height: '40px', backgroundColor: '#FFFFFF' }}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Rate</label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '13px', color: '#6B7280' }}>€</span>
                 <Input
                   type="number"
-                  min="1"
-                  value={totalHours}
-                  onChange={(e) => handleTotalHoursChange(parseFloat(e.target.value) || 0)}
-                  className="h-10"
+                  min="0"
+                  value={rate}
+                  onChange={(e) => setRate(parseFloat(e.target.value) || 0)}
+                  style={{ height: '40px', paddingLeft: '28px', paddingRight: '32px', backgroundColor: '#FFFFFF' }}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label style={{ fontSize: '13px' }}>Rate</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">€</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={rate}
-                    onChange={(e) => setRate(parseFloat(e.target.value) || 0)}
-                    className="h-10 pl-7"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">/hr</span>
-                </div>
+                <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#9CA3AF' }}>/hr</span>
               </div>
             </div>
           </div>
 
-          {/* Section 6: Notes */}
-          <div className="space-y-4">
-            <div
-              className="text-xs font-semibold uppercase tracking-wider"
-              style={{ color: '#6B7280', letterSpacing: '0.5px' }}
-            >
-              Notes
-            </div>
-
+          {/* Notes */}
+          <div>
+            <label style={labelStyle}>Notes</label>
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add any notes about this allocation..."
               rows={2}
-              className="resize-none"
+              style={{ resize: 'none', backgroundColor: '#FFFFFF' }}
             />
           </div>
 
           {/* Conflict Warning */}
           {hasConflict && selectedUser && (
-            <Alert
-              className="border-amber-200"
-              style={{ backgroundColor: '#FFFBEB' }}
-            >
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="ml-2 flex items-center justify-between">
-                <span className="text-amber-800">
-                  {selectedUser.name} is at 120% capacity {conflictDates}
-                </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
-                    Adjust dates
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-7 text-xs">
-                    Assign anyway
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px',
+              backgroundColor: '#FFFBEB',
+              borderRadius: '6px',
+              border: '1px solid #FDE68A'
+            }}>
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <span style={{ fontSize: '13px', color: '#92400E', flex: 1 }}>
+                {selectedUser.name} is at 120% capacity Nov 20-22
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: '12px' }}>Adjust dates</Button>
+                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: '12px' }}>Assign anyway</Button>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex items-center justify-between">
-          <Button variant="ghost" onClick={onClose}>
+        <div style={{
+          padding: '16px 20px',
+          borderTop: '1px solid #E5E7EB',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px',
+          backgroundColor: '#FFFFFF'
+        }}>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            style={{ fontSize: '13px', color: '#6B7280' }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!canSave}>
+          <Button
+            onClick={handleSave}
+            disabled={!canSave}
+            style={{
+              fontSize: '13px',
+              backgroundColor: canSave ? '#2563EB' : '#93C5FD',
+              color: '#FFFFFF',
+            }}
+          >
             Save Allocation
           </Button>
         </div>
