@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { User, Task, Project } from '../types';
 import { format, startOfMonth, endOfMonth, startOfWeek, addWeeks, getWeek } from 'date-fns';
 import { TrendingUp, TrendingDown, ChevronRight, ChevronDown } from 'lucide-react';
+import { colors, typography, getUtilizationColor } from '../constants/designTokens';
 
 interface MonthViewProps {
   users: User[];

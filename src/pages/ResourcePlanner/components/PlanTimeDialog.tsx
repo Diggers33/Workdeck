@@ -11,6 +11,7 @@ import { Calendar as CalendarComponent } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Textarea } from './ui/textarea';
 import { format } from 'date-fns';
+import { colors, typography, utilizationColors, projectColors } from '../constants/designTokens';
 
 interface PlanTimeDialogProps {
   userId?: string | null;
@@ -42,11 +43,11 @@ interface SuggestedMatch {
 
 // Mock data
 const mockProjects = [
-  { id: 'p1', name: 'E-Commerce Platform', color: '#3B82F6' },
-  { id: 'p2', name: 'Mobile App Redesign', color: '#8B5CF6' },
-  { id: 'p3', name: 'Internal Tools', color: '#F97316' },
-  { id: 'p4', name: 'Customer Portal', color: '#10B981' },
-  { id: 'p5', name: 'Marketing Website', color: '#F59E0B' },
+  { id: 'p1', name: 'E-Commerce Platform', color: projectColors[0] },
+  { id: 'p2', name: 'Mobile App Redesign', color: projectColors[1] },
+  { id: 'p3', name: 'Internal Tools', color: projectColors[2] },
+  { id: 'p4', name: 'Customer Portal', color: projectColors[3] },
+  { id: 'p5', name: 'Marketing Website', color: projectColors[4] },
 ];
 
 const mockActivities = [
@@ -150,24 +151,30 @@ export function PlanTimeDialog({
 
   const canSave = selectedProjectId && selectedActivityId && selectedUserId;
 
-  // Label style
-  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px', display: 'block' };
+  // Label style using design tokens
+  const labelStyle = {
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    color: colors.textPrimary,
+    marginBottom: '6px',
+    display: 'block' as const
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-[560px] p-0 bg-white"
+        className="max-w-[560px] p-0"
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.bgWhite,
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
       >
         {/* Header */}
-        <div style={{ padding: '20px 20px 16px 20px', borderBottom: '1px solid #E5E7EB' }}>
-          <DialogTitle style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>
+        <div style={{ padding: '20px 20px 16px 20px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+          <DialogTitle style={{ fontSize: typography.lg, fontWeight: typography.semibold, color: colors.textPrimary, margin: 0 }}>
             Plan Time Allocation
           </DialogTitle>
-          <DialogDescription style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>
+          <DialogDescription style={{ fontSize: typography.base, color: colors.textSecondary, marginTop: '4px' }}>
             Allocate time for a team member to a project activity
           </DialogDescription>
         </div>
@@ -293,9 +300,9 @@ export function PlanTimeDialog({
           </div>
 
           {/* Suggested Matches */}
-          <div style={{ backgroundColor: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid #E5E7EB' }}>
-              <span style={{ fontSize: '11px', fontWeight: 500, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ backgroundColor: colors.bgSubtle, borderRadius: '8px', border: `1px solid ${colors.borderDefault}` }}>
+            <div style={{ padding: '10px 12px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+              <span style={{ fontSize: typography.xs, fontWeight: typography.medium, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Suggested Matches
               </span>
             </div>
@@ -311,13 +318,13 @@ export function PlanTimeDialog({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    backgroundColor: selectedUserId === match.user.id ? '#EFF6FF' : 'transparent',
-                    borderBottom: idx < suggestedMatches.length - 1 ? '1px solid #E5E7EB' : 'none',
+                    backgroundColor: selectedUserId === match.user.id ? colors.bgSelected : 'transparent',
+                    borderBottom: idx < suggestedMatches.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
                     cursor: 'pointer',
                     border: 'none',
                     textAlign: 'left',
                   }}
-                  onMouseEnter={(e) => { if (selectedUserId !== match.user.id) e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                  onMouseEnter={(e) => { if (selectedUserId !== match.user.id) e.currentTarget.style.backgroundColor = colors.bgWhite; }}
                   onMouseLeave={(e) => { if (selectedUserId !== match.user.id) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
                   <div className="flex items-center gap-3">
@@ -326,13 +333,13 @@ export function PlanTimeDialog({
                       <AvatarFallback>{match.user.name[0]}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#1F2937' }}>{match.user.name}</div>
-                      <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                      <div style={{ fontSize: typography.base, fontWeight: typography.medium, color: colors.textPrimary }}>{match.user.name}</div>
+                      <div style={{ fontSize: typography.xs, color: colors.textSecondary }}>
                         {match.skills.join(', ')} · {match.availability}% available · €{match.rate}/h
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: idx === 0 ? '#059669' : '#9CA3AF' }}>
+                  <span style={{ fontSize: typography.sm, fontWeight: typography.semibold, color: idx === 0 ? colors.statusGreen : colors.textMuted }}>
                     {match.matchPercent}%
                   </span>
                 </button>
@@ -399,17 +406,17 @@ export function PlanTimeDialog({
               alignItems: 'center',
               gap: '10px',
               padding: '12px',
-              backgroundColor: '#FFFBEB',
+              backgroundColor: utilizationColors.warning.bg,
               borderRadius: '6px',
-              border: '1px solid #FDE68A'
+              border: `1px solid ${utilizationColors.warning.border}`
             }}>
-              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
-              <span style={{ fontSize: '13px', color: '#92400E', flex: 1 }}>
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: colors.statusAmber }} />
+              <span style={{ fontSize: typography.base, color: colors.statusAmber, flex: 1 }}>
                 {selectedUser.name} is at 120% capacity Nov 20-22
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: '12px' }}>Adjust dates</Button>
-                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: '12px' }}>Assign anyway</Button>
+                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: typography.sm }}>Adjust dates</Button>
+                <Button variant="outline" size="sm" style={{ height: '28px', fontSize: typography.sm }}>Assign anyway</Button>
               </div>
             </div>
           )}
@@ -418,16 +425,16 @@ export function PlanTimeDialog({
         {/* Footer */}
         <div style={{
           padding: '16px 20px',
-          borderTop: '1px solid #E5E7EB',
+          borderTop: `1px solid ${colors.borderDefault}`,
           display: 'flex',
           justifyContent: 'flex-end',
           gap: '12px',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: colors.bgWhite
         }}>
           <Button
             variant="ghost"
             onClick={onClose}
-            style={{ fontSize: '13px', color: '#6B7280' }}
+            style={{ fontSize: typography.base, color: colors.textSecondary }}
           >
             Cancel
           </Button>
@@ -435,9 +442,9 @@ export function PlanTimeDialog({
             onClick={handleSave}
             disabled={!canSave}
             style={{
-              fontSize: '13px',
-              backgroundColor: canSave ? '#2563EB' : '#93C5FD',
-              color: '#FFFFFF',
+              fontSize: typography.base,
+              backgroundColor: canSave ? colors.barBlue : '#A5B4FC',
+              color: colors.bgWhite,
             }}
           >
             Save Allocation

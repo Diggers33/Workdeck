@@ -10,6 +10,7 @@ import { mockUsers, mockTasks, mockProjects, departments, mockLeaves } from './d
 import { Task } from './types';
 import { toast } from 'sonner';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { colors, typography, utilizationColors } from './constants/designTokens';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'heatmap' | 'allocation'>('heatmap');
@@ -79,16 +80,16 @@ export default function App() {
     setShowPlanTimeDialog(true);
   };
 
-  const handlePlanTimeSave = (allocation: any) => {
+  const handlePlanTimeSave = () => {
     toast.success('Time allocation planned successfully');
     // In a real app, this would update the tasks
   };
 
   return (
     <AppLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col bg-gray-50">
+      <div className="h-[calc(100vh-60px)] flex flex-col" style={{ backgroundColor: colors.bgSubtle }}>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'heatmap' | 'allocation')} className="flex-1 flex flex-col">
-          <div className="border-b bg-white px-6">
+          <div style={{ borderBottom: `1px solid ${colors.borderDefault}`, backgroundColor: colors.bgWhite, padding: '0 24px' }}>
             <TabsList className="h-12">
               <TabsTrigger value="heatmap">Heat Map</TabsTrigger>
               <TabsTrigger value="allocation">Resource Allocation</TabsTrigger>
@@ -97,15 +98,16 @@ export default function App() {
 
           {/* Summary Bar */}
           <div
-            className="flex items-center justify-between px-6"
+            className="flex items-center justify-between"
             style={{
               height: '44px',
-              backgroundColor: '#F8FAFC',
-              borderBottom: '1px solid #E2E8F0',
+              padding: '0 24px',
+              backgroundColor: colors.bgHover,
+              borderBottom: `1px solid ${colors.borderDefault}`,
             }}
           >
             {/* Left: Team & Projects count */}
-            <div style={{ fontSize: '14px', color: '#64748B' }}>
+            <div style={{ fontSize: typography.md, color: colors.textSecondary }}>
               {summaryStats.teamCount} Team Members · {summaryStats.activeProjects} Active Projects
             </div>
 
@@ -113,33 +115,39 @@ export default function App() {
             <div className="flex items-center" style={{ gap: '8px' }}>
               <span
                 style={{
-                  fontSize: '12px',
-                  padding: '2px 6px',
+                  fontSize: typography.sm,
+                  padding: '3px 8px',
                   borderRadius: '4px',
-                  backgroundColor: '#FEE2E2',
-                  color: '#DC2626',
+                  fontWeight: typography.medium,
+                  backgroundColor: utilizationColors.over.bg,
+                  color: utilizationColors.over.text,
+                  border: `1px solid ${utilizationColors.over.border}`,
                 }}
               >
                 {summaryStats.overCapacity} Over
               </span>
               <span
                 style={{
-                  fontSize: '12px',
-                  padding: '2px 6px',
+                  fontSize: typography.sm,
+                  padding: '3px 8px',
                   borderRadius: '4px',
-                  backgroundColor: '#D1FAE5',
-                  color: '#059669',
+                  fontWeight: typography.medium,
+                  backgroundColor: utilizationColors.optimal.bg,
+                  color: utilizationColors.optimal.text,
+                  border: `1px solid ${utilizationColors.optimal.border}`,
                 }}
               >
                 {summaryStats.optimalCapacity} Optimal
               </span>
               <span
                 style={{
-                  fontSize: '12px',
-                  padding: '2px 6px',
+                  fontSize: typography.sm,
+                  padding: '3px 8px',
                   borderRadius: '4px',
-                  backgroundColor: '#FEF3C7',
-                  color: '#D97706',
+                  fontWeight: typography.medium,
+                  backgroundColor: utilizationColors.warning.bg,
+                  color: utilizationColors.warning.text,
+                  border: `1px solid ${utilizationColors.warning.border}`,
                 }}
               >
                 {summaryStats.underCapacity} Under
@@ -148,13 +156,13 @@ export default function App() {
 
             {/* Right: Avg Utilization with trend */}
             <div className="flex items-center gap-1.5">
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B' }}>
+              <span style={{ fontSize: typography.md, fontWeight: typography.semibold, color: colors.textPrimary }}>
                 {summaryStats.avgUtilization}% Avg Utilization
               </span>
               {summaryStats.trendUp ? (
-                <TrendingUp size={14} style={{ color: '#059669' }} />
+                <TrendingUp size={14} style={{ color: colors.statusGreen }} />
               ) : (
-                <TrendingDown size={14} style={{ color: '#DC2626' }} />
+                <TrendingDown size={14} style={{ color: colors.statusRed }} />
               )}
             </div>
           </div>
