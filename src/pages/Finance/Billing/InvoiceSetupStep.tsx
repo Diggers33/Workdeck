@@ -34,10 +34,16 @@ export function InvoiceSetupStep({ formData, updateFormData, onNext, onCancel, s
   };
 
   return (
-    <div className="flex-1 flex flex-col" style={{ backgroundColor: '#F9FAFB', minHeight: 0 }}>
-      {/* Content - vertically centered */}
-      <div className="flex-1 flex items-center justify-center" style={{ minHeight: 0 }}>
-        <div style={{ width: '100%', maxWidth: '800px', padding: '0 24px' }}>
+    <div className="flex-1 flex flex-col" style={{ backgroundColor: '#F9FAFB' }}>
+      {/* Content - vertically centered using calc for explicit height */}
+      <div
+        className="flex flex-col justify-center"
+        style={{
+          minHeight: 'calc(100vh - 160px)', /* viewport minus header(48px) + footer(56px) + nav(~56px) */
+          padding: '24px'
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Section 1: Invoice Setup */}
             <div className="bg-white border border-gray-200 rounded-xl" style={{ padding: '20px' }}>
@@ -232,7 +238,7 @@ export function InvoiceSetupStep({ formData, updateFormData, onNext, onCancel, s
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer - fixed at bottom */}
       <div
         className="flex-none bg-white border-t flex items-center justify-between px-6"
         style={{
