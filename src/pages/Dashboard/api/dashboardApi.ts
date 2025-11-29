@@ -38,17 +38,28 @@ export const WIDGET_TYPES = {
   TODO_LIST: 12,       // Personal Checklist
 } as const;
 
-// News/Notification item
+// News/Notification item (unified format for display)
 export interface NewsItem {
   id: string;
-  notificationId: string;
+  notificationId?: string;
   type: string;
   message: string;
   createdAt: string;
-  read: boolean;
+  read?: boolean;
 }
 
-// Pending item (approval request)
+// Raw API response for whats-new (has multiple arrays)
+export interface WhatsNewApiResponse {
+  deleteEvents?: any[];
+  movedTasks?: any[];
+  newComments?: any[];
+  newEvents?: any[];
+  newLeaveRequests?: any[];
+  newTasks?: any[];
+  [key: string]: any[] | undefined;
+}
+
+// Pending item (approval request) - unified format for display
 export interface PendingItem {
   id: string;
   type: 'leave' | 'expense' | 'purchase' | 'timesheet' | 'event';
@@ -56,6 +67,16 @@ export interface PendingItem {
   requestedBy: string;
   requestedAt: string;
   status: string;
+}
+
+// Raw API response for whats-pending (has multiple arrays)
+export interface WhatsPendingApiResponse {
+  pendingEvents?: any[];
+  pendingExpenses?: any[];
+  pendingLeaveRequests?: any[];
+  pendingPurchases?: any[];
+  pendingTimesheets?: any[];
+  [key: string]: any[] | undefined;
 }
 
 // Portfolio/Daily Status
@@ -124,15 +145,30 @@ export interface MilestoneData {
   }>;
 }
 
-// Red Zone (overdue tasks)
+// Red Zone project item (from API)
+export interface RedZoneProject {
+  id: string;
+  name: string;
+  clientName?: string;
+  numLateTasks: number;
+  numFlags: number;
+  numMilestones: number;
+  numOverdueTasks: number;
+  numActiveProjectAlerts: number;
+  budgetPlanned?: number;
+  budgetSpent?: number;
+  effortPlannedSeconds?: number;
+  effortSpentSeconds?: number;
+}
+
+// Red Zone data for widget display
 export interface RedZoneData {
   items: Array<{
     id: string;
     name: string;
     projectName: string;
-    dueDate: string;
     daysOverdue: number;
-    assignee: string;
+    issues: string;
   }>;
   count: number;
 }
@@ -303,14 +339,80 @@ export async function getUserWidgets(): Promise<Widget[]> {
  * Get "What's New" notifications
  */
 export async function getWhatsNew(): Promise<NewsItem[]> {
-  return apiFetch<NewsItem[]>('/queries/whats-new');
+  const response = await apiFetch<WhatsNewApiResponse>('/queries/whats-new');
+
+  // Transform the complex response into a flat array of NewsItem
+  const items: NewsItem[] = [];
+
+  // Helper to add items from an array with a specific type
+  const addItems = (arr: any[] | undefined, type: string) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((item: any) => {
+      items.push({
+        id: item.id || item.notificationId || `${type}-${Math.random()}`,
+        notificationId: item.notificationId,
+        type: type,
+        message: item.message || item.title || item.summary || item.name || `New ${type}`,
+        createdAt: item.createdAt || item.date || new Date().toISOString(),
+        read: item.read ?? false,
+      });
+    });
+  };
+
+  // Add items from each category
+  addItems(response.newLeaveRequests, 'leave');
+  addItems(response.newEvents, 'event');
+  addItems(response.newComments, 'comment');
+  addItems(response.newTasks, 'task');
+  addItems(response.movedTasks, 'moved-task');
+  addItems(response.deleteEvents, 'deleted-event');
+
+  // Sort by date (newest first)
+  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return items;
 }
 
 /**
  * Get pending approvals
  */
 export async function getWhatsPending(): Promise<PendingItem[]> {
-  return apiFetch<PendingItem[]>('/queries/whats-pending');
+  const response = await apiFetch<WhatsPendingApiResponse>('/queries/whats-pending');
+
+  // Transform the complex response into a flat array of PendingItem
+  const items: PendingItem[] = [];
+
+  // Helper to add items from an array with a specific type
+  const addItems = (arr: any[] | undefined, type: PendingItem['type']) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((item: any) => {
+      // Extract user name from user object if present
+      const userName = item.user?.firstName && item.user?.lastName
+        ? `${item.user.firstName} ${item.user.lastName}`
+        : item.user?.fullName || item.requestedBy || 'Unknown';
+
+      items.push({
+        id: item.id || `${type}-${Math.random()}`,
+        type: type,
+        title: item.title || item.name || item.reason || `${type} request`,
+        requestedBy: userName,
+        requestedAt: item.createdAt || item.startAt || item.date || new Date().toISOString(),
+        status: item.status || item.state || 'pending',
+      });
+    });
+  };
+
+  // Add items from each category
+  addItems(response.pendingLeaveRequests, 'leave');
+  addItems(response.pendingEvents, 'event');
+  addItems(response.pendingExpenses, 'expense');
+  addItems(response.pendingPurchases, 'purchase');
+  addItems(response.pendingTimesheets, 'timesheet');
+
+  // Sort by date (newest first)
+  items.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+
+  return items;
 }
 
 /**
@@ -352,7 +454,35 @@ export async function getMilestones(): Promise<MilestoneData> {
  * Get red zone (overdue) data
  */
 export async function getRedZone(): Promise<RedZoneData> {
-  return apiFetch<RedZoneData>('/queries/widget-red-zone');
+  const projects = await apiFetch<RedZoneProject[]>('/queries/widget-red-zone');
+
+  // Transform projects into red zone items
+  // A project is in the red zone if it has overdue tasks, late tasks, or flags
+  const items = projects
+    .filter(p => p.numOverdueTasks > 0 || p.numLateTasks > 0 || p.numFlags > 0 || p.numActiveProjectAlerts > 0)
+    .map(project => {
+      // Calculate "days overdue" as max of overdue metrics
+      const daysOverdue = Math.max(project.numOverdueTasks, project.numLateTasks, 1);
+
+      // Build issues string
+      const issues: string[] = [];
+      if (project.numOverdueTasks > 0) issues.push(`${project.numOverdueTasks} overdue`);
+      if (project.numLateTasks > 0) issues.push(`${project.numLateTasks} late`);
+      if (project.numFlags > 0) issues.push(`${project.numFlags} flags`);
+
+      return {
+        id: project.id,
+        name: project.name,
+        projectName: project.name,
+        daysOverdue,
+        issues: issues.join(', ') || 'Issues detected',
+      };
+    });
+
+  return {
+    items,
+    count: items.length,
+  };
 }
 
 /**

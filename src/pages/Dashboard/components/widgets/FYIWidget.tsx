@@ -41,6 +41,9 @@ function formatTime(timestamp: string): string {
 }
 
 export function FYIWidget({ items }: FYIWidgetProps) {
+  // Debug logging
+  console.log('[FYIWidget] items prop:', items);
+
   // Determine data state:
   // - undefined = API not called yet or failed
   // - [] = API returned empty (valid - no notifications)
@@ -48,6 +51,8 @@ export function FYIWidget({ items }: FYIWidgetProps) {
   const isLoading = items === undefined;
   const isEmpty = Array.isArray(items) && items.length === 0;
   const hasItems = Array.isArray(items) && items.length > 0;
+
+  console.log('[FYIWidget] isLoading:', isLoading, 'isEmpty:', isEmpty, 'hasItems:', hasItems);
 
   const unreadCount = hasItems ? items.filter(item => !item.read).length : 0;
 

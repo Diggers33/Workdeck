@@ -38,10 +38,15 @@ function convertApiEventsToEvents(apiEvents: ApiCalendarEvent[]): Event[] {
 }
 
 export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetProps) {
+  // Debug logging
+  console.log('[AgendaWidget] apiEvents prop:', apiEvents);
+
   // Determine data state
   const eventsLoading = apiEvents === undefined;
   const eventsEmpty = Array.isArray(apiEvents) && apiEvents.length === 0;
   const hasApiEvents = Array.isArray(apiEvents) && apiEvents.length > 0;
+
+  console.log('[AgendaWidget] eventsLoading:', eventsLoading, 'eventsEmpty:', eventsEmpty, 'hasApiEvents:', hasApiEvents);
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverTime, setDragOverTime] = useState<number | null>(null);
@@ -60,9 +65,14 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
   // Update events when API data changes
   useEffect(() => {
     if (Array.isArray(apiEvents)) {
-      setEvents(apiEvents.length > 0 ? convertApiEventsToEvents(apiEvents) : []);
+      const converted = apiEvents.length > 0 ? convertApiEventsToEvents(apiEvents) : [];
+      console.log('[AgendaWidget] Converting API events:', apiEvents, '-> converted:', converted);
+      setEvents(converted);
     }
   }, [apiEvents]);
+
+  // Log current events state
+  console.log('[AgendaWidget] events state:', events);
 
   const currentHour = 14; // 2pm
   const startHour = 0;

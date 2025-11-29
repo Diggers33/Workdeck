@@ -19,6 +19,9 @@ function getRiskScore(daysOverdue: number): number {
 }
 
 export function RedZoneWidget({ data }: RedZoneWidgetProps) {
+  // Debug logging
+  console.log('[RedZoneWidget] data prop:', data);
+
   // Determine data state:
   // - undefined/null = API not called yet or failed
   // - data.items === [] = API returned empty (valid - no projects in red zone - good!)
@@ -27,13 +30,16 @@ export function RedZoneWidget({ data }: RedZoneWidgetProps) {
   const isEmpty = data && Array.isArray(data.items) && data.items.length === 0;
   const hasItems = data && Array.isArray(data.items) && data.items.length > 0;
 
+  console.log('[RedZoneWidget] isLoading:', isLoading, 'isEmpty:', isEmpty, 'hasItems:', hasItems);
+
   // Transform items if we have data
   const risks = hasItems
     ? data.items.map(item => ({
         ...item,
         riskScore: getRiskScore(item.daysOverdue),
         color: getRiskColor(item.daysOverdue),
-        issues: `${item.daysOverdue} days overdue`
+        // Use issues from API if available, otherwise fallback
+        displayIssues: item.issues || `${item.daysOverdue} issues`
       }))
     : [];
 
@@ -125,7 +131,7 @@ export function RedZoneWidget({ data }: RedZoneWidgetProps) {
 
                 {/* Issues - compact inline */}
                 <div className="flex-shrink-0 text-[10px] text-[#6B7280]">
-                  {risk.issues}
+                  {risk.displayIssues}
                 </div>
 
                 {/* Arrow */}
