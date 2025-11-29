@@ -190,8 +190,23 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
   // Event color picker state
   const [eventColor, setEventColor] = useState(event?.color || '#3B82F6');
   const [showColorPicker, setShowColorPicker] = useState(false);
-// Predefined color options matching Angular/Workdeck palette  const colorOptions = [    { name: 'Blue', value: '#3B82F6' },    { name: 'Sky', value: '#60A5FA' },    { name: 'Green', value: '#10B981' },    { name: 'Emerald', value: '#34D399' },    { name: 'Yellow', value: '#FBBF24' },    { name: 'Orange', value: '#F97316' },    { name: 'Red', value: '#EF4444' },    { name: 'Pink', value: '#EC4899' },    { name: 'Purple', value: '#8B5CF6' },    { name: 'Indigo', value: '#6366F1' },    { name: 'Teal', value: '#14B8A6' },    { name: 'Gray', value: '#6B7280' },  ];
-  
+
+  // Predefined color options matching Angular/Workdeck palette
+  const colorOptions = [
+    { name: 'Blue', value: '#3B82F6' },
+    { name: 'Sky', value: '#60A5FA' },
+    { name: 'Green', value: '#10B981' },
+    { name: 'Emerald', value: '#34D399' },
+    { name: 'Yellow', value: '#FBBF24' },
+    { name: 'Orange', value: '#F97316' },
+    { name: 'Red', value: '#EF4444' },
+    { name: 'Pink', value: '#EC4899' },
+    { name: 'Purple', value: '#8B5CF6' },
+    { name: 'Indigo', value: '#6366F1' },
+    { name: 'Teal', value: '#14B8A6' },
+    { name: 'Gray', value: '#6B7280' },
+  ];
+
   const timeAllocations = ['5m', '10m', '15m', '30m', '45m', '1h'];
   const presenters = ['Colm Digby', 'Sarah Chen', 'Mike O\'Brien', 'Emma Walsh', 'No presenter'];
   const agendaTeamMembers = ['Colm Digby', 'Sarah Chen', 'Mike O\'Brien', 'Emma Walsh', 'John Murphy', 'Lisa O\'Connor'];
