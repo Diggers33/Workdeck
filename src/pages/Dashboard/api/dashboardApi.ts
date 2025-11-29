@@ -488,8 +488,25 @@ export async function getRedZone(): Promise<RedZoneData> {
 /**
  * Get personal checklist/todo
  */
+// Raw API response for checklist
+interface ChecklistApiResponse {
+  userChecklist?: any[];
+  taskChecklist?: any[];
+}
+
 export async function getChecklist(): Promise<ChecklistItem[]> {
-  return apiFetch<ChecklistItem[]>('/queries/me/checklist');
+  const response = await apiFetch<ChecklistApiResponse>('/queries/me/checklist');
+
+  // API returns {userChecklist: [], taskChecklist: []}
+  // We need to transform userChecklist into ChecklistItem[]
+  const userItems = response.userChecklist || [];
+
+  return userItems.map((item: any) => ({
+    id: item.id || `checklist-${Math.random()}`,
+    text: item.text || item.label || item.name || 'Untitled',
+    completed: item.completed ?? item.done ?? false,
+    createdAt: item.createdAt || new Date().toISOString(),
+  }));
 }
 
 /**

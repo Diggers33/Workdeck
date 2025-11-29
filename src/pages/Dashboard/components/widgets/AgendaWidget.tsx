@@ -18,11 +18,31 @@ interface Event {
   totalOverlaps?: number; // Total overlapping events
 }
 
+// Helper to parse date in DD/MM/YYYY HH:mm:ss+00:00 format
+function parseWorkdeckDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+
+  // Try ISO format first
+  let date = new Date(dateStr);
+  if (!isNaN(date.getTime())) return date;
+
+  // Parse DD/MM/YYYY HH:mm:ss+00:00 format
+  const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})([+-]\d{2}:\d{2})?$/);
+  if (match) {
+    const [, day, month, year, hours, minutes, seconds, tz] = match;
+    // Create ISO string: YYYY-MM-DDTHH:mm:ss+00:00
+    const isoStr = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${tz || '+00:00'}`;
+    date = new Date(isoStr);
+  }
+
+  return date;
+}
+
 // Helper to convert API events to internal format
 function convertApiEventsToEvents(apiEvents: ApiCalendarEvent[]): Event[] {
   return apiEvents.map(event => {
-    const startDate = new Date(event.startAt);
-    const endDate = new Date(event.endAt);
+    const startDate = parseWorkdeckDate(event.startAt);
+    const endDate = parseWorkdeckDate(event.endAt);
     const startHour = startDate.getHours() + startDate.getMinutes() / 60;
     const endHour = endDate.getHours() + endDate.getMinutes() / 60;
     const duration = Math.max(0.25, endHour - startHour); // Minimum 15 minutes
