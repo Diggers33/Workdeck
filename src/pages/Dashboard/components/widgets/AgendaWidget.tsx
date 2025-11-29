@@ -656,21 +656,21 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
               </div>
             ))}
 
-            {/* Current time indicator */}
-            <div 
+            {/* Current time indicator - positioned in events column (after 40px hour labels) */}
+            <div
               className="pointer-events-none"
-              style={{ 
+              style={{
                 position: 'absolute',
-                left: 0,
-                right: 0,
+                left: '36px',
+                right: '4px',
                 top: `${((currentHour - startHour) * pixelsPerHour)}px`,
                 display: 'flex',
                 alignItems: 'center',
                 zIndex: 10
               }}
             >
-              <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444] ml-0.5"></div>
-              <div className="flex-1 h-0.5 bg-[#EF4444] opacity-70"></div>
+              <div className="w-2 h-2 rounded-full bg-[#EF4444]" style={{ marginLeft: '-4px' }}></div>
+              <div className="flex-1 h-0.5 bg-[#EF4444]"></div>
             </div>
 
             {/* Drop indicator line */}

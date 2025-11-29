@@ -685,6 +685,28 @@ export async function toggleChecklistItem(itemId: string, completed: boolean, de
 }
 
 /**
+ * Convert ISO date string or Date to Workdeck API format: DD/MM/YYYY HH:mm:ss+TZ
+ */
+function toWorkdeckDateFormat(dateStr: string | Date): string {
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+
+  // Get timezone offset in +HH:mm format
+  const tzOffset = -date.getTimezoneOffset();
+  const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
+  const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
+  const tzSign = tzOffset >= 0 ? '+' : '-';
+
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}${tzSign}${tzHours}:${tzMinutes}`;
+}
+
+/**
  * Create a new calendar event
  */
 export interface CreateEventData {
@@ -701,8 +723,35 @@ export interface CreateEventData {
   timezone?: string;
 }
 
+// Default event color (blue) matching Angular environment.calendar.defaultEventColor
+const DEFAULT_EVENT_COLOR = '#60A5FA';
+
 export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
-  const payload = { ...eventData, timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+  // Build payload with Workdeck-specific format
+  const payload: Record<string, any> = {
+    title: eventData.title,
+    startAt: toWorkdeckDateFormat(eventData.startAt),
+    endAt: toWorkdeckDateFormat(eventData.endAt),
+    color: eventData.color || DEFAULT_EVENT_COLOR,
+    timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+
+  // Add optional fields only if provided
+  if (eventData.description) payload.description = eventData.description;
+  if (eventData.private !== undefined) payload.private = eventData.private;
+  if (eventData.billable !== undefined) payload.billable = eventData.billable;
+  if (eventData.timesheet !== undefined) payload.timesheet = eventData.timesheet;
+
+  // If taskId provided, add task object (API expects { task: { id: ... } })
+  if (eventData.taskId) {
+    payload.task = { id: eventData.taskId };
+  }
+
+  // If projectId provided, add project object
+  if (eventData.projectId) {
+    payload.project = { id: eventData.projectId };
+  }
+
   console.log("[Event API] Create payload:", payload);
   const response = await apiFetch<CalendarEvent>('/commands/sync/create-event', {
     method: 'POST',
@@ -715,7 +764,26 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
  * Update an existing calendar event
  */
 export async function updateEvent(eventId: string, eventData: Partial<CreateEventData>): Promise<void> {
-  const payload = { id: eventId, ...eventData, timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+  // Build payload with Workdeck-specific format
+  const payload: Record<string, any> = {
+    id: eventId,
+    timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+
+  // Convert dates to Workdeck format if provided
+  if (eventData.startAt) payload.startAt = toWorkdeckDateFormat(eventData.startAt);
+  if (eventData.endAt) payload.endAt = toWorkdeckDateFormat(eventData.endAt);
+
+  // Add other fields
+  if (eventData.title) payload.title = eventData.title;
+  if (eventData.description) payload.description = eventData.description;
+  if (eventData.color) payload.color = eventData.color;
+  if (eventData.private !== undefined) payload.private = eventData.private;
+  if (eventData.billable !== undefined) payload.billable = eventData.billable;
+  if (eventData.timesheet !== undefined) payload.timesheet = eventData.timesheet;
+  if (eventData.taskId) payload.task = { id: eventData.taskId };
+  if (eventData.projectId) payload.project = { id: eventData.projectId };
+
   console.log("[Event API] Update payload:", payload);
   await apiFetch<void>('/commands/sync/update-event', {
     method: 'POST',
