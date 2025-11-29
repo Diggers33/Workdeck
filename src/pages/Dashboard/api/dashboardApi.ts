@@ -284,8 +284,16 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?:
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  const fullUrl = `${API_URL}${endpoint}`;
+  const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+  // Debug: Log request start
+  if (options?.method === 'POST') {
+    console.log(`[apiFetch ${requestId}] ${options?.method || 'GET'} ${fullUrl}`);
+  }
+
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(fullUrl, {
       ...options,
       signal: controller.signal,
       headers: {
@@ -296,15 +304,34 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?:
 
     clearTimeout(timeoutId);
 
+    // Debug: Log response status
+    if (options?.method === 'POST') {
+      console.log(`[apiFetch ${requestId}] Response status: ${response.status} ${response.statusText}`);
+    }
+
     if (!response.ok) {
+      // Try to get error body for debugging
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+        console.error(`[apiFetch ${requestId}] Error response body:`, errorBody);
+      } catch (e) {
+        console.error(`[apiFetch ${requestId}] Could not read error body`);
+      }
+
       if (response.status === 401) {
         // Token expired or invalid - could trigger logout here
         throw new Error('Unauthorized');
       }
-      throw new Error(`API Error: ${response.status}`);
+      throw new Error(`API Error: ${response.status} - ${errorBody || response.statusText}`);
     }
 
     const data = await response.json();
+
+    // Debug: Log successful response for POST requests
+    if (options?.method === 'POST') {
+      console.log(`[apiFetch ${requestId}] Response data:`, JSON.stringify(data).substring(0, 500));
+    }
 
     // Handle wrapped response format { status: "OK", result: data }
     if (data.status === 'OK' && data.result !== undefined) {
@@ -317,6 +344,7 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?:
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
+    console.error(`[apiFetch ${requestId}] Fetch error:`, error);
     throw error;
   }
 }
@@ -726,6 +754,14 @@ export interface CreateEventData {
 // Default event color (blue) matching Angular environment.calendar.defaultEventColor
 const DEFAULT_EVENT_COLOR = '#60A5FA';
 
+// Debug helper for Angular sync comparison
+function logAngularSyncDebug(action: string, data: any) {
+  console.group(`[Angular Sync Debug] ${action}`);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Data:', JSON.stringify(data, null, 2));
+  console.groupEnd();
+}
+
 export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
   // Build payload with Workdeck-specific format
   const payload: Record<string, any> = {
@@ -752,12 +788,54 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
     payload.project = { id: eventData.projectId };
   }
 
-  console.log("[Event API] Create payload:", payload);
-  const response = await apiFetch<CalendarEvent>('/commands/sync/create-event', {
+  // === ANGULAR SYNC DEBUG START ===
+  console.log("=".repeat(60));
+  console.log("[Event API] CREATE EVENT - ANGULAR SYNC DEBUG");
+  console.log("=".repeat(60));
+  console.log("[Event API] Input eventData:", JSON.stringify(eventData, null, 2));
+  console.log("[Event API] Converted payload:", JSON.stringify(payload, null, 2));
+  console.log("[Event API] Endpoint: POST /commands/sync/create-event");
+  console.log("[Event API] Headers:", JSON.stringify(getAuthHeaders(), null, 2));
+
+  logAngularSyncDebug('CREATE_EVENT_REQUEST', {
+    endpoint: `${API_URL}/commands/sync/create-event`,
     method: 'POST',
-    body: JSON.stringify(payload),
+    payload,
+    inputData: eventData,
+    dateConversion: {
+      inputStartAt: eventData.startAt,
+      convertedStartAt: payload.startAt,
+      inputEndAt: eventData.endAt,
+      convertedEndAt: payload.endAt,
+    }
   });
-  return response;
+  // === ANGULAR SYNC DEBUG END ===
+
+  try {
+    const response = await apiFetch<CalendarEvent>('/commands/sync/create-event', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    // === ANGULAR SYNC DEBUG - RESPONSE ===
+    console.log("[Event API] SUCCESS - Response:", JSON.stringify(response, null, 2));
+    logAngularSyncDebug('CREATE_EVENT_SUCCESS', {
+      response,
+      eventId: response?.id,
+      tip: 'If event created but not showing in Angular, try: 1) Refresh Angular page (Ctrl+F5), 2) Check if response.id matches expected format'
+    });
+
+    return response;
+  } catch (error: any) {
+    // === ANGULAR SYNC DEBUG - ERROR ===
+    console.error("[Event API] FAILED - Error:", error);
+    logAngularSyncDebug('CREATE_EVENT_ERROR', {
+      error: error?.message,
+      status: error?.status,
+      tip: 'Check Network tab for actual response body. Compare payload format with Angular create-event request.'
+    });
+    throw error;
+  }
 }
 
 /**

@@ -91,9 +91,14 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
   const [draggingEvent, setDraggingEvent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<number>(0);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [createEventTime, setCreateEventTime] = useState<number | null>(null); // For creating new event on click
+  const [createEventTime, setCreateEventTime] = useState<{ start: number; end: number } | null>(null); // For creating new event
   const [wasInteracting, setWasInteracting] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Drawing new event state (click-drag to create)
+  const [isDrawingEvent, setIsDrawingEvent] = useState(false);
+  const [drawStartTime, setDrawStartTime] = useState<number | null>(null);
+  const [drawEndTime, setDrawEndTime] = useState<number | null>(null);
 
   // Initialize events from API or empty
   const [events, setEvents] = useState<Event[]>(
@@ -437,32 +442,56 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     }
   };
 
-  // Handle click on empty timeline area to create new event
-  const handleTimelineClick = (e: React.MouseEvent) => {
-    console.log('[Agenda] Timeline click detected');
-    
+  // Handle mouse down on timeline to START drawing a new event
+  const handleTimelineMouseDown = (e: React.MouseEvent) => {
     // Don't trigger if clicking on an event or during interactions
-    if (draggingEvent || resizingEvent || wasInteracting) {
-      console.log('[Agenda] Ignored - interaction in progress');
-      return;
-    }
-    
-    // Check if we clicked on an event (has data-event attribute or is inside one)
+    if (draggingEvent || resizingEvent || wasInteracting) return;
+
+    // Check if we clicked on an event
     const target = e.target as HTMLElement;
-    if (target.closest('[data-event-id]')) {
-      console.log('[Agenda] Ignored - clicked on event');
-      return;
-    }
-    
+    if (target.closest('[data-event-id]')) return;
+
     const time = getTimeFromMousePosition(e);
-    console.log('[Agenda] Click Y:', e.clientY, 'Calculated hour:', time);
-    
     if (time !== null && time >= 0 && time <= 24) {
-      // Round to nearest 15 minutes
       const roundedTime = Math.round(time * 4) / 4;
-      console.log('[Agenda] Opening create modal at:', roundedTime);
-      setCreateEventTime(roundedTime);
+      console.log('[Agenda] Start drawing event at:', roundedTime);
+      setIsDrawingEvent(true);
+      setDrawStartTime(roundedTime);
+      setDrawEndTime(roundedTime + 0.5); // Default 30 min
+      e.preventDefault(); // Prevent text selection
     }
+  };
+
+  // Handle mouse move while drawing
+  const handleTimelineDrawMove = (e: React.MouseEvent) => {
+    if (!isDrawingEvent || drawStartTime === null) return;
+
+    const time = getTimeFromMousePosition(e);
+    if (time !== null && time >= 0 && time <= 24) {
+      const roundedTime = Math.round(time * 4) / 4;
+      // Ensure minimum 15-minute duration and correct direction
+      const newEnd = Math.max(drawStartTime + 0.25, roundedTime);
+      setDrawEndTime(newEnd);
+    }
+  };
+
+  // Handle mouse up to finish drawing and open modal
+  const handleTimelineMouseUp = (e: React.MouseEvent) => {
+    if (!isDrawingEvent || drawStartTime === null || drawEndTime === null) return;
+
+    console.log('[Agenda] Finish drawing event:', drawStartTime, '-', drawEndTime);
+
+    // Calculate final times (ensure at least 15 min duration)
+    const start = drawStartTime;
+    const end = Math.max(drawStartTime + 0.25, drawEndTime);
+
+    // Open modal with calculated times
+    setCreateEventTime({ start, end });
+
+    // Reset drawing state
+    setIsDrawingEvent(false);
+    setDrawStartTime(null);
+    setDrawEndTime(null);
   };
 
   const formatTime = (time: number): string => {
@@ -553,12 +582,17 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
         />
       )}
 
-      {/* Create Event Modal - shown when clicking on empty timeline */}
+      {/* Create Event Modal - shown after drawing event on timeline */}
       {createEventTime !== null && (
         <EventModal
           initialDate={(() => {
             const today = new Date();
-            today.setHours(Math.floor(createEventTime), Math.round((createEventTime % 1) * 60), 0, 0);
+            today.setHours(Math.floor(createEventTime.start), Math.round((createEventTime.start % 1) * 60), 0, 0);
+            return today;
+          })()}
+          initialEndDate={(() => {
+            const today = new Date();
+            today.setHours(Math.floor(createEventTime.end), Math.round((createEventTime.end % 1) * 60), 0, 0);
             return today;
           })()}
           onClose={() => setCreateEventTime(null)}
@@ -676,9 +710,19 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
           )}
 
           {/* Timeline content - ALWAYS visible so users can click/drag to create events */}
-          <div 
-            style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}
-            onClick={handleTimelineClick}
+          <div
+            style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px`, userSelect: 'none' }}
+            onMouseDown={handleTimelineMouseDown}
+            onMouseMove={handleTimelineDrawMove}
+            onMouseUp={handleTimelineMouseUp}
+            onMouseLeave={() => {
+              // Cancel drawing if mouse leaves timeline
+              if (isDrawingEvent) {
+                setIsDrawingEvent(false);
+                setDrawStartTime(null);
+                setDrawEndTime(null);
+              }
+            }}
           >
             {/* Hour grid */}
             {hours.map((hour) => (
@@ -874,8 +918,33 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
               );
             })}
 
-            {/* Subtle empty state indicator - shown within timeline when no events */}
-            {eventsEmpty && (
+            {/* Drawing preview - shows while user is click-dragging to create */}
+            {isDrawingEvent && drawStartTime !== null && drawEndTime !== null && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '40px',
+                  right: '6px',
+                  top: `${drawStartTime * pixelsPerHour}px`,
+                  height: `${Math.max(0.25, drawEndTime - drawStartTime) * pixelsPerHour}px`,
+                  backgroundColor: 'rgba(96, 165, 250, 0.3)',
+                  border: '2px dashed #60A5FA',
+                  borderRadius: '4px',
+                  pointerEvents: 'none',
+                  zIndex: 15,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <span className="text-[11px] font-medium text-[#3B82F6] bg-white/80 px-2 py-0.5 rounded">
+                  {formatTime(drawStartTime)} - {formatTime(drawEndTime)}
+                </span>
+              </div>
+            )}
+
+            {/* Subtle empty state indicator - only shown when NO events exist (local state) */}
+            {events.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center opacity-50">
                   <Coffee className="w-8 h-8 text-[#D1D5DB] mx-auto mb-1" />

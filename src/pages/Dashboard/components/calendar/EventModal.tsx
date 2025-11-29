@@ -7,13 +7,14 @@ import { EventComments } from './EventComments';
 interface EventModalProps {
   event?: CalendarEvent | null;
   initialDate?: Date;
+  initialEndDate?: Date; // Optional end date for drawn events
   onClose: () => void;
   onSave: (event: Partial<CalendarEvent>) => void;
   onDelete?: (eventId: string) => void;
   userColors?: { [key: string]: string };
 }
 
-export function EventModal({ event, initialDate, onClose, onSave, onDelete, userColors }: EventModalProps) {
+export function EventModal({ event, initialDate, initialEndDate, onClose, onSave, onDelete, userColors }: EventModalProps) {
   const isEditing = !!event;
   
   // Form state
@@ -29,6 +30,7 @@ export function EventModal({ event, initialDate, onClose, onSave, onDelete, user
   });
   const [toTime, setToTime] = useState(() => {
     if (event?.endTime) return formatTime(new Date(event.endTime));
+    if (initialEndDate) return formatTime(initialEndDate); // Use drawn end time
     if (initialDate) {
       // Default to 30 minutes after initialDate
       const endDate = new Date(initialDate.getTime() + 30 * 60 * 1000);
