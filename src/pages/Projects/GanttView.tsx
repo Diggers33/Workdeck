@@ -141,14 +141,29 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
 
           console.log('All tasks loaded:', allTasks.length);
           
+          // Debug: Log sample task activity IDs
+          if (allTasks.length > 0) {
+            const sampleTaskActivityIds = allTasks.slice(0, 5).map(t => ({
+              taskName: t.name,
+              activityId: t.activity?.id,
+              activityName: t.activity?.name
+            }));
+            console.log('Sample task activity IDs:', sampleTaskActivityIds);
+          }
+          
           // Filter tasks that belong to any of the project's activities
           apiTasks = allTasks.filter(t => {
-            if (!t.activity) return false;
+            if (!t.activity) {
+              console.log(`Task "${t.name}" has no activity`);
+              return false;
+            }
             const taskActivityId = t.activity.id;
             const matches = activityIds.has(taskActivityId);
             
             if (matches) {
-              console.log(`Matched task "${t.name}" to activity "${t.activity.name}"`);
+              console.log(`✓ Matched task "${t.name}" to activity "${t.activity.name}" (ID: ${taskActivityId})`);
+            } else {
+              console.log(`✗ Task "${t.name}" activity ID ${taskActivityId} not in project activities`);
             }
             
             return matches;
