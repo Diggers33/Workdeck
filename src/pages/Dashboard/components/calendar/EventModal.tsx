@@ -547,11 +547,17 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
       description,
       location,
       attendees,
+      guests,
       reminders,
       timezone,
       recurrence,
       importance,
-      alert
+      alert,
+      meetingLink,
+      meetingRoom,
+      attachments,
+      agendaItems,
+      comments
     });
   };
 

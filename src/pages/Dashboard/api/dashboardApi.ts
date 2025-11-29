@@ -766,6 +766,20 @@ export interface CreateEventData {
   projectId?: string;
   taskId?: string;
   timezone?: string;
+  // Additional fields from EventModal
+  location?: string;
+  attendees?: string[];
+  guests?: string[];
+  reminders?: string;
+  recurrence?: string;
+  importance?: 'low' | 'medium' | 'high';
+  alert?: string;
+  meetingLink?: string;
+  meetingRoom?: string;
+  isExternal?: boolean;
+  attachments?: Array<{ id: string; name: string; size: string; type: string; date?: string; content?: string; }>;
+  agendaItems?: Array<{ id: string; title: string; completed: boolean; timeAllocation?: string; presenter?: string; notes?: string; isExpanded?: boolean; actions?: any[]; }>;
+  comments?: Array<{ id: string; text: string; user: string; timestamp?: Date; replies?: any[]; attachments?: any[]; }>;
 }
 
 // Default event color (blue) matching Angular environment.calendar.defaultEventColor
@@ -811,6 +825,27 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
   // If projectId provided, add project object
   if (eventData.projectId) {
     payload.project = { id: eventData.projectId };
+  }
+
+  // Additional fields from EventModal
+  if (eventData.location) payload.address = eventData.location; // API uses 'address' for location
+  if (eventData.isExternal !== undefined) payload.externalMeeting = eventData.isExternal;
+  if (eventData.importance) payload.importance = eventData.importance;
+  if (eventData.recurrence) payload.recurrence = eventData.recurrence;
+  if (eventData.meetingLink) payload.wherebyRoomId = eventData.meetingLink; // Or custom field
+
+  // Add additional guests if provided (combine with current user)
+  if (eventData.guests && eventData.guests.length > 0) {
+    // Keep current user as first guest, add others
+    const additionalGuests = eventData.guests.map(guestId => ({ id: guestId }));
+    payload.guests = [{ id: currentUser.id }, ...additionalGuests];
+  }
+
+  // Attendees (if different from guests)
+  if (eventData.attendees && eventData.attendees.length > 0) {
+    // Merge with existing guests
+    const attendeeGuests = eventData.attendees.map(attendeeId => ({ id: attendeeId }));
+    payload.guests = [...(payload.guests || [{ id: currentUser.id }]), ...attendeeGuests];
   }
 
   // === ANGULAR SYNC DEBUG START ===

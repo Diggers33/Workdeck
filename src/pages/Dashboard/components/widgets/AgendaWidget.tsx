@@ -619,19 +619,44 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
             setDrawEndTime(null);
             console.log('[Agenda] Added optimistic event:', optimisticEvent);
 
-            // Call API to create event
+            // Call API to create event with all modal fields
             try {
               console.log('[Agenda] Calling createEvent API with full data:', newEvent);
               const createdEvent = await createEvent({
+                // Core event fields
                 title: newEvent.title || 'New Event',
                 description: newEvent.description,
                 startAt: startTime.toISOString(),
                 endAt: endTime.toISOString(),
                 color: newEvent.color || newEvent.projectColor,
+
+                // Event settings
                 private: newEvent.isPrivate ?? false,
                 billable: newEvent.isBillable ?? false,
                 timesheet: newEvent.isTimesheet ?? true,
                 timezone: newEvent.timezone,
+
+                // Location and meeting
+                location: newEvent.location,
+                isExternal: newEvent.isExternal,
+                meetingLink: newEvent.meetingLink,
+                meetingRoom: newEvent.meetingRoom,
+
+                // Attendees and guests
+                attendees: newEvent.attendees,
+                guests: newEvent.guests,
+
+                // Scheduling
+                reminders: newEvent.reminders,
+                recurrence: newEvent.recurrence,
+                alert: newEvent.alert,
+                importance: newEvent.importance,
+
+                // Related items
+                agendaItems: newEvent.agendaItems,
+                comments: newEvent.comments,
+                attachments: newEvent.attachments,
+
                 // Note: project and task are names from modal, API needs IDs
                 // These will be undefined if user didn't select from a real list
               });
