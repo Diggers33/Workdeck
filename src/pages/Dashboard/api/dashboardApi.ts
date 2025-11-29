@@ -5,7 +5,7 @@
 
 import { getAuthHeaders } from '../../../services/authService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.workdeck.com';
+const API_URL = import.meta.env.VITE_API_URL || 'https://test-api.workdeck.com';
 
 // Response wrapper type
 interface ApiResponse<T> {
@@ -722,23 +722,48 @@ export type ApprovalType = 'leave' | 'expense' | 'purchase' | 'timesheet' | 'eve
 
 /**
  * Approve a pending item
+ * API endpoints per type:
+ * - leave: /commands/sync/approve-leave-request
+ * - expense: /commands/sync/approve-expense
+ * - timesheet: /commands/sync/approve-timesheet
  */
-export async function approveItem(type: ApprovalType, itemId: string): Promise<void> {
-  const endpoint = `/commands/sync/approve-${type}`;
+export async function approveItem(type: ApprovalType, itemId: string, comment?: string): Promise<void> {
+  // Map type to correct endpoint name
+  const endpointMap: Record<ApprovalType, string> = {
+    leave: 'approve-leave-request',
+    expense: 'approve-expense',
+    purchase: 'approve-purchase',
+    timesheet: 'approve-timesheet',
+    event: 'approve-event',
+  };
+
+  const endpoint = `/commands/sync/${endpointMap[type]}`;
   await apiFetch<void>(endpoint, {
     method: 'POST',
-    body: JSON.stringify({ id: itemId }),
+    body: JSON.stringify({ id: itemId, comment }),
   });
 }
 
 /**
- * Reject a pending item with reason
+ * Reject/Deny a pending item with reason
+ * API endpoints per type:
+ * - leave: /commands/sync/deny-leave-request
+ * - expense: /commands/sync/deny-expense
  */
 export async function rejectItem(type: ApprovalType, itemId: string, reason: string): Promise<void> {
-  const endpoint = `/commands/sync/reject-${type}`;
+  // Map type to correct endpoint name (API uses "deny" not "reject")
+  const endpointMap: Record<ApprovalType, string> = {
+    leave: 'deny-leave-request',
+    expense: 'deny-expense',
+    purchase: 'deny-purchase',
+    timesheet: 'deny-timesheet',
+    event: 'deny-event',
+  };
+
+  const endpoint = `/commands/sync/${endpointMap[type]}`;
   await apiFetch<void>(endpoint, {
     method: 'POST',
-    body: JSON.stringify({ id: itemId, reason }),
+    body: JSON.stringify({ id: itemId, comment: reason }),
   });
 }
 
