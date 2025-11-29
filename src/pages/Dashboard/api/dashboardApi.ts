@@ -866,21 +866,56 @@ function logAngularSyncDebug(action: string, data: any) {
 }
 
 export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
-  // Get current user ID to add as guest (required for event to show in calendar)
+  // Get current user to add as guest and creator (required for event to show in calendar)
   const currentUser = await getCurrentUser();
 
-  // Build payload with Workdeck-specific format
-  // Angular also sends: fromUser, creator, guests (with user as guest)
+  // Generate a local ID like Angular does (ElaEntity.sequence++)
+  const localEventId = crypto.randomUUID();
+
+  // Build the full creator object matching Angular's UserSummaryEntity.toJson()
+  // Angular sends the FULL user object, not just { id }
+  const creatorObject = {
+    id: currentUser.id,
+    user: currentUser.id, // Some API fields use 'user' as ID
+    firstName: currentUser.firstName,
+    lastName: currentUser.lastName,
+    email: currentUser.email,
+    avatar: currentUser.avatar,
+  };
+
+  // Build payload matching Angular's EventEntity.toJson() + setInsertOrUpdateEventData()
+  // Angular flow:
+  // 1. EventEntity.fromJson() creates entity with all fields
+  // 2. EventEntity.toJson() serializes all @Field decorated properties
+  // 3. setInsertOrUpdateEventData() overrides guests to [{ id: ... }]
   const payload: Record<string, any> = {
-    title: eventData.title,
+    // Core event fields (from EventSummaryEntity)
+    id: localEventId,
+    title: eventData.title || '',
     startAt: toWorkdeckDateFormat(eventData.startAt),
+    fromUser: currentUser.id,
+
+    // Extended event fields (from EventEntity)
     endAt: toWorkdeckDateFormat(eventData.endAt),
     color: eventData.color || DEFAULT_EVENT_COLOR,
+    secondaryColor: eventData.color || DEFAULT_EVENT_COLOR, // Angular includes this
     timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-    state: 1, // Event state: 1 = confirmed (required by API)
-    fromUser: currentUser.id, // Owner/creator of the event
-    creator: { id: currentUser.id }, // Creator object
-    guests: [{ id: currentUser.id }], // Add current user as guest so event shows in their calendar
+    state: 1, // AttendeeStates.ACCEPTED = 1 (event is confirmed)
+
+    // Creator - Angular sends FULL user object from UserSummaryEntity.toJson()
+    creator: creatorObject,
+
+    // Guests - Angular overrides to just [{ id: guestUserId }]
+    // This is the KEY field - event only shows in calendar for users in guests array
+    guests: [{ id: currentUser.id }],
+
+    // Default values matching Angular EventEntity @Field defaults
+    private: eventData.private ?? false,
+    externalMeeting: eventData.isExternal ?? false,
+    billable: eventData.billable ?? false,
+    timesheet: eventData.timesheet ?? false,
+    planSync: false,
+    createWherebyRoom: false,
   };
 
   // Add optional fields only if provided
