@@ -351,7 +351,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     }
   };
 
-  const handleResizeEnd = async () => {
+  const handleResizeEnd = () => {
     if (resizingEvent) {
       const event = events.find(ev => ev.id === resizingEvent.id);
       if (event) {
@@ -363,17 +363,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
         const endHour = event.start + event.duration;
         endTime.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
 
-        // Call API to update event
-        try {
-          await updateEvent(event.id, {
-            title: event.title,
-            startAt: startTime.toISOString(),
-            endAt: endTime.toISOString(),
-            color: event.color,
-          });
-        } catch (error) {
+        // Fire-and-forget API call - don't await, UI already updated optimistically
+        updateEvent(event.id, {
+          title: event.title,
+          startAt: startTime.toISOString(),
+          endAt: endTime.toISOString(),
+          color: event.color,
+        }).catch(error => {
           console.error('Failed to update event after resize:', error);
-        }
+        });
       }
     }
     setResizingEvent(null);
@@ -405,7 +403,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     ));
   };
 
-  const handleDragEnd = async () => {
+  const handleDragEnd = () => {
     if (draggingEvent) {
       const event = events.find(ev => ev.id === draggingEvent);
       if (event) {
@@ -417,17 +415,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
         const endHour = event.start + event.duration;
         endTime.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
 
-        // Call API to update event
-        try {
-          await updateEvent(event.id, {
-            title: event.title,
-            startAt: startTime.toISOString(),
-            endAt: endTime.toISOString(),
-            color: event.color,
-          });
-        } catch (error) {
+        // Fire-and-forget API call - don't await, UI already updated optimistically
+        updateEvent(event.id, {
+          title: event.title,
+          startAt: startTime.toISOString(),
+          endAt: endTime.toISOString(),
+          color: event.color,
+        }).catch(error => {
           console.error('Failed to update event after drag:', error);
-        }
+        });
       }
     }
     setDraggingEvent(null);
@@ -485,13 +481,9 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     const start = drawStartTime;
     const end = Math.max(drawStartTime + 0.25, drawEndTime);
 
-    // Open modal with calculated times
+    // Open modal with calculated times - keep drawing state for placeholder!
     setCreateEventTime({ start, end });
-
-    // Reset drawing state
-    setIsDrawingEvent(false);
-    setDrawStartTime(null);
-    setDrawEndTime(null);
+    setIsDrawingEvent(false); // Stop active drawing but keep start/end for placeholder
   };
 
   const formatTime = (time: number): string => {
@@ -595,7 +587,11 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
             today.setHours(Math.floor(createEventTime.end), Math.round((createEventTime.end % 1) * 60), 0, 0);
             return today;
           })()}
-          onClose={() => setCreateEventTime(null)}
+          onClose={() => {
+            setCreateEventTime(null);
+            setDrawStartTime(null);
+            setDrawEndTime(null);
+          }}
           onSave={async (newEvent) => {
             console.log('[Agenda] Create modal onSave called with:', newEvent);
 
@@ -619,6 +615,8 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
             setEvents(prev => [...prev, optimisticEvent]);
             setCreateEventTime(null);
+            setDrawStartTime(null);
+            setDrawEndTime(null);
             console.log('[Agenda] Added optimistic event:', optimisticEvent);
 
             // Call API to create event
@@ -918,15 +916,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
               );
             })}
 
-            {/* Drawing preview - shows while user is click-dragging to create */}
-            {isDrawingEvent && drawStartTime !== null && drawEndTime !== null && (
+            {/* Drawing preview - shows while drawing OR while modal is open */}
+            {((isDrawingEvent && drawStartTime !== null && drawEndTime !== null) || createEventTime !== null) && (
               <div
                 style={{
                   position: 'absolute',
                   left: '40px',
                   right: '6px',
-                  top: `${drawStartTime * pixelsPerHour}px`,
-                  height: `${Math.max(0.25, drawEndTime - drawStartTime) * pixelsPerHour}px`,
+                  top: `${(createEventTime?.start ?? drawStartTime ?? 0) * pixelsPerHour}px`,
+                  height: `${Math.max(0.25, (createEventTime?.end ?? drawEndTime ?? 0) - (createEventTime?.start ?? drawStartTime ?? 0)) * pixelsPerHour}px`,
                   backgroundColor: 'rgba(96, 165, 250, 0.3)',
                   border: '2px dashed #60A5FA',
                   borderRadius: '4px',
@@ -938,7 +936,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                 }}
               >
                 <span className="text-[11px] font-medium text-[#3B82F6] bg-white/80 px-2 py-0.5 rounded">
-                  {formatTime(drawStartTime)} - {formatTime(drawEndTime)}
+                  {formatTime(createEventTime?.start ?? drawStartTime ?? 0)} - {formatTime(createEventTime?.end ?? drawEndTime ?? 0)}
                 </span>
               </div>
             )}
