@@ -784,6 +784,7 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
   const currentUser = await getCurrentUser();
 
   // Build payload with Workdeck-specific format
+  // Angular also sends: fromUser, creator, guests (with user as guest)
   const payload: Record<string, any> = {
     title: eventData.title,
     startAt: toWorkdeckDateFormat(eventData.startAt),
@@ -791,6 +792,8 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
     color: eventData.color || DEFAULT_EVENT_COLOR,
     timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     state: 1, // Event state: 1 = confirmed (required by API)
+    fromUser: currentUser.id, // Owner/creator of the event
+    creator: { id: currentUser.id }, // Creator object
     guests: [{ id: currentUser.id }], // Add current user as guest so event shows in their calendar
   };
 
