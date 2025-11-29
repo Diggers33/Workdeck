@@ -8,11 +8,11 @@ import { GanttTimelineHeader } from './gantt/GanttTimelineHeader';
 import { GanttLegend } from './gantt/GanttLegend';
 import { TaskDetailModal } from './gantt/TaskDetailModal';
 import { ProjectInfoPanel } from './gantt/ProjectInfoPanel';
-import { WEEKS, INITIAL_TASKS } from './gantt/data';
-import { GanttActivity } from './gantt/types';
-import { Plus } from 'lucide-react';
+import { WEEKS } from './gantt/data';
+import { GanttActivity, GanttWeek } from './gantt/types';
+import { Plus, Loader2 } from 'lucide-react';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void }) {
-  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set(['WP1']));
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
   const [timeResolution, setTimeResolution] = useState('Week');
   const [showLegend, setShowLegend] = useState(false);
@@ -24,31 +24,240 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage: 50, 75, 100, 125, 150
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
   const [currentProjectName, setCurrentProjectName] = useState<string>('BIOGEMSE');
+  const [tasks, setTasks] = useState<GanttActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [projectStartDate, setProjectStartDate] = useState<Date>(new Date());
 
-  // Load current project from tasks
+  // Helper function to parse DD/MM/YYYY date
+  function parseDate(dateString: string): Date {
+    const [day, month, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  // Helper function to calculate weeks between dates
+  function getWeekNumber(date: Date, startDate: Date): number {
+    const diffTime = date.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return Math.floor(diffDays / 7);
+  }
+
+  // Helper function to format date for week label
+  function formatWeekLabel(date: Date): string {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+  }
+
+  // Load current project and tasks
   useEffect(() => {
-    async function loadProject() {
+    async function loadGanttData() {
       try {
+        setLoading(true);
         const { getProjects } = await import('../../services/projectsApi');
-        const projects = await getProjects();
+        const { getTasks } = await import('../../services/tasksApi');
+        const { getMilestones } = await import('../../services/milestonesApi');
+        const { getCurrentUser } = await import('../../services/usersApi');
+
+        // Get current user and projects
+        const [user, projects] = await Promise.all([
+          getCurrentUser(),
+          getProjects(),
+        ]);
+
         // Get first project or find by name
         const project = projects.find(p => p.name === 'BIOGEMSE') || projects[0];
-        if (project) {
-          setCurrentProjectId(project.id);
-          setCurrentProjectName(project.name);
+        if (!project) {
+          setTasks([]);
+          setLoading(false);
+          return;
+        }
+
+        setCurrentProjectId(project.id);
+        setCurrentProjectName(project.name);
+
+        // Load tasks and milestones for this project
+        const [apiTasks, milestones] = await Promise.all([
+          getTasks().then(tasks => tasks.filter(t => t.activity?.project?.id === project.id)),
+          getMilestones({ projectId: project.id }).catch(() => []),
+        ]);
+
+        // Calculate timeline bounds
+        const allDates: Date[] = [];
+        if (project.startDate) allDates.push(parseDate(project.startDate));
+        if (project.endDate) allDates.push(parseDate(project.endDate));
+        apiTasks.forEach(task => {
+          if (task.startDate) allDates.push(parseDate(task.startDate));
+          if (task.endDate) allDates.push(parseDate(task.endDate));
+        });
+        milestones.forEach(m => {
+          if (m.deliveryDate) allDates.push(parseDate(m.deliveryDate));
+        });
+
+        if (allDates.length === 0) {
+          setTasks([]);
+          setLoading(false);
+          return;
+        }
+
+        const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+        
+        // Set project start date for week calculation
+        setProjectStartDate(minDate);
+
+        // Group tasks by activity
+        const activitiesMap = new Map<string, any>();
+        
+        // Initialize activities from project
+        if (project.activities) {
+          project.activities.forEach(activity => {
+            activitiesMap.set(activity.id, {
+              id: activity.id,
+              type: 'activity' as const,
+              name: activity.name,
+              borderColor: project.colorAllTasks || '#60A5FA',
+              expanded: false,
+              startWeek: activity.startDate ? getWeekNumber(parseDate(activity.startDate), minDate) : 0,
+              durationWeeks: activity.startDate && activity.endDate
+                ? Math.ceil((parseDate(activity.endDate).getTime() - parseDate(activity.startDate).getTime()) / (1000 * 60 * 60 * 24 * 7))
+                : 1,
+              barColor: project.colorAllTasks || '#60A5FA',
+              children: [],
+              milestones: [],
+            });
+          });
+        }
+
+        // Add tasks to activities
+        apiTasks.forEach(task => {
+          if (!task.activity) return;
+          
+          const activityId = task.activity.id;
+          if (!activitiesMap.has(activityId)) {
+            // Create activity if it doesn't exist
+            activitiesMap.set(activityId, {
+              id: activityId,
+              type: 'activity' as const,
+              name: task.activity.name,
+              borderColor: task.color || '#60A5FA',
+              expanded: false,
+              startWeek: task.startDate ? getWeekNumber(parseDate(task.startDate), minDate) : 0,
+              durationWeeks: 1,
+              barColor: task.color || '#60A5FA',
+              children: [],
+              milestones: [],
+            });
+          }
+
+          const activity = activitiesMap.get(activityId);
+          const plannedHours = parseFloat(task.plannedHours || '0');
+          const spentHours = parseFloat(task.spentHours || '0');
+          const progress = plannedHours > 0 ? Math.round((spentHours / plannedHours) * 100) : 0;
+          const hoursColor = progress > 100 ? '#F87171' : progress > 0 ? '#34D399' : '#9CA3AF';
+          
+          // Get participant avatars
+          const avatars = task.participants?.slice(0, 3).map(p => {
+            const names = p.user.fullName.split(' ');
+            return (names[0][0] + (names[1]?.[0] || '')).toUpperCase();
+          }) || [];
+
+          const startWeek = task.startDate ? getWeekNumber(parseDate(task.startDate), minDate) : 0;
+          const endWeek = task.endDate ? getWeekNumber(parseDate(task.endDate), minDate) : startWeek + 1;
+          const durationWeeks = Math.max(1, endWeek - startWeek);
+
+          const ganttTask: any = {
+            id: task.id,
+            name: task.name,
+            avatars,
+            hours: `${Math.round(spentHours)}h / ${Math.round(plannedHours)}h`,
+            hoursColor,
+            startWeek,
+            durationWeeks,
+            progress,
+            barColor: task.color || activity.barColor,
+            completed: task.column?.name === 'Done',
+            flag: (task.numFlags || 0) > 0,
+            flagWeek: endWeek,
+            type: 'task' as const,
+            warning: progress > 100,
+            timeExceeded: spentHours > plannedHours && plannedHours > 0,
+          };
+
+          // Add task milestones
+          if (task.milestones && task.milestones.length > 0) {
+            ganttTask.milestones = task.milestones.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              week: m.deliveryDate ? getWeekNumber(parseDate(m.deliveryDate), minDate) : endWeek,
+              status: 'upcoming' as const,
+              dueDate: m.deliveryDate,
+            }));
+          }
+
+          activity.children.push(ganttTask);
+        });
+
+        // Add project milestones to activities and tasks
+        milestones.forEach(milestone => {
+          if (milestone.task?.id) {
+            // Task milestone - find the task and add milestone
+            for (const activity of activitiesMap.values()) {
+              const task = activity.children.find((t: any) => t.id === milestone.task.id);
+              if (task) {
+                if (!task.milestones) task.milestones = [];
+                const taskEndWeek = task.startWeek + task.durationWeeks;
+                task.milestones.push({
+                  id: milestone.id,
+                  name: milestone.name,
+                  week: milestone.deliveryDate ? getWeekNumber(parseDate(milestone.deliveryDate), minDate) : taskEndWeek,
+                  status: 'upcoming' as const,
+                  dueDate: milestone.deliveryDate,
+                });
+                break;
+              }
+            }
+          } else if (milestone.activity?.id) {
+            // Activity milestone
+            const activity = activitiesMap.get(milestone.activity.id);
+            if (activity) {
+              if (!activity.milestones) activity.milestones = [];
+              activity.milestones.push({
+                id: milestone.id,
+                name: milestone.name,
+                week: milestone.deliveryDate ? getWeekNumber(parseDate(milestone.deliveryDate), minDate) : 0,
+                status: 'upcoming' as const,
+                dueDate: milestone.deliveryDate,
+              });
+            }
+          }
+        });
+
+        // Convert map to array and sort by position
+        const transformedTasks = Array.from(activitiesMap.values())
+          .map(activity => ({
+            ...activity,
+            taskCount: activity.children.length,
+            duration: `${activity.durationWeeks} week${activity.durationWeeks !== 1 ? 's' : ''}`,
+            expanded: expandedActivities.has(activity.id),
+          }))
+          .sort((a, b) => (a.startWeek || 0) - (b.startWeek || 0));
+
+        setTasks(transformedTasks);
+        
+        // Expand first activity by default
+        if (transformedTasks.length > 0 && expandedActivities.size === 0) {
+          setExpandedActivities(new Set([transformedTasks[0].id]));
         }
       } catch (error) {
-        console.error('Error loading project:', error);
+        console.error('Error loading Gantt data:', error);
+        setTasks([]);
+      } finally {
+        setLoading(false);
       }
     }
-    loadProject();
-  }, []);
-  const [tasks, setTasks] = useState<GanttActivity[]>(
-    INITIAL_TASKS.map(task => ({
-      ...task,
-      expanded: expandedActivities.has(task.id)
-    }))
-  );
+
+    loadGanttData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
 
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const taskListScrollRef = useRef<HTMLDivElement>(null);
@@ -140,8 +349,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
 
   // Generate time periods based on offset and resolution
   const generateTimePeriods = (offset: number, resolution: string) => {
-    const baseDate = new Date('2024-01-15'); // Start date
-    const today = new Date('2024-01-22'); // Current "today" for the demo
+    const baseDate = projectStartDate || new Date(); // Use project start date
+    const today = new Date(); // Current date
     
     if (resolution === 'Day') {
       // Day view: Show individual days grouped by week
@@ -244,7 +453,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
     }
   };
 
-  const [weeks, setWeeks] = useState(generateTimePeriods(0, timeResolution));
+  const [weeks, setWeeks] = useState<GanttWeek[]>(WEEKS);
 
   const handleNavigateBackward = () => {
     let step = 4;
@@ -271,11 +480,13 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
     setWeeks(generateTimePeriods(0, timeResolution));
   };
 
-  // Update weeks when resolution changes
+  // Update weeks when resolution changes or project start date changes
   React.useEffect(() => {
-    setWeekOffset(0); // Reset offset when changing resolution
-    setWeeks(generateTimePeriods(0, timeResolution));
-  }, [timeResolution]);
+    if (projectStartDate) {
+      setWeekOffset(0); // Reset offset when changing resolution
+      setWeeks(generateTimePeriods(0, timeResolution));
+    }
+  }, [timeResolution, projectStartDate]);
 
   const toggleActivity = (id: string) => {
     const newExpanded = new Set(expandedActivities);
@@ -293,6 +504,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         expanded: newExpanded.has(task.id)
       }))
     );
+    setExpandedActivities(newExpanded);
   };
 
   const handleRemoveFilter = (filterId: string) => {
@@ -369,10 +581,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           setProjectPanelTab('files');
           setProjectPanelOpen(true);
         }}
-        onEditProject={() => {
-          setWizardMode('edit');
-          setShowWizard(true);
-        }}
+        onEditProject={onEditProject}
       />
 
       {/* TOOLBAR - 52px */}
@@ -386,10 +595,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         zoomLevel={zoomLevel}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
-        onCreateProject={() => {
-          setWizardMode('create');
-          setShowWizard(true);
-        }}
+        onCreateProject={undefined}
       />
 
       {/* FILTER CHIP BAR - 44px */}
@@ -400,6 +606,19 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
       />
 
       {/* MAIN GANTT AREA - Full Width */}
+      {loading ? (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: 'calc(100vh - 156px)',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <Loader2 className="animate-spin" size={32} color="#3B82F6" />
+          <div style={{ fontSize: '14px', color: '#6B7280' }}>Loading Gantt data...</div>
+        </div>
+      ) : (
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column',
@@ -523,6 +742,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           />
         </div>
       </div>
+      )}
 
       {/* LEGEND TOOLTIP */}
       {showLegend && <GanttLegend onClose={() => setShowLegend(false)} />}
