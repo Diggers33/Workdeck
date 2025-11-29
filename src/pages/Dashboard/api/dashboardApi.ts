@@ -501,12 +501,18 @@ export async function getChecklist(): Promise<ChecklistItem[]> {
   // We need to transform userChecklist into ChecklistItem[]
   const userItems = response.userChecklist || [];
 
-  return userItems.map((item: any) => ({
-    id: item.id || `checklist-${Math.random()}`,
-    text: item.text || item.label || item.name || 'Untitled',
-    completed: item.completed ?? item.done ?? false,
-    createdAt: item.createdAt || new Date().toISOString(),
-  }));
+  return userItems.map((item: any) => {
+    // Debug: log the raw item to see what fields it has
+    console.log('[getChecklist] Raw checklist item:', item);
+
+    return {
+      id: item.id || `checklist-${Math.random()}`,
+      // Try multiple possible field names for the title/text
+      text: item.text || item.label || item.name || item.title || item.description || item.content || 'Untitled',
+      completed: item.completed ?? item.done ?? item.checked ?? false,
+      createdAt: item.createdAt || item.created || item.date || new Date().toISOString(),
+    };
+  });
 }
 
 /**

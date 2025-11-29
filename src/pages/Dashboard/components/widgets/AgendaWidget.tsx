@@ -308,6 +308,9 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
   const eventsWithOverlaps = getEventsWithOverlaps();
 
+  // Debug: log eventsWithOverlaps before render
+  console.log('[AgendaWidget] eventsWithOverlaps for render:', eventsWithOverlaps, 'count:', eventsWithOverlaps.length);
+
   // Convert event to calendar event format
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
   const calendarEvent = selectedEvent ? {
@@ -428,8 +431,8 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
             </div>
           )}
 
-          {/* Timeline content - only show when not loading and not empty */}
-          {!eventsLoading && <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
+          {/* Timeline content - only show when not loading */}
+          {!eventsLoading && !eventsEmpty && <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
             {/* Hour grid */}
             {hours.map((hour) => (
               <div 
