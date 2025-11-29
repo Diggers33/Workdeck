@@ -338,6 +338,13 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?:
       return data.result as T;
     }
 
+    // Check for API-level errors (200 HTTP but status: "ERROR" in body)
+    if (data.status === 'ERROR') {
+      const errorMessage = data.result?.message || data.result?.code || data.message || 'API returned error status';
+      console.error(`[apiFetch ${requestId}] API Error:`, data);
+      throw new Error(errorMessage);
+    }
+
     return data as T;
   } catch (error) {
     clearTimeout(timeoutId);
@@ -770,6 +777,7 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
     endAt: toWorkdeckDateFormat(eventData.endAt),
     color: eventData.color || DEFAULT_EVENT_COLOR,
     timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    state: 1, // Event state: 1 = confirmed (required by API)
   };
 
   // Add optional fields only if provided
