@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Coffee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EventModal } from '../calendar/EventModal';
-import { CalendarEvent as ApiCalendarEvent } from '../../api/dashboardApi';
+import { CalendarEvent as ApiCalendarEvent, createEventFromTask } from '../../api/dashboardApi';
 
 interface AgendaWidgetProps {
   draggedTask?: any;
@@ -199,22 +199,50 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     setDragOverTime(null);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    
+
     if (draggedTask && dragOverTime !== null) {
+      // Calculate start time based on drop position
+      const today = new Date();
+      const startHour = Math.floor(dragOverTime);
+      const startMinute = Math.round((dragOverTime % 1) * 60);
+      today.setHours(startHour, startMinute, 0, 0);
+      const startAt = today.toISOString();
+
+      // Create optimistic event
+      const tempId = `temp-${Date.now()}`;
       const newEvent: Event = {
-        id: `task-${Date.now()}`,
+        id: tempId,
         start: dragOverTime,
         duration: 0.5, // 30 minutes default
         title: draggedTask.title,
-        color: '#60A5FA'
+        color: draggedTask.projectColor || '#60A5FA'
       };
-      
+
+      // Optimistic update
       setEvents(prev => [...prev, newEvent]);
+
+      // Call API to create event
+      try {
+        const createdEvent = await createEventFromTask(
+          draggedTask.id,
+          draggedTask.title,
+          startAt,
+          30 // 30 minutes duration
+        );
+        // Update with real event data
+        setEvents(prev => prev.map(ev =>
+          ev.id === tempId ? { ...ev, id: createdEvent.id } : ev
+        ));
+      } catch (error) {
+        console.error('Failed to create event from task:', error);
+        // Remove optimistic event on error
+        setEvents(prev => prev.filter(ev => ev.id !== tempId));
+      }
     }
-    
+
     setDragOverTime(null);
   };
 

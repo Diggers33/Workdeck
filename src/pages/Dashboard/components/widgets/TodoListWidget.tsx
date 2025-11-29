@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   ChecklistItem as ApiChecklistItem,
   AssignedTask as ApiAssignedTask,
-  addChecklistItem,
-  toggleChecklistItem,
-  deleteChecklistItem,
+  addChecklistItem as apiAddChecklistItem,
+  toggleChecklistItem as apiToggleChecklistItem,
+  deleteChecklistItem as apiDeleteChecklistItem,
 } from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
@@ -203,15 +203,34 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
     });
   };
 
-  const toggleTaskCompletion = (taskId: string, isAssigned: boolean) => {
+  const toggleTaskCompletion = async (taskId: string, isAssigned: boolean) => {
     if (isAssigned) {
-      setAssignedTasks(prev => prev.map(task => 
+      // For assigned tasks, just update UI (would need different API endpoint)
+      setAssignedTasks(prev => prev.map(task =>
         task.id === taskId ? { ...task, completed: !task.completed } : task
       ));
     } else {
-      setPersonalTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, completed: !task.completed } : task
+      // For personal checklist items, update UI optimistically then call API
+      const task = personalTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const newCompleted = !task.completed;
+
+      // Optimistic update
+      setPersonalTasks(prev => prev.map(t =>
+        t.id === taskId ? { ...t, completed: newCompleted } : t
       ));
+
+      // Call API
+      try {
+        await apiToggleChecklistItem(taskId, newCompleted);
+      } catch (error) {
+        console.error('Failed to toggle checklist item:', error);
+        // Revert on error
+        setPersonalTasks(prev => prev.map(t =>
+          t.id === taskId ? { ...t, completed: !newCompleted } : t
+        ));
+      }
     }
   };
 
@@ -259,20 +278,39 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
     return { completed, total: checklist.length };
   };
 
-  const handleQuickAdd = () => {
+  const handleQuickAdd = async () => {
     if (quickAddValue.trim()) {
+      const text = quickAddValue.trim();
+      setQuickAddValue('');
+      setShowQuickAdd(false);
+
+      // Create optimistic task
+      const tempId = `temp-${Date.now()}`;
       const newTask: Task = {
-        id: `p${Date.now()}`,
-        title: quickAddValue.trim(),
+        id: tempId,
+        title: text,
         category: 'General',
-        due: 'No date',
+        due: 'Just now',
         duration: '30m',
         completed: false,
         priority: 'medium'
       };
+
+      // Optimistic update
       setPersonalTasks(prev => [newTask, ...prev]);
-      setQuickAddValue('');
-      setShowQuickAdd(false);
+
+      // Call API
+      try {
+        const createdItem = await apiAddChecklistItem(text);
+        // Update with real ID from API
+        setPersonalTasks(prev => prev.map(t =>
+          t.id === tempId ? { ...t, id: createdItem.id } : t
+        ));
+      } catch (error) {
+        console.error('Failed to add checklist item:', error);
+        // Remove optimistic item on error
+        setPersonalTasks(prev => prev.filter(t => t.id !== tempId));
+      }
     }
   };
 
