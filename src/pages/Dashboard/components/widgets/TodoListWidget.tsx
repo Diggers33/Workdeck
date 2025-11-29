@@ -117,6 +117,10 @@ function formatDate(dateStr: string): string {
 }
 
 export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
+  // Debug logging
+  console.log('[TodoWidget] items (personal) prop:', items);
+  console.log('[TodoWidget] assignedTasks prop:', apiAssignedTasks);
+
   // Determine data state for personal tasks:
   // - undefined = API not called yet or failed (show loading)
   // - [] = API returned empty (valid - no personal tasks)
@@ -124,6 +128,8 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
   const personalTasksLoading = items === undefined;
   const personalTasksEmpty = Array.isArray(items) && items.length === 0;
   const hasPersonalApiData = Array.isArray(items) && items.length > 0;
+
+  console.log('[TodoWidget] personalTasksLoading:', personalTasksLoading, 'personalTasksEmpty:', personalTasksEmpty, 'hasPersonalApiData:', hasPersonalApiData);
 
   // Determine data state for assigned tasks:
   const assignedTasksLoading = apiAssignedTasks === undefined;

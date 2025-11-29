@@ -283,36 +283,34 @@ export function useDashboardData(): UseDashboardDataReturn {
         );
       }
 
-      if (enabledTypes.includes(WIDGET_TYPES.RED_ZONE)) {
-        log('Fetching Red Zone...');
-        fetchPromises.push(
-          getRedZone()
-            .then(redZone => {
-              log('Red Zone data received:', redZone);
-              setData(prev => ({ ...prev, redZone }));
-            })
-            .catch(err => {
-              logError('Error fetching red zone:', err);
-              // Set empty red zone data so widget shows "All clear" instead of loading
-              setData(prev => ({ ...prev, redZone: { items: [], count: 0 } }));
-            })
-        );
-      }
+      // Always fetch Red Zone (dashboard always shows it)
+      log('Fetching Red Zone...');
+      fetchPromises.push(
+        getRedZone()
+          .then(redZone => {
+            log('Red Zone data received:', redZone);
+            setData(prev => ({ ...prev, redZone }));
+          })
+          .catch(err => {
+            logError('Error fetching red zone:', err);
+            // Set empty red zone data so widget shows "All clear" instead of loading
+            setData(prev => ({ ...prev, redZone: { items: [], count: 0 } }));
+          })
+      );
 
-      if (enabledTypes.includes(WIDGET_TYPES.TODO_LIST)) {
-        log('Fetching Checklist/Todo...');
-        fetchPromises.push(
-          getChecklist()
-            .then(checklist => {
-              log('Checklist data received:', checklist);
-              setData(prev => ({ ...prev, checklist }));
-            })
-            .catch(err => {
-              logError('Error fetching checklist:', err);
-              setData(prev => ({ ...prev, checklist: [] }));
-            })
-        );
-      }
+      // Always fetch Checklist/Todo (dashboard always shows it)
+      log('Fetching Checklist/Todo...');
+      fetchPromises.push(
+        getChecklist()
+          .then(checklist => {
+            log('Checklist data received:', checklist);
+            setData(prev => ({ ...prev, checklist }));
+          })
+          .catch(err => {
+            logError('Error fetching checklist:', err);
+            setData(prev => ({ ...prev, checklist: [] }));
+          })
+      );
 
       // Always fetch Who's Where (for leave/remote status widget)
       log('Fetching Who\'s Where...');

@@ -27,6 +27,19 @@ function convertApiEventsToEvents(apiEvents: ApiCalendarEvent[]): Event[] {
     const endHour = endDate.getHours() + endDate.getMinutes() / 60;
     const duration = Math.max(0.25, endHour - startHour); // Minimum 15 minutes
 
+    // Debug: log each event's parsed times
+    console.log('[AgendaWidget] Parsing event:', {
+      title: event.title,
+      rawStartAt: event.startAt,
+      rawEndAt: event.endAt,
+      parsedStartDate: startDate.toString(),
+      parsedEndDate: endDate.toString(),
+      startHour,
+      endHour,
+      duration,
+      isValidDate: !isNaN(startDate.getTime())
+    });
+
     return {
       id: event.id,
       start: startHour,
