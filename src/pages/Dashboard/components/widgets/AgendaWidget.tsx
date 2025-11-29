@@ -229,6 +229,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
       today.setHours(startHour, startMinute, 0, 0);
       const startAt = today.toISOString();
 
+      console.log('[Agenda] Creating event from drop:', {
+        taskId: taskToAdd.id,
+        taskTitle: taskToAdd.title,
+        startAt,
+        startHour,
+        startMinute,
+        dragOverTime
+      });
+
       // Create optimistic event
       const tempId = `temp-${Date.now()}`;
       const newEvent: Event = {
@@ -241,23 +250,33 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
       // Optimistic update
       setEvents(prev => [...prev, newEvent]);
+      console.log('[Agenda] Added optimistic event:', newEvent);
 
       // Call API to create event
       try {
+        console.log('[Agenda] Calling createEventFromTask API...');
         const createdEvent = await createEventFromTask(
           taskToAdd.id,
           taskToAdd.title,
           startAt,
           30 // 30 minutes duration
         );
+        console.log('[Agenda] API response - created event:', createdEvent);
         // Update with real event data
         setEvents(prev => prev.map(ev =>
           ev.id === tempId ? { ...ev, id: createdEvent.id } : ev
         ));
-      } catch (error) {
-        console.error('Failed to create event from task:', error);
+        console.log('[Agenda] Updated event with real ID:', createdEvent.id);
+      } catch (error: any) {
+        console.error('[Agenda] Failed to create event from task:', error);
+        console.error('[Agenda] Error details:', {
+          message: error?.message,
+          status: error?.status,
+          response: error?.response
+        });
         // Remove optimistic event on error
         setEvents(prev => prev.filter(ev => ev.id !== tempId));
+        console.log('[Agenda] Removed optimistic event due to error');
       }
     }
 
@@ -523,11 +542,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
           })()}
           onClose={() => setCreateEventTime(null)}
           onSave={async (newEvent) => {
+            console.log('[Agenda] Create modal onSave called with:', newEvent);
+
             const startTime = new Date(newEvent.startTime);
             const endTime = new Date(newEvent.endTime);
             const start = startTime.getHours() + startTime.getMinutes() / 60;
             const end = endTime.getHours() + endTime.getMinutes() / 60;
             const duration = end - start;
+
+            console.log('[Agenda] Calculated times:', { startTime: startTime.toISOString(), endTime: endTime.toISOString(), start, end, duration });
 
             // Create optimistic event
             const tempId = `temp-${Date.now()}`;
@@ -541,9 +564,11 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
             setEvents(prev => [...prev, optimisticEvent]);
             setCreateEventTime(null);
+            console.log('[Agenda] Added optimistic event:', optimisticEvent);
 
             // Call API to create event
             try {
+              console.log('[Agenda] Calling createEvent API...');
               const createdEvent = await createEvent({
                 title: newEvent.title || 'New Event',
                 startAt: startTime.toISOString(),
@@ -552,14 +577,22 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                 private: false,
                 billable: false,
               });
+              console.log('[Agenda] API response - created event:', createdEvent);
               // Update with real event ID
               setEvents(prev => prev.map(ev =>
                 ev.id === tempId ? { ...ev, id: createdEvent.id } : ev
               ));
-            } catch (error) {
-              console.error('Failed to create event:', error);
+              console.log('[Agenda] Updated event with real ID:', createdEvent.id);
+            } catch (error: any) {
+              console.error('[Agenda] Failed to create event:', error);
+              console.error('[Agenda] Error details:', {
+                message: error?.message,
+                status: error?.status,
+                response: error?.response
+              });
               // Remove optimistic event on error
               setEvents(prev => prev.filter(ev => ev.id !== tempId));
+              console.log('[Agenda] Removed optimistic event due to error');
             }
           }}
         />
@@ -703,6 +736,12 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
               const widthPercent = 100 / totalOverlaps;
               const leftPercent = (overlap * widthPercent);
               
+              // Calculate if event is short (less than 45 minutes)
+              const isShortEvent = event.duration < 0.75;
+              const calculatedHeight = event.duration * pixelsPerHour;
+              const minEventHeight = 42; // Minimum height to show title properly
+              const actualHeight = Math.max(calculatedHeight, minEventHeight);
+
               return (
                 <div
                   key={event.id}
@@ -713,15 +752,15 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                     left: `calc(40px + ${leftPercent}%)`,
                     width: `calc(${widthPercent}% - ${totalOverlaps > 1 ? 2 : 6}px)`,
                     top: `${event.start * pixelsPerHour}px`,
-                    height: `${event.duration * pixelsPerHour}px`,
+                    height: `${actualHeight}px`,
                     backgroundColor: event.color,
                     borderRadius: '4px',
                     padding: '0',
                     zIndex: draggingEvent === event.id ? 15 : 5,
-                    minHeight: '30px',
                     opacity: draggingEvent === event.id ? 0.7 : 1,
                     display: 'flex',
-                    flexDirection: 'column'
+                    flexDirection: 'column',
+                    overflow: 'hidden'
                   }}
                   onClick={(e) => handleEventClick(event.id, e)}
                 >
@@ -762,12 +801,14 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                   </div>
                   
                   {/* Event content */}
-                  <div 
-                    style={{ 
-                      flex: 1, 
-                      padding: '6px 8px',
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: isShortEvent ? '4px 6px' : '6px 8px',
                       display: 'flex',
-                      flexDirection: 'column',
+                      flexDirection: isShortEvent ? 'row' : 'column',
+                      alignItems: isShortEvent ? 'center' : 'flex-start',
+                      gap: isShortEvent ? '6px' : '0',
                       overflow: 'hidden',
                       cursor: 'move'
                     }}
@@ -776,11 +817,11 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                       handleDragStart(event.id, e);
                     }}
                   >
-                    <div className="text-[11px] font-medium text-white leading-tight overflow-hidden">
+                    <div className={`${isShortEvent ? 'text-[10px]' : 'text-[11px]'} font-medium text-white leading-tight overflow-hidden whitespace-nowrap text-ellipsis`} style={{ flex: isShortEvent ? 1 : undefined }}>
                       {event.title}
                     </div>
-                    <div className="text-[9px] text-white opacity-80 mt-0.5">
-                      {formatTime(event.start)} - {formatTime(event.start + event.duration)}
+                    <div className={`${isShortEvent ? 'text-[9px]' : 'text-[9px]'} text-white opacity-80 ${isShortEvent ? '' : 'mt-0.5'} whitespace-nowrap flex-shrink-0`}>
+                      {formatTime(event.start)}{isShortEvent ? '' : ` - ${formatTime(event.start + event.duration)}`}
                     </div>
                   </div>
                   
