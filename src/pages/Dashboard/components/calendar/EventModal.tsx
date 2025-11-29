@@ -3,7 +3,7 @@ import { CalendarEvent } from './WorkdeckCalendar';
 import { X, Calendar, ChevronDown, Check, GripVertical, Clock, User, Trash2, MapPin, Video, Bell, Repeat, Globe, Lock, Users, Paperclip, FileText, MessageSquare, ListChecks, Reply, Edit2, MoreHorizontal, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { EventComments } from './EventComments';
-import { getUsers, getProjectsSummary, getProjectTasks, UserSummary, ProjectSummary, TaskSummary } from '../../api/dashboardApi';
+import { getUsers, getProjectsSummary, UserSummary, ProjectSummary, TaskSummary } from '../../api/dashboardApi';
 
 interface EventModalProps {
   event?: CalendarEvent | null;
@@ -69,10 +69,11 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
 
   // Data from API
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; initials: string; color: string }>>([]);
-  const [projectsList, setProjectsList] = useState<Array<{ id: string; name: string; color?: string }>>([]);
+  const [projectsList, setProjectsList] = useState<Array<{ id: string; name: string; color?: string; activities?: any[] }>>([]);
   const [tasksList, setTasksList] = useState<Array<{ id: string; name: string; color?: string }>>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [fullProjectsData, setFullProjectsData] = useState<ProjectSummary[]>([]); // Store full project data with activities
 
   // Fetch data on mount
   useEffect(() => {
@@ -98,13 +99,15 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
         });
         setTeamMembers(formattedUsers);
 
-        // Fetch projects
+        // Fetch projects (includes activities/tasks)
         const projects = await getProjectsSummary();
         console.log('[EventModal] Fetched projects:', projects);
+        setFullProjectsData(projects); // Store full data with activities
         const formattedProjects = projects.map((proj: ProjectSummary) => ({
-          id: proj.id || proj.project || '',
+          id: proj.id || (proj as any).project || '',
           name: proj.name,
-          color: proj.color
+          color: proj.color,
+          activities: proj.activities || (proj as any).tasks || []
         }));
         setProjectsList(formattedProjects);
       } catch (error) {
@@ -116,29 +119,30 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
     fetchData();
   }, []);
 
-  // Fetch tasks when project changes
+  // Get tasks from project activities when project changes (no separate API call needed)
   useEffect(() => {
-    async function fetchTasks() {
-      if (!selectedProjectId) {
-        setTasksList([]);
-        return;
-      }
-      try {
-        const tasks = await getProjectTasks(selectedProjectId);
-        console.log('[EventModal] Fetched tasks for project:', selectedProjectId, tasks);
-        const formattedTasks = tasks.map((t: TaskSummary) => ({
-          id: t.id || t.task || '',
-          name: t.summary || t.name || 'Unnamed Task',
-          color: t.color
-        }));
-        setTasksList(formattedTasks);
-      } catch (error) {
-        console.error('[EventModal] Error fetching tasks:', error);
-        setTasksList([]);
-      }
+    if (!selectedProjectId) {
+      setTasksList([]);
+      return;
     }
-    fetchTasks();
-  }, [selectedProjectId]);
+    // Find the project in our cached data
+    const projectData = fullProjectsData.find(p => (p.id || (p as any).project) === selectedProjectId);
+    console.log('[EventModal] Getting tasks for project:', selectedProjectId, projectData);
+
+    if (projectData) {
+      // Activities/tasks are included in project-summary response
+      const activities = projectData.activities || (projectData as any).tasks || [];
+      console.log('[EventModal] Project activities:', activities);
+      const formattedTasks = activities.map((t: any) => ({
+        id: t.id || t.task || t.activity || '',
+        name: t.summary || t.name || t.title || 'Unnamed Task',
+        color: t.color
+      }));
+      setTasksList(formattedTasks);
+    } else {
+      setTasksList([]);
+    }
+  }, [selectedProjectId, fullProjectsData]);
   const [agendaItems, setAgendaItems] = useState<Array<{
     id: string; 
     title: string; 

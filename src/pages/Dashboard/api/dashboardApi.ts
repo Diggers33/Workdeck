@@ -742,19 +742,8 @@ export async function getProjectsSummary(): Promise<ProjectSummary[]> {
   }
 }
 
-/**
- * Get tasks for a specific project
- */
-export async function getProjectTasks(projectId: string): Promise<TaskSummary[]> {
-  try {
-    const response = await apiFetch<TaskSummary[]>(`/queries/projects/${projectId}/tasks`);
-    console.log('[API] getProjectTasks response:', response);
-    return response || [];
-  } catch (error) {
-    console.error('[API] getProjectTasks error:', error);
-    return [];
-  }
-}
+// Note: Tasks/activities are included in project-summary response
+// No separate API call needed - use project.activities from getProjectsSummary()
 
 // ============================================================================
 // MUTATION FUNCTIONS (Create, Update, Delete)
