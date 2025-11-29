@@ -114,13 +114,52 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
 
         console.log('All tasks loaded:', allTasks.length);
         
-        // Filter tasks for this project
+        // Debug: Log first task structure to understand the data format
+        if (allTasks.length > 0) {
+          console.log('Sample task structure:', {
+            id: allTasks[0].id,
+            name: allTasks[0].name,
+            activity: allTasks[0].activity,
+            activityProjectId: allTasks[0].activity?.project?.id,
+            projectId: project.id,
+            match: allTasks[0].activity?.project?.id === project.id
+          });
+        }
+        
+        // Filter tasks for this project - try multiple ways to match
         const apiTasks = allTasks.filter(t => {
-          const taskProjectId = t.activity?.project?.id;
-          return taskProjectId === project.id;
+          if (!t.activity) return false;
+          
+          // Try different ways to match project ID
+          const taskProjectId = t.activity.project?.id;
+          const taskProjectIdAlt = (t.activity as any).projectId;
+          
+          // Check if project ID matches (string comparison)
+          const matches = taskProjectId === project.id || 
+                         taskProjectIdAlt === project.id ||
+                         String(taskProjectId) === String(project.id) ||
+                         String(taskProjectIdAlt) === String(project.id);
+          
+          if (matches) {
+            console.log('Matched task:', t.name, 'project:', taskProjectId || taskProjectIdAlt);
+          }
+          
+          return matches;
         });
         
         console.log('Filtered tasks for project:', apiTasks.length);
+        
+        // If no tasks found, log all unique project IDs from tasks to debug
+        if (apiTasks.length === 0 && allTasks.length > 0) {
+          const uniqueProjectIds = new Set<string>();
+          allTasks.forEach(t => {
+            if (t.activity?.project?.id) {
+              uniqueProjectIds.add(t.activity.project.id);
+            }
+          });
+          console.log('Available project IDs in tasks:', Array.from(uniqueProjectIds));
+          console.log('Looking for project ID:', project.id);
+        }
 
         // Calculate timeline bounds
         const allDates: Date[] = [];

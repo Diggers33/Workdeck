@@ -4,6 +4,7 @@ import { X, Calendar, ChevronDown, Check, GripVertical, Clock, User, Trash2, Map
 import { toast } from 'sonner';
 import { EventComments } from './EventComments';
 import { getUsers, getProjectsSummary, UserSummary, ProjectSummary, TaskSummary } from '../../api/dashboardApi';
+import { getProjectActivities } from '../../../../services/projectsApi';
 
 interface EventModalProps {
   event?: CalendarEvent | null;
@@ -119,30 +120,48 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
     fetchData();
   }, []);
 
-  // Get tasks from project activities when project changes (no separate API call needed)
+  // Fetch tasks when project changes - uses /queries/projects/{id}/activities endpoint
   useEffect(() => {
     if (!selectedProjectId) {
       setTasksList([]);
       return;
     }
-    // Find the project in our cached data
-    const projectData = fullProjectsData.find(p => (p.id || (p as any).project) === selectedProjectId);
-    console.log('[EventModal] Getting tasks for project:', selectedProjectId, projectData);
 
-    if (projectData) {
-      // Activities/tasks are included in project-summary response
-      const activities = projectData.activities || (projectData as any).tasks || [];
-      console.log('[EventModal] Project activities:', activities);
-      const formattedTasks = activities.map((t: any) => ({
-        id: t.id || t.task || t.activity || '',
-        name: t.summary || t.name || t.title || 'Unnamed Task',
-        color: t.color
-      }));
-      setTasksList(formattedTasks);
-    } else {
-      setTasksList([]);
+    async function fetchProjectTasks() {
+      console.log('[EventModal] Fetching tasks for project:', selectedProjectId);
+      try {
+        // Get activities for the project - each activity contains tasks
+        const activities = await getProjectActivities(selectedProjectId);
+        console.log('[EventModal] Project activities response:', activities);
+
+        // Extract all tasks from all activities and flatten into single list
+        const allTasks: Array<{ id: string; name: string; color?: string }> = [];
+
+        if (activities && Array.isArray(activities)) {
+          activities.forEach((activity: any) => {
+            const activityTasks = activity.tasks || [];
+            console.log(`[EventModal] Activity "${activity.name}" has ${activityTasks.length} tasks`);
+
+            activityTasks.forEach((task: any) => {
+              allTasks.push({
+                id: task.id || task.task || '',
+                name: task.name || task.summary || task.title || 'Unnamed Task',
+                color: task.color
+              });
+            });
+          });
+        }
+
+        console.log('[EventModal] Total tasks found:', allTasks.length, allTasks);
+        setTasksList(allTasks);
+      } catch (error) {
+        console.error('[EventModal] Error fetching project tasks:', error);
+        setTasksList([]);
+      }
     }
-  }, [selectedProjectId, fullProjectsData]);
+
+    fetchProjectTasks();
+  }, [selectedProjectId]);
   const [agendaItems, setAgendaItems] = useState<Array<{
     id: string; 
     title: string; 
