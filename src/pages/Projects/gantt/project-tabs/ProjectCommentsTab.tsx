@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Send, Heart, MoreVertical } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Heart, MoreVertical, Loader2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 const mockComments = [
   {
@@ -49,16 +50,116 @@ const mockComments = [
   }
 ];
 
-export function ProjectCommentsTab() {
-  const [commentText, setCommentText] = useState('');
-  const [comments] = useState(mockComments);
+interface ProjectCommentsTabProps {
+  projectId?: string;
+}
 
-  const handleSubmit = () => {
-    if (commentText.trim()) {
-      // Handle comment submission
+export function ProjectCommentsTab({ projectId }: ProjectCommentsTabProps) {
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Load comments from API
+  useEffect(() => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadComments() {
+      try {
+        setLoading(true);
+        const { getComments } = await import('../../../../services/commentsApi');
+        const apiComments = await getComments('project', projectId);
+        
+        // Transform API comments to UI format
+        const transformed = apiComments.map(comment => {
+          const initials = comment.creator.fullName
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+          
+          return {
+            id: comment.id,
+            author: comment.creator.fullName,
+            role: '', // API doesn't provide role
+            avatar: initials,
+            timestamp: formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true }),
+            text: comment.text,
+            likes: 0, // API doesn't provide likes
+            replies: comment.reply ? [{
+              id: comment.reply.id,
+              author: comment.reply.creator.fullName,
+              role: '',
+              avatar: comment.reply.creator.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+              timestamp: formatDistanceToNow(new Date(comment.reply.createdAt), { addSuffix: true }),
+              text: comment.reply.text,
+              likes: 0
+            }] : [],
+            attachment: undefined
+          };
+        });
+        
+        setComments(transformed);
+      } catch (error) {
+        console.error('Error loading comments:', error);
+        setComments([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadComments();
+  }, [projectId]);
+
+  const handleSubmit = async () => {
+    if (!commentText.trim() || !projectId || submitting) return;
+
+    try {
+      setSubmitting(true);
+      const { createComment } = await import('../../../../services/commentsApi');
+      await createComment('project', {
+        entityId: projectId,
+        text: commentText.trim(),
+      });
       setCommentText('');
+      
+      // Reload comments
+      const { getComments } = await import('../../../../services/commentsApi');
+      const apiComments = await getComments('project', projectId);
+      const transformed = apiComments.map(comment => {
+        const initials = comment.creator.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        return {
+          id: comment.id,
+          author: comment.creator.fullName,
+          role: '',
+          avatar: initials,
+          timestamp: formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true }),
+          text: comment.text,
+          likes: 0,
+          replies: [],
+          attachment: undefined
+        };
+      });
+      setComments(transformed);
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      alert('Failed to create comment. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+        <Loader2 className="animate-spin" size={24} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '24px' }}>
@@ -98,7 +199,7 @@ export function ProjectCommentsTab() {
           />
           <button
             onClick={handleSubmit}
-            disabled={!commentText.trim()}
+            disabled={!commentText.trim() || submitting || !projectId}
             style={{
               position: 'absolute',
               bottom: '12px',

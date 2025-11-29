@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type SpendingType = 'Expense' | 'Purchase';
 
@@ -230,89 +230,107 @@ export const costTypeConfig: Record<CostType, { label: string; color: string }> 
 };
 
 export function SpendingProvider({ children }: { children: ReactNode }) {
-  // Mock users for audit trail display
-  const users: User[] = [
-    { id: 'user-1', name: 'Colm Test' },
-    { id: 'user-2', name: 'Sarah Chen' },
-    { id: 'user-3', name: 'Alex Morgan' },
-    { id: 'user-4', name: 'John Smith' },
-    { id: 'manager-1', name: 'Maria Garcia' },
-    { id: 'admin-1', name: 'David Wilson' },
-  ];
+  const [users, setUsers] = useState<User[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    name: string;
+    isManager: boolean;
+    isExpenseAdmin: boolean;
+    isPurchaseAdmin: boolean;
+    directReports: string[];
+  } | null>(null);
+
+  // Load data from API
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { getUsers } = await import('../services/usersApi');
+        const { getProjects } = await import('../services/projectsApi');
+        const { getCurrentUser } = await import('../services/usersApi');
+        const { getTasks } = await import('../services/tasksApi');
+
+        const [apiUsers, apiProjects, user, apiTasks] = await Promise.all([
+          getUsers().catch(() => []),
+          getProjects().catch(() => []),
+          getCurrentUser().catch(() => null),
+          getTasks().catch(() => []),
+        ]);
+
+        // Transform users
+        const transformedUsers: User[] = apiUsers.map(u => ({
+          id: u.id,
+          name: u.fullName,
+        }));
+
+        // Transform projects
+        const transformedProjects: Project[] = apiProjects.map(p => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          color: p.colorAllTasks || '#3B82F6',
+        }));
+
+        // Transform activities
+        const transformedActivities: Activity[] = apiProjects.flatMap(p =>
+          (p.activities || []).map((act, idx) => ({
+            id: act.id,
+            projectId: p.id,
+            code: `WP${idx + 1}`,
+            name: act.name,
+            order: act.position,
+          }))
+        );
+
+        // Transform tasks
+        const transformedTasks: Task[] = apiTasks.flatMap(t =>
+          t.activity ? [{
+            id: t.id,
+            activityId: t.activity.id,
+            code: '', // Not in API
+            name: t.name,
+            order: t.position,
+          }] : []
+        );
+
+        // Set current user
+        if (user) {
+          setCurrentUser({
+            id: user.id,
+            name: user.fullName,
+            isManager: user.isManager || false,
+            isExpenseAdmin: user.isManager || false, // Default to manager
+            isPurchaseAdmin: user.isManager || false,
+            directReports: user.managerOf?.map(m => m.id) || [],
+          });
+        }
+
+        setUsers(transformedUsers);
+        setProjects(transformedProjects);
+        setActivities(transformedActivities);
+        setTasks(transformedTasks);
+      } catch (error) {
+        console.error('Error loading spending data:', error);
+        // Set default current user on error
+        setCurrentUser({
+          id: 'user-1',
+          name: 'Current User',
+          isManager: false,
+          isExpenseAdmin: false,
+          isPurchaseAdmin: false,
+          directReports: [],
+        });
+      }
+    }
+
+    loadData();
+  }, []);
 
   const getUserById = (id: string): User | undefined => {
     return users.find(u => u.id === id);
   };
-
-  // Mock current user
-  const currentUser = {
-    id: 'user-1',
-    name: 'Colm Test',
-    isManager: true,
-    isExpenseAdmin: true,
-    isPurchaseAdmin: true,
-    directReports: ['user-2', 'user-3', 'user-4'],
-  };
-
-  // Mock projects
-  const projects: Project[] = [
-    { id: 'proj-1', code: 'BIOGEMSE', name: 'Digital Product Passport', color: '#10B981' },
-    { id: 'proj-2', code: 'HALO-TEX', name: 'Textile Recycling Platform', color: '#3B82F6' },
-    { id: 'proj-3', code: 'RETAIN', name: 'Packaging Solutions', color: '#8B5CF6' },
-    { id: 'proj-4', code: 'SKYTECH', name: 'Cloud Infrastructure', color: '#F59E0B' },
-    { id: 'proj-5', code: 'NEXUS', name: 'Integration Platform', color: '#EC4899' },
-    { id: 'proj-6', code: 'CORE', name: 'Internal Operations', color: '#6B7280' },
-  ];
-
-  // Mock activities (work packages)
-  const activities: Activity[] = [
-    // BIOGEMSE activities
-    { id: 'act-1', projectId: 'proj-1', code: 'WP1', name: 'Project Management', order: 1 },
-    { id: 'act-2', projectId: 'proj-1', code: 'WP2', name: 'Requirements Analysis', order: 2 },
-    { id: 'act-3', projectId: 'proj-1', code: 'WP3', name: 'Pilot Testing', order: 3 },
-    { id: 'act-4', projectId: 'proj-1', code: 'WP4', name: 'Dissemination', order: 4 },
-    // HALO-TEX activities
-    { id: 'act-5', projectId: 'proj-2', code: 'WP1', name: 'Coordination', order: 1 },
-    { id: 'act-6', projectId: 'proj-2', code: 'WP2', name: 'Technology Development', order: 2 },
-    { id: 'act-7', projectId: 'proj-2', code: 'WP3', name: 'Testing & Validation', order: 3 },
-    // RETAIN activities
-    { id: 'act-8', projectId: 'proj-3', code: 'WP1', name: 'Research', order: 1 },
-    { id: 'act-9', projectId: 'proj-3', code: 'WP2', name: 'Development', order: 2 },
-    // SKYTECH activities
-    { id: 'act-10', projectId: 'proj-4', code: 'WP1', name: 'Infrastructure Setup', order: 1 },
-    { id: 'act-11', projectId: 'proj-4', code: 'WP2', name: 'Migration', order: 2 },
-    // NEXUS activities
-    { id: 'act-12', projectId: 'proj-5', code: 'WP1', name: 'API Development', order: 1 },
-    { id: 'act-13', projectId: 'proj-5', code: 'WP2', name: 'Integration', order: 2 },
-    // CORE activities
-    { id: 'act-14', projectId: 'proj-6', code: 'WP1', name: 'Operations', order: 1 },
-    { id: 'act-15', projectId: 'proj-6', code: 'WP2', name: 'Administration', order: 2 },
-  ];
-
-  // Mock tasks
-  const tasks: Task[] = [
-    // BIOGEMSE WP3 tasks
-    { id: 'task-1', activityId: 'act-3', code: 'T3.1', name: 'Pilot site selection', order: 1 },
-    { id: 'task-2', activityId: 'act-3', code: 'T3.2', name: 'Field trials', order: 2 },
-    { id: 'task-3', activityId: 'act-3', code: 'T3.3', name: 'Data collection', order: 3 },
-    { id: 'task-4', activityId: 'act-3', code: 'T3.4', name: 'Analysis & reporting', order: 4 },
-    // BIOGEMSE WP4 tasks
-    { id: 'task-5', activityId: 'act-4', code: 'T4.1', name: 'Communication plan', order: 1 },
-    { id: 'task-6', activityId: 'act-4', code: 'T4.2', name: 'Publications', order: 2 },
-    // HALO-TEX WP2 tasks
-    { id: 'task-7', activityId: 'act-6', code: 'T2.1', name: 'Sorting technology', order: 1 },
-    { id: 'task-8', activityId: 'act-6', code: 'T2.2', name: 'Recycling process', order: 2 },
-    { id: 'task-9', activityId: 'act-6', code: 'T2.3', name: 'Quality control', order: 3 },
-    // HALO-TEX WP3 tasks
-    { id: 'task-10', activityId: 'act-7', code: 'T3.1', name: 'Lab testing', order: 1 },
-    { id: 'task-11', activityId: 'act-7', code: 'T3.2', name: 'Industrial validation', order: 2 },
-    // SKYTECH WP1 tasks
-    { id: 'task-12', activityId: 'act-10', code: 'T1.1', name: 'Server setup', order: 1 },
-    { id: 'task-13', activityId: 'act-10', code: 'T1.2', name: 'Network configuration', order: 2 },
-    // CORE WP1 tasks
-    { id: 'task-14', activityId: 'act-14', code: 'T1.1', name: 'Daily operations', order: 1 },
-    { id: 'task-15', activityId: 'act-14', code: 'T1.2', name: 'Maintenance', order: 2 },
-  ];
 
   // Helper functions
   const getActivitiesForProject = (projectId: string): Activity[] => {
@@ -365,8 +383,77 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
     },
   ]);
 
-  // Mock spending requests
-  const [requests, setRequests] = useState<SpendingRequest[]>([
+  // Load spending requests from API
+  const [requests, setRequests] = useState<SpendingRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+
+  useEffect(() => {
+    async function loadRequests() {
+      try {
+        setLoadingRequests(true);
+        const { getExpenses } = await import('../services/expensesApi');
+        const { formatDate } = await import('../services/apiClient');
+
+        // Get expenses from last 6 months
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 6);
+
+        const apiExpenses = await getExpenses({
+          startDate: formatDate(startDate),
+          endDate: formatDate(endDate),
+        });
+
+        // Transform expenses to SpendingRequest format
+        const transformedRequests: SpendingRequest[] = apiExpenses.map(exp => {
+          const statusMap: Record<number, SpendingRequestStatus> = {
+            0: 'Draft',
+            1: 'Approved',
+            2: 'Denied',
+          };
+
+          return {
+            id: exp.id,
+            type: 'Expense',
+            referenceNumber: `EXP-${exp.id.slice(0, 8).toUpperCase()}`,
+            userId: exp.creator.id,
+            status: statusMap[exp.status] || 'Draft',
+            purpose: exp.description,
+            project: exp.project?.name || '',
+            costCenter: '', // Not in API
+            lineItems: exp.items.map(item => ({
+              id: item.id,
+              description: item.description,
+              costType: exp.category,
+              amount: parseFloat(item.amount),
+              currency: exp.currency.symbol,
+              vat: 0, // Not in API
+              vatRate: 0,
+              date: exp.date,
+              paidBy: 'Employee',
+            })),
+            subtotal: parseFloat(exp.amount),
+            totalVat: 0,
+            total: parseFloat(exp.amount),
+            currencies: [exp.currency.id],
+            createdAt: exp.createdAt || new Date().toISOString(),
+            updatedAt: exp.updatedAt || new Date().toISOString(),
+          };
+        });
+
+        setRequests(transformedRequests);
+      } catch (error) {
+        console.error('Error loading spending requests:', error);
+        setRequests([]);
+      } finally {
+        setLoadingRequests(false);
+      }
+    }
+
+    if (currentUser) {
+      loadRequests();
+    }
+  }, [currentUser]);
     // User's expenses
     {
       id: 'exp-1',
@@ -750,7 +837,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
       id: `${prefix.toLowerCase()}-${Date.now()}`,
       type,
       referenceNumber: `${prefix}-2024-${String(count).padStart(4, '0')}`,
-      userId: currentUser.id,
+      userId: currentUser?.id || 'user-1',
       status: 'Draft',
       purpose: '',
       lineItems: [],
@@ -815,7 +902,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           ...req,
           status: 'Approved',
           approvedDate: new Date().toISOString(),
-          approvedBy: currentUser.id,
+          approvedBy: currentUser?.id || 'user-1',
           managerComment: comment,
           updatedAt: new Date().toISOString(),
         };
@@ -831,7 +918,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           ...req,
           status: 'Denied',
           deniedDate: new Date().toISOString(),
-          deniedBy: currentUser.id,
+          deniedBy: currentUser?.id || 'user-1',
           denialReason: reason,
           managerComment: comment,
           updatedAt: new Date().toISOString(),
@@ -939,7 +1026,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           ...req,
           status: 'Processing' as SpendingStatus,
           processingStartedDate: new Date().toISOString(),
-          processingStartedBy: currentUser.id,
+          processingStartedBy: currentUser?.id || 'user-1',
           updatedAt: new Date().toISOString(),
         };
       }
@@ -957,7 +1044,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           expectedDeliveryDate,
           orderNotes: notes,
           orderedDate: new Date().toISOString(),
-          orderedBy: currentUser.id,
+          orderedBy: currentUser?.id || 'user-1',
           updatedAt: new Date().toISOString(),
         };
       }
@@ -974,7 +1061,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           receivedDate,
           receivedInFull,
           receiveNotes: notes,
-          receivedBy: currentUser.id,
+          receivedBy: currentUser?.id || 'user-1',
           completedDate: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -993,7 +1080,7 @@ export function SpendingProvider({ children }: { children: ReactNode }) {
           paymentDate: paymentDate || new Date().toISOString().split('T')[0],
           finalizationNotes: notes,
           finalizedDate: new Date().toISOString(),
-          finalizedBy: currentUser.id,
+          finalizedBy: currentUser?.id || 'user-1',
           completedDate: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };

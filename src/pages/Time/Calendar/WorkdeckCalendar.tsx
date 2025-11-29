@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Check, AlertTriangle, X as XIcon, Calendar as CalendarIcon, PanelRightOpen } from 'lucide-react';
 import { CalendarLeftSidebar } from './CalendarLeftSidebar';
 import { CalendarRightSidebar } from './CalendarRightSidebar';
@@ -64,116 +64,57 @@ export function WorkdeckCalendar() {
     'Guest User': '#6B7280'
   };
 
-  // Generate extensive dummy data across multiple months
-  const generateDummyEvents = (): CalendarEvent[] => {
-    const events: CalendarEvent[] = [];
-    const projects = [
-      { name: 'CRH', color: '#F97316', isClient: true },
-      { name: 'PROTEUS', color: '#3B82F6', isClient: true },
-      { name: 'ETERNAL', color: '#9333EA', isClient: true },
-      { name: 'Horizon Europe 2024', color: '#10B981', isClient: true },
-      { name: 'Customer Support', color: '#F59E0B', isClient: false },
-      { name: 'Open Science', color: '#14B8A6', isClient: true },
-      { name: 'TASK FORCE Innovation', color: '#8B5CF6', isClient: true },
-      { name: 'Slate House', color: '#EC4899', isClient: true },
-      { name: 'No project', color: '#6B7280', isClient: false }
-    ];
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
-    const eventTypes = [
-      'Team Meeting',
-      'Client Call',
-      'Code Review',
-      'Design Review',
-      'Sprint Planning',
-      'Standup',
-      'Workshop',
-      '1-on-1',
-      'Presentation',
-      'Training',
-      'Documentation',
-      'Research',
-      'Testing',
-      'Deployment',
-      'Bug Fixing',
-      'Feature Development'
-    ];
+  // Load events from API
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        setLoadingEvents(true);
+        const { getEvents } = await import('../../../services/eventsApi');
+        const { formatDate } = await import('../../../services/apiClient');
+        
+        // Get events for current month and surrounding months
+        const today = new Date();
+        const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        
+        const apiEvents = await getEvents(
+          formatDate(startDate),
+          formatDate(endDate)
+        );
 
-    const teamMembers = [
-      'Colm Digby (You)',
-      'Geraldine Mc Nerney',
-      'Colm Test',
-      'Guest User'
-    ];
+        // Transform API events to CalendarEvent format
+        const transformed: CalendarEvent[] = apiEvents.map(event => ({
+          id: event.id,
+          title: event.title,
+          project: event.project?.name || 'No project',
+          projectColor: event.color || '#6B7280',
+          task: event.task?.name,
+          startTime: new Date(event.startAt),
+          endTime: new Date(event.endAt),
+          isTimesheet: event.timesheet,
+          isBillable: event.billable,
+          isPrivate: event.private,
+          isExternal: event.externalMeeting,
+          guests: event.guests?.map(g => g.user.fullName) || [],
+          isRecurring: event.isRecurrent,
+          hasSyncIssue: false, // API doesn't provide this
+          createdBy: event.creator.fullName
+        }));
 
-    let eventId = 1;
-
-    // Generate events for current month and surrounding months
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-
-    // Generate for 3 months: previous, current, and next month
-    for (let monthOffset = -1; monthOffset <= 1; monthOffset++) {
-      const targetDate = new Date(currentYear, currentMonth + monthOffset, 1);
-      const year = targetDate.getFullYear();
-      const month = targetDate.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      
-      for (let day = 1; day <= daysInMonth; day++) {
-        // Generate events for each team member
-        teamMembers.forEach((member, memberIndex) => {
-          // Skip some days randomly to make it more realistic
-          if (Math.random() > 0.65) return;
-
-          // Generate 1-5 events per day per person
-          const eventsPerDay = Math.floor(Math.random() * 5) + 1;
-          
-          for (let i = 0; i < eventsPerDay; i++) {
-            const project = projects[Math.floor(Math.random() * projects.length)];
-            const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-            
-            // Random start hour between 8 AM and 5 PM
-            const startHour = Math.floor(Math.random() * 9) + 8;
-            const startMinute = Math.random() > 0.5 ? 0 : 30;
-            
-            // Duration between 30 min and 3 hours
-            const durationOptions = [0.5, 1, 1.5, 2, 2.5, 3];
-            const duration = durationOptions[Math.floor(Math.random() * durationOptions.length)];
-            
-            const startTime = new Date(year, month, day, startHour, startMinute);
-            const endTime = new Date(startTime);
-            endTime.setMinutes(endTime.getMinutes() + duration * 60);
-
-            const isExternal = Math.random() > 0.6;
-            const hasGuests = Math.random() > 0.5;
-            const guestCount = hasGuests ? Math.floor(Math.random() * 5) + 1 : 0;
-
-            events.push({
-              id: `event-${eventId++}`,
-              title: `${project.name} - ${eventType}`,
-              project: project.name,
-              projectColor: project.color,
-              task: Math.random() > 0.5 ? eventType : undefined,
-              startTime,
-              endTime,
-              isTimesheet: project.name !== 'No project',
-              isBillable: project.isClient,
-              isPrivate: Math.random() > 0.9,
-              isExternal,
-              guests: hasGuests ? Array.from({ length: guestCount }, (_, i) => `Person ${i + 1}`) : undefined,
-              isRecurring: Math.random() > 0.85,
-              hasSyncIssue: Math.random() > 0.95,
-              createdBy: member
-            });
-          }
-        });
+        setEvents(transformed);
+      } catch (error) {
+        console.error('Error loading events:', error);
+        setEvents([]);
+      } finally {
+        setLoadingEvents(false);
       }
     }
 
-    return events.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-  };
-
-  const [events, setEvents] = useState<CalendarEvent[]>(generateDummyEvents());
+    loadEvents();
+  }, [currentDate]);
 
   // Mock data - tasks
   const [tasks, setTasks] = useState<CalendarTask[]>([

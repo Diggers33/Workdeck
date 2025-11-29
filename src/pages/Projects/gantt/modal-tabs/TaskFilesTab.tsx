@@ -1,39 +1,140 @@
-import React, { useState } from 'react';
-import { Upload, Eye, Download, Trash2, Monitor } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, Eye, Download, Trash2, Monitor, Loader2 } from 'lucide-react';
+import { getFiles, uploadFile, deleteFile, getFileDownloadUrl, type FileEntity } from '../../../../services/filesApi';
+import { getCurrentUser } from '../../../../services/usersApi';
+import { formatDistanceToNow } from 'date-fns';
 
 interface TaskFilesTabProps {
   task: any;
 }
 
-const mockFiles = [
-  {
-    id: 1,
-    name: 'Research_Report_Q1.pdf',
-    icon: '📄',
-    size: '2.4 MB',
-    uploadedBy: 'Charlie Day',
-    uploadedTime: '3 days ago',
-    type: 'pdf'
-  },
-  {
-    id: 2,
-    name: 'Budget_Analysis.xlsx',
-    icon: '📊',
-    size: '1.8 MB',
-    uploadedBy: 'Alice Chen',
-    uploadedTime: '1 week ago',
-    type: 'excel'
-  },
-  {
-    id: 3,
-    name: 'Lab_Setup_Photo.jpg',
-    icon: '🖼',
-    size: '3.2 MB',
-    uploadedBy: 'Bob Ross',
-    uploadedTime: '2 weeks ago',
-    type: 'image'
-  }
-];
+interface File {
+  id: string;
+  name: string;
+  icon: string;
+  size: string;
+  uploadedBy: string;
+  uploadedTime: string;
+  type: string;
+  url?: string;
+}
+
+// Get file icon based on extension
+const getFileIcon = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const iconMap: Record<string, string> = {
+    pdf: '📄',
+    doc: '📝',
+    docx: '📝',
+    xls: '📊',
+    xlsx: '📊',
+    ppt: '📊',
+    pptx: '📊',
+    jpg: '🖼',
+    jpeg: '🖼',
+    png: '🖼',
+    gif: '🖼',
+    zip: '📦',
+    rar: '📦',
+  };
+  return iconMap[ext || ''] || '📄';
+};
+
+// Format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+export function TaskFilesTab({ task }: TaskFilesTabProps) {
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load current user ID
+  useEffect(() => {
+    getCurrentUser().then(user => setCurrentUserId(user.id)).catch(() => {});
+  }, []);
+
+  // Load files
+  useEffect(() => {
+    if (!task?.id) return;
+
+    async function loadFiles() {
+      try {
+        setLoading(true);
+        const apiFiles = await getFiles('tasks', task.id);
+        const transformed: File[] = apiFiles.map(file => ({
+          id: file.id,
+          name: file.filename,
+          icon: getFileIcon(file.filename),
+          size: formatFileSize(file.size),
+          uploadedBy: file.creator.fullName,
+          uploadedTime: formatDistanceToNow(new Date(file.createdAt), { addSuffix: true }),
+          type: file.mimeType.split('/')[0],
+          url: currentUserId ? getFileDownloadUrl(file.token, currentUserId) : undefined,
+        }));
+        setFiles(transformed);
+      } catch (error) {
+        console.error('Error loading files:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadFiles();
+  }, [task?.id, currentUserId]);
+
+  const handleFileUpload = async (file: File) => {
+    if (!task?.id || uploading) return;
+
+    try {
+      setUploading(true);
+      await uploadFile(file, 'tasks', task.id);
+      
+      // Reload files
+      const apiFiles = await getFiles('tasks', task.id);
+      const transformed: File[] = apiFiles.map(f => ({
+        id: f.id,
+        name: f.filename,
+        icon: getFileIcon(f.filename),
+        size: formatFileSize(f.size),
+        uploadedBy: f.creator.fullName,
+        uploadedTime: formatDistanceToNow(new Date(f.createdAt), { addSuffix: true }),
+        type: f.mimeType.split('/')[0],
+        url: currentUserId ? getFileDownloadUrl(f.token, currentUserId) : undefined,
+      }));
+      setFiles(transformed);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploading(false);
+      setShowUploadMenu(false);
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (!confirm('Are you sure you want to delete this file?')) return;
+
+    try {
+      await deleteFile(fileId, 'tasks');
+      setFiles(files.filter(f => f.id !== fileId));
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
+
+  const handleDownload = (file: File) => {
+    if (file.url) {
+      window.open(file.url, '_blank');
+    }
+  };
 
 // Brand Logo Components
 const GoogleDriveLogo = () => (
@@ -78,12 +179,37 @@ export function TaskFilesTab({ task }: TaskFilesTabProps) {
     }
   ];
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+        <Loader2 className="animate-spin" size={24} />
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: '100%' }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFileUpload(file);
+        }}
+      />
+      
       {/* Upload Button */}
       <div style={{ position: 'relative', marginBottom: '24px' }}>
         <button
-          onClick={() => setShowUploadMenu(!showUploadMenu)}
+          onClick={() => {
+            if (uploadOptions[0].id === 'computer') {
+              fileInputRef.current?.click();
+            } else {
+              setShowUploadMenu(!showUploadMenu);
+            }
+          }}
+          disabled={uploading}
           style={{
             width: '160px',
             height: '48px',
@@ -111,8 +237,12 @@ export function TaskFilesTab({ task }: TaskFilesTabProps) {
             }
           }}
         >
-          <Upload size={18} />
-          <span>Upload File</span>
+          {uploading ? (
+            <Loader2 className="animate-spin" size={18} />
+          ) : (
+            <Upload size={18} />
+          )}
+          <span>{uploading ? 'Uploading...' : 'Upload File'}</span>
         </button>
 
         {/* Upload Dropdown */}
@@ -292,26 +422,53 @@ export function TaskFilesTab({ task }: TaskFilesTabProps) {
                 >
                   <Download size={16} color="#3B82F6" />
                 </button>
-                <button style={{
-                  width: '36px',
-                  height: '36px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  background: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#FEE2E2';
-                  e.currentTarget.style.borderColor = '#DC2626';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                }}
+                <button
+                  onClick={() => handleDownload(file)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#3B82F6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                  }}
+                >
+                  <Download size={16} color="#3B82F6" />
+                </button>
+                <button
+                  onClick={() => handleDeleteFile(file.id)}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#FEE2E2';
+                    e.currentTarget.style.borderColor = '#DC2626';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                  }}
                 >
                   <Trash2 size={16} color="#DC2626" />
                 </button>

@@ -71,7 +71,11 @@ const mockActivities = [
   }
 ];
 
-export function ProjectActivityTab() {
+interface ProjectActivityTabProps {
+  projectId?: string;
+}
+
+export function ProjectActivityTab({ projectId }: ProjectActivityTabProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('All activity');
   const [activities] = useState(mockActivities);

@@ -190,6 +190,7 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
   // Event color picker state
   const [eventColor, setEventColor] = useState(event?.color || '#3B82F6');
   const [showColorPicker, setShowColorPicker] = useState(false);
+// Predefined color options matching Angular/Workdeck palette  const colorOptions = [    { name: 'Blue', value: '#3B82F6' },    { name: 'Sky', value: '#60A5FA' },    { name: 'Green', value: '#10B981' },    { name: 'Emerald', value: '#34D399' },    { name: 'Yellow', value: '#FBBF24' },    { name: 'Orange', value: '#F97316' },    { name: 'Red', value: '#EF4444' },    { name: 'Pink', value: '#EC4899' },    { name: 'Purple', value: '#8B5CF6' },    { name: 'Indigo', value: '#6366F1' },    { name: 'Teal', value: '#14B8A6' },    { name: 'Gray', value: '#6B7280' },  ];
   
   const timeAllocations = ['5m', '10m', '15m', '30m', '45m', '1h'];
   const presenters = ['Colm Digby', 'Sarah Chen', 'Mike O\'Brien', 'Emma Walsh', 'No presenter'];
@@ -603,6 +604,7 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
       project,
       projectId: projectData?.id || selectedProjectId, // Include project ID for API
       projectColor: projectData?.color || '#3B82F6',
+      color: eventColor, // User-selected event color
       task,
       taskId: taskData?.id, // Include task ID for API
       startTime,
@@ -1084,6 +1086,106 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                 >
                   {calculateDuration()}
                 </div>
+              </div>
+            </div>
+
+
+            {/* Event Color Picker */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                Event Color
+              </label>
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowColorPicker(!showColorPicker)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    cursor: 'pointer',
+                    width: '100%',
+                    maxWidth: '200px'
+                  }}
+                >
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '4px',
+                    background: eventColor,
+                    border: '1px solid rgba(0,0,0,0.1)'
+                  }} />
+                  <span style={{ fontSize: '14px', color: '#0A0A0A', flex: 1, textAlign: 'left' }}>
+                    {colorOptions.find(c => c.value === eventColor)?.name || 'Custom'}
+                  </span>
+                  <ChevronDown size={16} color="#9CA3AF" />
+                </button>
+
+                {showColorPicker && (
+                  <>
+                    <div
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 998
+                      }}
+                      onClick={() => setShowColorPicker(false)}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '48px',
+                      left: 0,
+                      background: 'white',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 999,
+                      padding: '12px',
+                      minWidth: '200px'
+                    }}>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(6, 1fr)',
+                        gap: '8px'
+                      }}>
+                        {colorOptions.map(color => (
+                          <button
+                            key={color.value}
+                            onClick={() => {
+                              setEventColor(color.value);
+                              setShowColorPicker(false);
+                            }}
+                            title={color.name}
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              background: color.value,
+                              border: eventColor === color.value ? '2px solid #0066FF' : '1px solid rgba(0,0,0,0.1)',
+                              cursor: 'pointer',
+                              transition: 'transform 100ms',
+                              transform: eventColor === color.value ? 'scale(1.1)' : 'scale(1)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.15)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = eventColor === color.value ? 'scale(1.1)' : 'scale(1)'}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

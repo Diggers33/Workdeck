@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GanttTopBar } from './gantt/GanttTopBar';
 import { GanttFilterBar } from './gantt/GanttFilterBar';
 import { GanttToolbar } from './gantt/GanttToolbar';
@@ -22,6 +22,27 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
   const [projectPanelOpen, setProjectPanelOpen] = useState(false);
   const [projectPanelTab, setProjectPanelTab] = useState<'comments' | 'activity' | 'notes' | 'files'>('comments');
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage: 50, 75, 100, 125, 150
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
+  const [currentProjectName, setCurrentProjectName] = useState<string>('BIOGEMSE');
+
+  // Load current project from tasks
+  useEffect(() => {
+    async function loadProject() {
+      try {
+        const { getProjects } = await import('../../services/projectsApi');
+        const projects = await getProjects();
+        // Get first project or find by name
+        const project = projects.find(p => p.name === 'BIOGEMSE') || projects[0];
+        if (project) {
+          setCurrentProjectId(project.id);
+          setCurrentProjectName(project.name);
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+      }
+    }
+    loadProject();
+  }, []);
   const [tasks, setTasks] = useState<GanttActivity[]>(
     INITIAL_TASKS.map(task => ({
       ...task,
@@ -519,7 +540,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
       <ProjectInfoPanel
         isOpen={projectPanelOpen}
         onClose={() => setProjectPanelOpen(false)}
-        projectName="BIOGEMSE"
+        projectName={currentProjectName}
+        projectId={currentProjectId}
         initialTab={projectPanelTab}
       />
 

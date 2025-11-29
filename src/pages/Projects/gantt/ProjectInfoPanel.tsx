@@ -9,10 +9,11 @@ interface ProjectInfoPanelProps {
   isOpen: boolean;
   onClose: () => void;
   projectName: string;
+  projectId?: string;
   initialTab?: 'comments' | 'activity' | 'notes' | 'files';
 }
 
-export function ProjectInfoPanel({ isOpen, onClose, projectName, initialTab = 'comments' }: ProjectInfoPanelProps) {
+export function ProjectInfoPanel({ isOpen, onClose, projectName, projectId, initialTab = 'comments' }: ProjectInfoPanelProps) {
   const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'notes' | 'files'>(initialTab);
 
   if (!isOpen) return null;
@@ -160,10 +161,10 @@ export function ProjectInfoPanel({ isOpen, onClose, projectName, initialTab = 'c
         overflowY: 'auto',
         background: 'white'
       }}>
-        {activeTab === 'comments' && <ProjectCommentsTab />}
-        {activeTab === 'activity' && <ProjectActivityTab />}
-        {activeTab === 'notes' && <ProjectNotesTab />}
-        {activeTab === 'files' && <ProjectFilesTab />}
+        {activeTab === 'comments' && <ProjectCommentsTab projectId={projectId} />}
+        {activeTab === 'activity' && <ProjectActivityTab projectId={projectId} />}
+        {activeTab === 'notes' && <ProjectNotesTab projectId={projectId} />}
+        {activeTab === 'files' && <ProjectFilesTab projectId={projectId} />}
       </div>
 
       <style>{`

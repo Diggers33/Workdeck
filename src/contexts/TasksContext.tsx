@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface Task {
   id: string;
@@ -332,12 +332,95 @@ const initialColumns: ColumnData[] = [
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Record<string, Task>>(initialTasks);
   const [columns, setColumns] = useState<ColumnData[]>(initialColumns);
+  const [loading, setLoading] = useState(true);
 
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
+  // Load tasks from API
+  useEffect(() => {
+    async function loadTasks() {
+      try {
+        setLoading(true);
+        const { getTasks, getTaskStages } = await import('../services/tasksApi');
+        const { getCurrentUser } = await import('../services/usersApi');
+        
+        // Get current user and their tasks
+        const user = await getCurrentUser();
+        const apiTasks = await getTasks();
+        const stages = await getTaskStages(user.id);
+
+        // Transform API tasks to Task format
+        const transformedTasks: Record<string, Task> = {};
+        apiTasks.forEach(apiTask => {
+          // Check if task is assigned to current user
+          const isAssigned = apiTask.participants?.some(p => p.user.id === user.id);
+          if (!isAssigned) return;
+
+          // Map column/status
+          const statusMap: Record<string, 'Open' | 'In Progress' | 'In Review' | 'Done'> = {
+            'To Do': 'Open',
+            'In Progress': 'In Progress',
+            'Review': 'In Review',
+            'Done': 'Done',
+          };
+
+          transformedTasks[apiTask.id] = {
+            id: apiTask.id,
+            title: apiTask.name,
+            projectId: apiTask.activity.project.id,
+            projectName: apiTask.activity.project.name,
+            projectColor: apiTask.color || '#3B82F6',
+            status: statusMap[apiTask.column?.name || 'To Do'] || 'Open',
+            dueDate: apiTask.endDate, // DD/MM/YYYY format
+            priority: apiTask.importance === 3 ? 'High' : apiTask.importance === 2 ? 'Medium' : 'Low',
+            commentsCount: apiTask.numComments || 0,
+            description: apiTask.description,
+            timeEstimate: parseFloat(apiTask.plannedHours || '0') * 60, // Convert to minutes
+            timeLogged: parseFloat(apiTask.spentHours || '0') * 60,
+            assignedTo: apiTask.participants?.[0]?.user.fullName || user.fullName,
+            columnId: apiTask.column?.id,
+          };
+        });
+
+        // Transform stages to columns
+        const transformedColumns: ColumnData[] = stages.map(stage => ({
+          id: stage.id,
+          name: stage.name,
+          color: stage.color,
+          taskIds: apiTasks
+            .filter(t => t.column?.id === stage.id && t.participants?.some(p => p.user.id === user.id))
+            .map(t => t.id),
+        }));
+
+        setTasks(transformedTasks);
+        setColumns(transformedColumns);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+        // Keep initial tasks on error
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTasks();
+  }, []);
+
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    // Update local state immediately
     setTasks(prev => ({
       ...prev,
       [taskId]: { ...prev[taskId], ...updates }
     }));
+
+    // Update via API
+    try {
+      const { updateTask: updateTaskAPI } = await import('../services/tasksApi');
+      await updateTaskAPI(taskId, {
+        name: updates.title,
+        plannedHours: updates.timeEstimate ? (updates.timeEstimate / 60).toString() : undefined,
+        // Map other fields as needed
+      });
+    } catch (error) {
+      console.error('Error updating task:', error);
+    }
   };
 
   const addTask = (task: Task) => {
@@ -355,11 +438,24 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const moveTask = (taskId: string, newColumnId: string) => {
+  const moveTask = async (taskId: string, newColumnId: string) => {
+    // Update local state immediately
     setTasks(prev => ({
       ...prev,
       [taskId]: { ...prev[taskId], columnId: newColumnId }
     }));
+
+    // Update via API
+    try {
+      const { moveTask: moveTaskAPI } = await import('../services/tasksApi');
+      const task = tasks[taskId];
+      const newColumn = columns.find(c => c.id === newColumnId);
+      if (task && newColumn) {
+        await moveTaskAPI(taskId, newColumnId, newColumn.taskIds.length);
+      }
+    } catch (error) {
+      console.error('Error moving task:', error);
+    }
   };
 
   return (

@@ -72,16 +72,36 @@ export function MyTasksBoard({ onStartTimer: onStartTimerProp }: MyTasksBoardPro
     })
   );
 
-  // Sample data with time tracking
+  // Get tasks from context (now loads from API)
   const { tasks: allTasks, updateTask } = useTasks();
 
-  // Filter to show only current user's tasks (Alex Morgan)
-  const currentUser = 'Alex Morgan';
+  // Get current user and filter their tasks
+  const [currentUserId, setCurrentUserId] = React.useState<string>('');
+  const [currentUserName, setCurrentUserName] = React.useState<string>('');
+
+  React.useEffect(() => {
+    async function loadUser() {
+      try {
+        const { getCurrentUser } = await import('../../../services/usersApi');
+        const user = await getCurrentUser();
+        setCurrentUserId(user.id);
+        setCurrentUserName(user.fullName);
+      } catch (error) {
+        console.error('Error loading user:', error);
+      }
+    }
+    loadUser();
+  }, []);
+
+  // Filter to show only current user's tasks
   const myTasks = useMemo(() => {
+    if (!currentUserName) return {};
     return Object.fromEntries(
-      Object.entries(allTasks).filter(([_, task]) => task.assignedTo === currentUser)
+      Object.entries(allTasks).filter(([_, task]) => 
+        task.assignedTo === currentUserName || task.assignedTo === currentUserId
+      )
     );
-  }, [allTasks]);
+  }, [allTasks, currentUserName, currentUserId]);
 
   // My Tasks has its own columns separate from Project Board
   const [columns, setColumns] = useState<ColumnData[]>([

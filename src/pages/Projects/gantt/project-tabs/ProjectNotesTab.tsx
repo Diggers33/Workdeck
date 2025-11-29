@@ -28,7 +28,11 @@ BIOGEMSE is a €3.5M research initiative focused on sustainable bio-materials. 
 → Finalize Phase 2 resource allocation
 → Update stakeholder communication plan`;
 
-export function ProjectNotesTab() {
+interface ProjectNotesTabProps {
+  projectId?: string;
+}
+
+export function ProjectNotesTab({ projectId }: ProjectNotesTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [noteContent, setNoteContent] = useState(mockNotes);
   const [charCount, setCharCount] = useState(mockNotes.length);

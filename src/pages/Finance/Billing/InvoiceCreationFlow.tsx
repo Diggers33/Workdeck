@@ -87,23 +87,129 @@ export const InvoiceCreationFlow: React.FC<InvoiceCreationFlowProps> = ({
     }
   }, [formData.invoiceDate, formData.paymentTerms]);
 
-  // Load mock data when project is selected
+  // Load data from API when project is selected
   useEffect(() => {
-    if (formData.projectName && (!formData.timeEntries || formData.timeEntries.length === 0)) {
-      setFormData(prev => ({
-        ...prev,
-        timeEntries: mockTimeEntries,
-        expenses: mockExpenses,
-        milestones: mockMilestones,
-      }));
-      setExpandedSections({
-        timeEntries: true,
-        expenses: true,
-        milestones: true,
-        additional: false,
-      });
+    async function loadProjectData() {
+      if (!formData.projectId && !formData.projectName) return;
+      
+      // If we already have data, don't reload
+      if (formData.timeEntries && formData.timeEntries.length > 0) return;
+
+      try {
+        // Try to get project ID from projects list if we only have name
+        let projectId = formData.projectId;
+        if (!projectId && formData.projectName) {
+          const { getProjects } = await import('../../../services/projectsApi');
+          const projects = await getProjects();
+          const project = projects.find(p => p.name === formData.projectName);
+          projectId = project?.id;
+        }
+
+        if (!projectId) {
+          // Fallback to mock data if project not found
+          setFormData(prev => ({
+            ...prev,
+            timeEntries: mockTimeEntries,
+            expenses: mockExpenses,
+            milestones: mockMilestones,
+          }));
+          setExpandedSections({
+            timeEntries: true,
+            expenses: true,
+            milestones: true,
+            additional: false,
+          });
+          return;
+        }
+
+        // Load data from API
+        const { getTimesheets } = await import('../../../services/timesheetsApi');
+        const { getExpenses } = await import('../../../services/expensesApi');
+        const { getMilestones } = await import('../../../services/milestonesApi');
+        const { formatDate } = await import('../../../services/apiClient');
+
+        // Get date range (last 3 months by default)
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 3);
+
+        const [timesheets, expenses, milestones] = await Promise.all([
+          getTimesheets(formatDate(startDate), formatDate(endDate), undefined, projectId).catch(() => []),
+          getExpenses({ projectId, startDate: formatDate(startDate), endDate: formatDate(endDate) }).catch(() => []),
+          getMilestones({ projectId }).catch(() => []),
+        ]);
+
+        // Transform timesheets to TimeEntry format
+        const transformedTimeEntries: TimeEntry[] = timesheets
+          .filter(ts => ts.billable && ts.status === 1) // Only approved billable timesheets
+          .map(ts => ({
+            id: ts.id,
+            date: ts.date, // Already in DD/MM/YYYY format
+            personName: ts.user.fullName,
+            taskName: ts.task.name,
+            hours: parseFloat(ts.hours),
+            rate: 0, // Rate not in API response, will need to get from user costPerHour
+            amount: 0, // Will calculate from hours * rate
+            taxable: ts.billable,
+            selected: true,
+          }));
+
+        // Transform expenses to Expense format
+        const transformedExpenses: Expense[] = expenses
+          .filter(exp => exp.status === 1) // Only approved expenses
+          .map(exp => ({
+            id: exp.id,
+            date: exp.date, // Already in DD/MM/YYYY format
+            description: exp.description,
+            amount: parseFloat(exp.amount),
+            taxable: false, // Default, can be updated
+            selected: true,
+          }));
+
+        // Transform milestones to Milestone format
+        const transformedMilestones: Milestone[] = milestones.map(milestone => ({
+          id: milestone.id,
+          name: milestone.name,
+          deliveryDate: milestone.deliveryDate, // Already in DD/MM/YYYY format
+          amount: 0, // Amount not in milestone API, will need to be set manually
+          taxable: true,
+          selected: false, // Don't auto-select milestones
+        }));
+
+        setFormData(prev => ({
+          ...prev,
+          projectId: projectId,
+          timeEntries: transformedTimeEntries.length > 0 ? transformedTimeEntries : mockTimeEntries,
+          expenses: transformedExpenses.length > 0 ? transformedExpenses : mockExpenses,
+          milestones: transformedMilestones,
+        }));
+
+        setExpandedSections({
+          timeEntries: transformedTimeEntries.length > 0,
+          expenses: transformedExpenses.length > 0,
+          milestones: transformedMilestones.length > 0,
+          additional: false,
+        });
+      } catch (error) {
+        console.error('Error loading project data:', error);
+        // Fallback to mock data on error
+        setFormData(prev => ({
+          ...prev,
+          timeEntries: mockTimeEntries,
+          expenses: mockExpenses,
+          milestones: mockMilestones,
+        }));
+        setExpandedSections({
+          timeEntries: true,
+          expenses: true,
+          milestones: true,
+          additional: false,
+        });
+      }
     }
-  }, [formData.projectName]);
+
+    loadProjectData();
+  }, [formData.projectName, formData.projectId]);
 
   const updateFormData = (data: Partial<InvoiceFormData>) => {
     setFormData(prev => ({ ...prev, ...data }));

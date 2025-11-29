@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Upload, Eye, Download, Trash2, Monitor, Search, Grid, List as ListIcon, Maximize2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, Eye, Download, Trash2, Monitor, Search, Grid, List as ListIcon, Maximize2, X, Loader2 } from 'lucide-react';
 
 const GoogleDriveLogo = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -162,12 +162,142 @@ const mockFiles = [
   }
 ];
 
-export function ProjectFilesTab() {
+interface ProjectFilesTabProps {
+  projectId?: string;
+}
+
+export function ProjectFilesTab({ projectId }: ProjectFilesTabProps) {
   const [showUploadMenu, setShowUploadMenu] = useState(false);
-  const [files] = useState(mockFiles);
+  const [files, setFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Load current user ID
+  useEffect(() => {
+    import('../../../../services/usersApi').then(({ getCurrentUser }) => {
+      getCurrentUser().then(user => setCurrentUserId(user.id)).catch(() => {});
+    });
+  }, []);
+
+  // Load files from API
+  useEffect(() => {
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadFiles() {
+      try {
+        setLoading(true);
+        const { getFiles, getFileDownloadUrl } = await import('../../../../services/filesApi');
+        const { formatDistanceToNow } = await import('date-fns');
+        
+        const apiFiles = await getFiles('projects', projectId);
+        const transformed = apiFiles.map(file => {
+          const ext = file.filename.split('.').pop()?.toLowerCase();
+          const iconMap: Record<string, string> = {
+            pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
+            ppt: '📊', pptx: '📊', jpg: '🖼️', jpeg: '🖼️', png: '🖼️',
+            gif: '🖼️', zip: '📦', rar: '📦'
+          };
+          const formatSize = (bytes: number) => {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+          };
+          
+          return {
+            id: file.id,
+            name: file.filename,
+            icon: iconMap[ext || ''] || '📄',
+            size: formatSize(file.size),
+            uploadedBy: file.creator.fullName,
+            uploadedTime: formatDistanceToNow(new Date(file.createdAt), { addSuffix: true }),
+            type: file.mimeType.split('/')[0],
+            taskName: 'Direct upload',
+            taskId: null,
+            source: 'computer',
+            url: currentUserId ? getFileDownloadUrl(file.token, currentUserId) : undefined
+          };
+        });
+        
+        setFiles(transformed);
+      } catch (error) {
+        console.error('Error loading files:', error);
+        setFiles([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadFiles();
+  }, [projectId, currentUserId]);
+
+  const handleFileUpload = async (file: File) => {
+    if (!projectId || uploading) return;
+
+    try {
+      setUploading(true);
+      const { uploadFile } = await import('../../../../services/filesApi');
+      await uploadFile(file, 'projects', projectId);
+      
+      // Reload files
+      const { getFiles, getFileDownloadUrl } = await import('../../../../services/filesApi');
+      const { formatDistanceToNow } = await import('date-fns');
+      const apiFiles = await getFiles('projects', projectId);
+      const transformed = apiFiles.map(f => {
+        const ext = f.filename.split('.').pop()?.toLowerCase();
+        const iconMap: Record<string, string> = {
+          pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
+          ppt: '📊', pptx: '📊', jpg: '🖼️', jpeg: '🖼️', png: '🖼️',
+          gif: '🖼️', zip: '📦', rar: '📦'
+        };
+        const formatSize = (bytes: number) => {
+          if (bytes < 1024) return bytes + ' B';
+          if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+          return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        };
+        return {
+          id: f.id,
+          name: f.filename,
+          icon: iconMap[ext || ''] || '📄',
+          size: formatSize(f.size),
+          uploadedBy: f.creator.fullName,
+          uploadedTime: formatDistanceToNow(new Date(f.createdAt), { addSuffix: true }),
+          type: f.mimeType.split('/')[0],
+          taskName: 'Direct upload',
+          taskId: null,
+          source: 'computer',
+          url: currentUserId ? getFileDownloadUrl(f.token, currentUserId) : undefined
+        };
+      });
+      setFiles(transformed);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+    } finally {
+      setUploading(false);
+      setShowUploadMenu(false);
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (!confirm('Are you sure you want to delete this file?')) return;
+
+    try {
+      const { deleteFile } = await import('../../../../services/filesApi');
+      await deleteFile(fileId, 'projects');
+      setFiles(files.filter(f => f.id !== fileId));
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
 
   const uploadOptions = [
     { 
@@ -191,7 +321,15 @@ export function ProjectFilesTab() {
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const renderFileCard = (file: typeof mockFiles[0]) => (
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+        <Loader2 className="animate-spin" size={24} />
+      </div>
+    );
+  }
+
+  const renderFileCard = (file: any) => (
     <div
       key={file.id}
       style={{
@@ -349,6 +487,16 @@ export function ProjectFilesTab() {
 
   const renderContent = () => (
     <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFileUpload(file);
+        }}
+      />
+      
       {/* Top Actions Bar */}
       <div style={{
         display: 'flex',
@@ -360,7 +508,14 @@ export function ProjectFilesTab() {
         {/* Upload Button */}
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setShowUploadMenu(!showUploadMenu)}
+            onClick={() => {
+              if (uploadOptions[0].id === 'computer') {
+                fileInputRef.current?.click();
+              } else {
+                setShowUploadMenu(!showUploadMenu);
+              }
+            }}
+            disabled={uploading || !projectId}
             style={{
               height: '40px',
               padding: '0 16px',
@@ -379,8 +534,12 @@ export function ProjectFilesTab() {
             onMouseEnter={(e) => e.currentTarget.style.background = '#2563EB'}
             onMouseLeave={(e) => e.currentTarget.style.background = '#3B82F6'}
           >
-            <Upload size={16} />
-            <span>Upload</span>
+            {uploading ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Upload size={16} />
+            )}
+            <span>{uploading ? 'Uploading...' : 'Upload'}</span>
           </button>
 
           {/* Upload Dropdown */}
@@ -611,72 +770,78 @@ export function ProjectFilesTab() {
                 justifyContent: 'center',
                 gap: '8px'
               }}>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  background: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#EFF6FF';
-                  e.currentTarget.style.borderColor = '#3B82F6';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                }}
+                <button
+                  onClick={() => file.url && window.open(file.url, '_blank')}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#3B82F6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                  }}
                 >
                   <Eye size={14} color="#3B82F6" />
                 </button>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  background: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#EFF6FF';
-                  e.currentTarget.style.borderColor = '#3B82F6';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                }}
+                <button
+                  onClick={() => file.url && window.open(file.url, '_blank')}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#EFF6FF';
+                    e.currentTarget.style.borderColor = '#3B82F6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                  }}
                 >
                   <Download size={14} color="#3B82F6" />
                 </button>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '6px',
-                  background: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#FEE2E2';
-                  e.currentTarget.style.borderColor = '#DC2626';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                }}
+                <button
+                  onClick={() => handleDeleteFile(file.id)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '6px',
+                    background: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#FEE2E2';
+                    e.currentTarget.style.borderColor = '#DC2626';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#E5E7EB';
+                  }}
                 >
                   <Trash2 size={14} color="#DC2626" />
                 </button>

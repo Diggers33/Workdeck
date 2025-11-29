@@ -1,39 +1,99 @@
-import React, { useState } from 'react';
-import { Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Loader2 } from 'lucide-react';
+import { getComments, createComment, type CommentsEntity } from '../../../../services/commentsApi';
+import { formatDistanceToNow } from 'date-fns';
 
 interface TaskCommentsTabProps {
   task: any;
 }
 
-const mockComments = [
-  {
-    id: 1,
-    author: 'Charlie Day',
-    avatar: 'CD',
-    timestamp: '2 hours ago',
-    text: 'Client approved milestone 3',
-    replies: [
-      {
-        id: 2,
-        author: 'Bob Ross',
-        avatar: 'BR',
-        timestamp: '1 hour ago',
-        text: "Great news! I'll update the timeline."
-      }
-    ]
-  }
-];
+interface Comment {
+  id: string;
+  author: string;
+  avatar: string;
+  timestamp: string;
+  text: string;
+  replies: Comment[];
+}
 
 export function TaskCommentsTab({ task }: TaskCommentsTabProps) {
   const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState(mockComments);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    if (newComment.trim()) {
-      // Add new comment logic here
+  // Transform API comment to UI format
+  const transformComment = (apiComment: CommentsEntity): Comment => {
+    const initials = apiComment.creator.fullName
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+    return {
+      id: apiComment.id,
+      author: apiComment.creator.fullName,
+      avatar: initials,
+      timestamp: formatDistanceToNow(new Date(apiComment.createdAt), { addSuffix: true }),
+      text: apiComment.text,
+      replies: apiComment.reply ? [transformComment(apiComment.reply)] : [],
+    };
+  };
+
+  // Load comments
+  useEffect(() => {
+    if (!task?.id) return;
+
+    async function loadComments() {
+      try {
+        setLoading(true);
+        const apiComments = await getComments('task', task.id);
+        // Group comments and replies
+        const mainComments = apiComments.filter(c => !c.reply);
+        const transformed = mainComments.map(transformComment);
+        setComments(transformed);
+      } catch (error) {
+        console.error('Error loading comments:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadComments();
+  }, [task?.id]);
+
+  const handleSubmit = async () => {
+    if (!newComment.trim() || !task?.id || submitting) return;
+
+    try {
+      setSubmitting(true);
+      await createComment('task', {
+        entityId: task.id,
+        text: newComment.trim(),
+      });
       setNewComment('');
+      
+      // Reload comments
+      const apiComments = await getComments('task', task.id);
+      const mainComments = apiComments.filter(c => !c.reply);
+      const transformed = mainComments.map(transformComment);
+      setComments(transformed);
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      alert('Failed to create comment. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+        <Loader2 className="animate-spin" size={24} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '100%' }}>
@@ -300,7 +360,7 @@ export function TaskCommentsTab({ task }: TaskCommentsTabProps) {
         />
         <button
           onClick={handleSubmit}
-          disabled={!newComment.trim()}
+          disabled={!newComment.trim() || submitting}
           style={{
             position: 'absolute',
             bottom: '12px',

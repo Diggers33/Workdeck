@@ -45,9 +45,11 @@ export function InvoiceLineItemsStep({
     additional: true,
   });
 
-  // Initialize with mock data if empty
+  // Note: Data should already be loaded in InvoiceCreationFlow
+  // This effect is kept for backward compatibility but shouldn't run if data exists
   useEffect(() => {
     if (!formData.timeEntries || formData.timeEntries.length === 0) {
+      // Only use mock data as last resort if no data was loaded from API
       updateFormData({
         timeEntries: mockTimeEntries,
         expenses: mockExpenses,
