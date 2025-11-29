@@ -104,6 +104,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         let apiTasks: any[] = [];
         const tasksFromActivities: any[] = [];
         
+        // First, check if activities have tasks nested in them
         activities.forEach(activity => {
           if (activity.tasks && activity.tasks.length > 0) {
             console.log(`Found ${activity.tasks.length} tasks in activity "${activity.name}"`);
@@ -128,8 +129,11 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           console.log(`Using ${tasksFromActivities.length} tasks from activities`);
           apiTasks = tasksFromActivities;
         } else {
-          // Fallback: Load tasks from API and filter
-          console.log('No tasks in activities, fetching from tasks API...');
+          // Fallback: Load tasks from API and filter by activity IDs
+          console.log('No tasks in activities, fetching from tasks API and filtering by activity IDs...');
+          const activityIds = new Set(activities.map(a => a.id));
+          console.log('Activity IDs to match:', Array.from(activityIds));
+          
           const allTasks = await getTasks().catch(err => {
             console.error('Error loading tasks:', err);
             return [];
@@ -137,14 +141,31 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
 
           console.log('All tasks loaded:', allTasks.length);
           
-          // Filter tasks for this project
+          // Filter tasks that belong to any of the project's activities
           apiTasks = allTasks.filter(t => {
             if (!t.activity) return false;
-            const taskProjectId = t.activity.project?.id;
-            return taskProjectId === project.id || String(taskProjectId) === String(project.id);
+            const taskActivityId = t.activity.id;
+            const matches = activityIds.has(taskActivityId);
+            
+            if (matches) {
+              console.log(`Matched task "${t.name}" to activity "${t.activity.name}"`);
+            }
+            
+            return matches;
           });
           
-          console.log('Filtered tasks for project:', apiTasks.length);
+          console.log('Filtered tasks for project activities:', apiTasks.length);
+          
+          // If still no tasks, try filtering by project ID as fallback
+          if (apiTasks.length === 0) {
+            console.log('No tasks matched by activity ID, trying project ID filter...');
+            apiTasks = allTasks.filter(t => {
+              if (!t.activity) return false;
+              const taskProjectId = t.activity.project?.id;
+              return taskProjectId === project.id || String(taskProjectId) === String(project.id);
+            });
+            console.log('Filtered tasks for project ID:', apiTasks.length);
+          }
         }
 
         // Load milestones
