@@ -665,13 +665,15 @@ export async function addChecklistItem(text: string): Promise<ChecklistItem> {
 
 /**
  * Toggle checklist item completion status
- * API expects: { id, done } (matches Angular ChecklistEntity)
+ * API expects FULL object: { id, description, done, priority }
  */
-export async function toggleChecklistItem(itemId: string, completed: boolean): Promise<void> {
-  // API payload format - must match Angular ChecklistEntity fields
+export async function toggleChecklistItem(itemId: string, completed: boolean, description: string): Promise<void> {
+  // API requires full object on update (like Angular sends)
   const apiPayload = {
     id: itemId,
-    done: completed,  // API uses 'done' not 'completed'
+    description: description,  // Required - API needs full object
+    done: completed,
+    priority: 1,
   };
 
   console.log('[Checklist API] Toggle payload:', apiPayload);

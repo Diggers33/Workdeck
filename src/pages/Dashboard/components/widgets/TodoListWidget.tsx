@@ -225,7 +225,7 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
 
       // Call API
       try {
-        await apiToggleChecklistItem(taskId, newCompleted);
+        await apiToggleChecklistItem(taskId, newCompleted, task.title);
       } catch (error) {
         console.error('Failed to toggle checklist item:', error);
         // Revert on error
