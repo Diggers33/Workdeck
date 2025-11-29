@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight } from 'lucide-react';
+import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight, Inbox } from 'lucide-react';
 import { ChecklistItem as ApiChecklistItem } from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
@@ -88,42 +88,8 @@ const defaultAssignedTasks: Task[] = [
     },
 ];
 
-// Default mock data for personal tasks when no API data
-const defaultPersonalTasks: Task[] = [
-    { 
-      id: 'p1', 
-      title: 'Prepare team standup notes', 
-      category: 'People', 
-      due: 'Today', 
-      duration: '30m', 
-      completed: false,
-      priority: 'medium',
-      endDate: '09:30'
-    },
-    { 
-      id: 'p2', 
-      title: 'Read industry report', 
-      category: 'Strategy', 
-      due: 'This week', 
-      duration: '45m', 
-      completed: false,
-      priority: 'low',
-      checklist: [
-        { id: 'c7', label: 'Market trends section', completed: true },
-        { id: 'c8', label: 'Competitor analysis', completed: false },
-        { id: 'c9', label: 'Key takeaways summary', completed: false }
-      ]
-    },
-    {
-      id: 'p3',
-      title: 'Update personal OKRs',
-      category: 'Strategy',
-      due: 'Tomorrow',
-      duration: '1h',
-      completed: false,
-      priority: 'medium'
-    },
-];
+// Note: Personal tasks now come from API. No mock data fallback.
+// Empty array from API = valid state (no tasks), shown as empty state in UI.
 
 // Helper function to convert API checklist items to Task format
 function convertApiItemsToTasks(items: ApiChecklistItem[]): Task[] {
@@ -156,8 +122,13 @@ function formatDate(dateStr: string): string {
 }
 
 export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
-  // Check if we have API data
-  const hasApiData = items && items.length > 0;
+  // Determine data state for personal tasks:
+  // - undefined = API not called yet or failed (show loading)
+  // - [] = API returned empty (valid - no personal tasks)
+  // - array with items = show the items
+  const personalTasksLoading = items === undefined;
+  const personalTasksEmpty = Array.isArray(items) && items.length === 0;
+  const hasPersonalApiData = Array.isArray(items) && items.length > 0;
 
   const [expandedGroups, setExpandedGroups] = useState({
     assigned: true,
@@ -171,16 +142,19 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
   const [convertingTask, setConvertingTask] = useState<string | null>(null);
   const [showPriorityMenu, setShowPriorityMenu] = useState<string | null>(null);
 
-  // State for managing tasks - initialize with API data if available
+  // State for managing tasks
+  // Assigned tasks use mock data for now (TODO: integrate with API)
   const [assignedTasks, setAssignedTasks] = useState<Task[]>(defaultAssignedTasks);
+
+  // Personal tasks come from API - initialize based on API state
   const [personalTasks, setPersonalTasks] = useState<Task[]>(
-    hasApiData ? convertApiItemsToTasks(items) : defaultPersonalTasks
+    hasPersonalApiData ? convertApiItemsToTasks(items) : []
   );
 
   // Update personal tasks when API items change
   useEffect(() => {
-    if (items && items.length > 0) {
-      setPersonalTasks(convertApiItemsToTasks(items));
+    if (Array.isArray(items)) {
+      setPersonalTasks(items.length > 0 ? convertApiItemsToTasks(items) : []);
     }
   }, [items]);
 
@@ -660,14 +634,16 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
     count: number,
     groupKey: 'assigned' | 'personal',
     tasks: Task[],
-    showProject: boolean = false
+    showProject: boolean = false,
+    isLoading: boolean = false,
+    isEmpty: boolean = false
   ) => {
     const isExpanded = expandedGroups[groupKey];
-    
+
     return (
       <div className="space-y-2">
         {/* Group header */}
-        <div 
+        <div
           className="flex items-center justify-between cursor-pointer hover:bg-[#F9FAFB] px-1 py-1 rounded -mx-1 transition-colors"
           onClick={() => toggleGroup(groupKey)}
         >
@@ -678,15 +654,18 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
               <ChevronRight className="w-3.5 h-3.5 text-[#6B7280]" />
             )}
             <span className="text-[14px] font-medium text-[#374151]">{title}</span>
+            {groupKey === 'personal' && hasPersonalApiData && (
+              <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
+            )}
           </div>
           <span className="text-[11px] px-2 py-0.5 rounded bg-[#F3F4F6] text-[#6B7280] font-medium" style={{ borderRadius: '6px' }}>
-            {count}
+            {isLoading ? '...' : count}
           </span>
         </div>
-        
+
         {/* Divider */}
         <div className="border-b border-[#E5E7EB]" />
-        
+
         {/* Task list */}
         {isExpanded && (
           <div className="space-y-2">
@@ -724,7 +703,28 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
                 </div>
               </div>
             )}
-            {tasks.map(task => renderTaskRow(task, showProject))}
+
+            {/* Loading state */}
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="w-5 h-5 border-2 border-[#60A5FA] border-t-transparent rounded-full animate-spin mb-2"></div>
+                <p className="text-[11px] text-[#9CA3AF]">Loading tasks...</p>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {isEmpty && !isLoading && (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="w-10 h-10 rounded-full bg-[#F3F4F6] flex items-center justify-center mb-2">
+                  <Inbox className="w-5 h-5 text-[#9CA3AF]" />
+                </div>
+                <p className="text-[12px] text-[#6B7280] mb-1">No tasks for today</p>
+                <p className="text-[10px] text-[#9CA3AF]">Click "New +" to add one</p>
+              </div>
+            )}
+
+            {/* Task list */}
+            {!isLoading && !isEmpty && tasks.map(task => renderTaskRow(task, showProject))}
           </div>
         )}
       </div>
@@ -744,7 +744,7 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
         <div className="flex items-center gap-1.5">
           <CheckSquare className="w-4 h-4 text-[#60A5FA]" />
           <h3 className="text-[14px] font-medium text-[#1F2937]">To-Do</h3>
-          {hasApiData && (
+          {hasPersonalApiData && (
             <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
           )}
         </div>
@@ -793,8 +793,8 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
 
       {/* Two collapsible groups in scrollable area */}
       <div className="px-4 py-3 custom-scrollbar space-y-4" style={{ flex: 1, overflowY: 'auto' }}>
-        {renderGroup('Assigned', assignedTasks.length, 'assigned', assignedTasks, true)}
-        {renderGroup('Personal', personalTasks.length, 'personal', personalTasks, false)}
+        {renderGroup('Assigned', assignedTasks.length, 'assigned', assignedTasks, true, false, false)}
+        {renderGroup('Personal', personalTasks.length, 'personal', personalTasks, false, personalTasksLoading, personalTasksEmpty && personalTasks.length === 0)}
       </div>
 
       {/* Footer */}

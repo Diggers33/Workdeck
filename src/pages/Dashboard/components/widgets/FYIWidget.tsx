@@ -1,20 +1,10 @@
 import React from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Inbox } from 'lucide-react';
 import { NewsItem } from '../../api/dashboardApi';
 
 interface FYIWidgetProps {
   items?: NewsItem[];
 }
-
-// Default mock data for when API data isn't available
-const defaultFyiItems = [
-  { id: '1', notificationId: '1', type: 'update', message: 'James Wilson completed Budget Review', createdAt: '2h ago', read: false },
-  { id: '2', notificationId: '2', type: 'mention', message: 'Lisa Anderson mentioned you in Design Sprint', createdAt: '3h ago', read: false },
-  { id: '3', notificationId: '3', type: 'update', message: 'David Kim updated Timeline for Q4 Launch', createdAt: 'Yesterday', read: true },
-  { id: '4', notificationId: '4', type: 'share', message: 'Emily Rodriguez shared a file in Projects', createdAt: '2 days ago', read: true },
-  { id: '5', notificationId: '5', type: 'comment', message: 'Alex Chen commented on Design System', createdAt: '3 days ago', read: true },
-  { id: '6', notificationId: '6', type: 'approval', message: 'Sarah Parker requested approval', createdAt: '3 days ago', read: true }
-];
 
 // Generate avatar from message (extract initials from first name)
 function getAvatarFromMessage(message: string): { initials: string; color: string } {
@@ -51,9 +41,15 @@ function formatTime(timestamp: string): string {
 }
 
 export function FYIWidget({ items }: FYIWidgetProps) {
-  // Use API data if available, otherwise fall back to mock data
-  const fyiItems = items && items.length > 0 ? items : defaultFyiItems;
-  const unreadCount = fyiItems.filter(item => !item.read).length;
+  // Determine data state:
+  // - undefined = API not called yet or failed
+  // - [] = API returned empty (valid - no notifications)
+  // - array with items = show the items
+  const isLoading = items === undefined;
+  const isEmpty = Array.isArray(items) && items.length === 0;
+  const hasItems = Array.isArray(items) && items.length > 0;
+
+  const unreadCount = hasItems ? items.filter(item => !item.read).length : 0;
 
   return (
     <div
@@ -68,45 +64,69 @@ export function FYIWidget({ items }: FYIWidgetProps) {
         <div className="flex items-center gap-1.5">
           <Bell className="w-4 h-4 text-[#A78BFA]" />
           <h3 className="text-[14px] font-medium text-[#1F2937]">FYI</h3>
-          {items && items.length > 0 && (
+          {hasItems && (
             <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
           )}
         </div>
-        <button className="text-[11px] text-[#9CA3AF] hover:text-[#F87171] transition-colors">
-          Clear all
-        </button>
+        {hasItems && (
+          <button className="text-[11px] text-[#9CA3AF] hover:text-[#F87171] transition-colors">
+            Clear all
+          </button>
+        )}
       </div>
 
-      {/* Items */}
+      {/* Content area */}
       <div className="px-3 py-1.5 custom-scrollbar" style={{ flex: 1, overflowY: 'auto' }}>
-        <div className="space-y-0.5">
-          {fyiItems.map((item, idx) => {
-            const { initials, color } = getAvatarFromMessage(item.message);
-            const timeDisplay = formatTime(item.createdAt);
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+            <div className="w-6 h-6 border-2 border-[#A78BFA] border-t-transparent rounded-full animate-spin mb-2"></div>
+            <p className="text-[12px] text-[#9CA3AF]">Loading notifications...</p>
+          </div>
+        )}
 
-            return (
-              <div
-                key={item.id || idx}
-                className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all hover:bg-[#F9FAFB] ${
-                  item.read ? 'opacity-50' : ''
-                }`}
-              >
+        {/* Empty state - no notifications (good!) */}
+        {isEmpty && (
+          <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-[#F3E8FF] flex items-center justify-center mb-3">
+              <Inbox className="w-6 h-6 text-[#A78BFA]" />
+            </div>
+            <p className="text-[13px] font-medium text-[#374151] mb-1">No new notifications</p>
+            <p className="text-[11px] text-[#9CA3AF]">You're all caught up!</p>
+          </div>
+        )}
+
+        {/* Items list */}
+        {hasItems && (
+          <div className="space-y-0.5">
+            {items.map((item, idx) => {
+              const { initials, color } = getAvatarFromMessage(item.message);
+              const timeDisplay = formatTime(item.createdAt);
+
+              return (
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0"
-                  style={{ backgroundColor: color }}
+                  key={item.id || idx}
+                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all hover:bg-[#F9FAFB] ${
+                    item.read ? 'opacity-50' : ''
+                  }`}
                 >
-                  {initials}
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0"
+                    style={{ backgroundColor: color }}
+                  >
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[12px] leading-tight truncate ${item.read ? 'text-[#9CA3AF]' : 'text-[#374151]'}`}>
+                      <span className={item.read ? '' : 'font-medium'}>{item.message}</span>
+                    </p>
+                    <p className="text-[10px] text-[#9CA3AF] leading-tight">{timeDisplay}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-[12px] leading-tight truncate ${item.read ? 'text-[#9CA3AF]' : 'text-[#374151]'}`}>
-                    <span className={item.read ? '' : 'font-medium'}>{item.message}</span>
-                  </p>
-                  <p className="text-[10px] text-[#9CA3AF] leading-tight">{timeDisplay}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
@@ -114,9 +134,11 @@ export function FYIWidget({ items }: FYIWidgetProps) {
         <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
           View all →
         </button>
-        <span className="text-[10px] text-white bg-[#9CA3AF] px-1.5 py-0.5 rounded-full font-medium">
-          {unreadCount > 0 ? unreadCount : fyiItems.length}
-        </span>
+        {hasItems && (
+          <span className="text-[10px] text-white bg-[#A78BFA] px-1.5 py-0.5 rounded-full font-medium">
+            {unreadCount > 0 ? unreadCount : items.length}
+          </span>
+        )}
       </div>
     </div>
   );
