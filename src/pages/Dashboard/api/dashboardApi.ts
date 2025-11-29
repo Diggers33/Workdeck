@@ -698,12 +698,15 @@ export interface CreateEventData {
   timesheet?: boolean;
   projectId?: string;
   taskId?: string;
+  timezone?: string;
 }
 
 export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
+  const payload = { ...eventData, timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+  console.log("[Event API] Create payload:", payload);
   const response = await apiFetch<CalendarEvent>('/commands/sync/create-event', {
     method: 'POST',
-    body: JSON.stringify(eventData),
+    body: JSON.stringify(payload),
   });
   return response;
 }
@@ -712,9 +715,11 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
  * Update an existing calendar event
  */
 export async function updateEvent(eventId: string, eventData: Partial<CreateEventData>): Promise<void> {
+  const payload = { id: eventId, ...eventData, timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone };
+  console.log("[Event API] Update payload:", payload);
   await apiFetch<void>('/commands/sync/update-event', {
     method: 'POST',
-    body: JSON.stringify({ id: eventId, ...eventData }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -722,6 +727,7 @@ export async function updateEvent(eventId: string, eventData: Partial<CreateEven
  * Delete a calendar event
  */
 export async function deleteEvent(eventId: string): Promise<void> {
+  console.log("[Event API] Delete id:", eventId);
   await apiFetch<void>('/commands/sync/delete-event', {
     method: 'POST',
     body: JSON.stringify({ id: eventId }),

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Coffee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EventModal } from '../calendar/EventModal';
-import { CalendarEvent as ApiCalendarEvent, createEventFromTask } from '../../api/dashboardApi';
+import { CalendarEvent as ApiCalendarEvent, createEventFromTask, updateEvent, deleteEvent } from '../../api/dashboardApi';
+
 
 interface AgendaWidgetProps {
   draggedTask?: any;
@@ -288,7 +289,31 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     }
   };
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = async () => {
+    if (resizingEvent) {
+      const event = events.find(ev => ev.id === resizingEvent.id);
+      if (event) {
+        // Calculate new times
+        const today = new Date();
+        const startTime = new Date(today);
+        startTime.setHours(Math.floor(event.start), Math.round((event.start % 1) * 60), 0, 0);
+        const endTime = new Date(today);
+        const endHour = event.start + event.duration;
+        endTime.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+
+        // Call API to update event
+        try {
+          await updateEvent(event.id, {
+            title: event.title,
+            startAt: startTime.toISOString(),
+            endAt: endTime.toISOString(),
+            color: event.color,
+          });
+        } catch (error) {
+          console.error('Failed to update event after resize:', error);
+        }
+      }
+    }
     setResizingEvent(null);
     // Keep wasInteracting true briefly to prevent click from opening modal
     setTimeout(() => setWasInteracting(false), 50);
@@ -318,7 +343,31 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     ));
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = async () => {
+    if (draggingEvent) {
+      const event = events.find(ev => ev.id === draggingEvent);
+      if (event) {
+        // Calculate new times
+        const today = new Date();
+        const startTime = new Date(today);
+        startTime.setHours(Math.floor(event.start), Math.round((event.start % 1) * 60), 0, 0);
+        const endTime = new Date(today);
+        const endHour = event.start + event.duration;
+        endTime.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+
+        // Call API to update event
+        try {
+          await updateEvent(event.id, {
+            title: event.title,
+            startAt: startTime.toISOString(),
+            endAt: endTime.toISOString(),
+            color: event.color,
+          });
+        } catch (error) {
+          console.error('Failed to update event after drag:', error);
+        }
+      }
+    }
     setDraggingEvent(null);
     // Keep wasInteracting true briefly to prevent click from opening modal
     setTimeout(() => setWasInteracting(false), 50);
@@ -373,24 +422,48 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
         <EventModal
           event={calendarEvent}
           onClose={() => setSelectedEventId(null)}
-          onSave={(updatedEvent) => {
-            // Update the event in the list
+          onSave={async (updatedEvent) => {
+            // Update the event in the list (optimistic)
             const startTime = new Date(updatedEvent.startTime);
             const endTime = new Date(updatedEvent.endTime);
             const start = startTime.getHours() + startTime.getMinutes() / 60;
             const end = endTime.getHours() + endTime.getMinutes() / 60;
             const duration = end - start;
 
-            setEvents(prev => prev.map(ev => 
-              ev.id === updatedEvent.id 
+            setEvents(prev => prev.map(ev =>
+              ev.id === updatedEvent.id
                 ? { ...ev, title: updatedEvent.title, start, duration }
                 : ev
             ));
             setSelectedEventId(null);
+
+            // Call API to update event
+            try {
+              await updateEvent(updatedEvent.id, {
+                title: updatedEvent.title,
+                startAt: startTime.toISOString(),
+                endAt: endTime.toISOString(),
+                color: updatedEvent.color,
+              });
+            } catch (error) {
+              console.error('Failed to update event:', error);
+            }
           }}
-          onDelete={(id) => {
+          onDelete={async (id) => {
+            // Optimistic delete
+            const deletedEvent = events.find(ev => ev.id === id);
             setEvents(prev => prev.filter(ev => ev.id !== id));
             setSelectedEventId(null);
+
+            // Call API to delete event
+            try {
+              await deleteEvent(id);
+            } catch (error) {
+              console.error('Failed to delete event:', error);
+              if (deletedEvent) {
+                setEvents(prev => [...prev, deletedEvent]);
+              }
+            }
           }}
         />
       )}
