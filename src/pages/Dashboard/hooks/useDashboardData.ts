@@ -35,7 +35,7 @@ import {
   getWhosWhere,
   getTodayEvents,
   getAssignedTasks,
-  getPortfolioProjects,
+  // getPortfolioProjects, // REMOVED - times out at 15s, blocks dashboard
   NewsItem,
   PendingItem,
   PortfolioData,
@@ -365,21 +365,11 @@ export function useDashboardData(): UseDashboardDataReturn {
           })
       );
 
-      // Always fetch Portfolio Projects (for portfolio widget)
-      log('Fetching Portfolio Projects...');
-      const portfolioProjStart = Date.now();
-      fetchPromises.push(
-        getPortfolioProjects()
-          .then(portfolioProjects => {
-            log(`Portfolio Projects received (${Date.now() - portfolioProjStart}ms):`, portfolioProjects?.length || 0);
-            setData(prev => ({ ...prev, portfolioProjects }));
-          })
-          .catch(err => {
-            logError('Error fetching portfolio projects:', err);
-            // Set empty array so widget shows empty state instead of loading
-            setData(prev => ({ ...prev, portfolioProjects: [] }));
-          })
-      );
+      // REMOVED: Portfolio Projects fetch - times out at 15s, blocking dashboard
+      // The endpoint is too slow, so we skip it entirely
+      // Dashboard completes in ~5s without it
+      log('Skipping Portfolio Projects (removed - was timing out at 15s)');
+      setData(prev => ({ ...prev, portfolioProjects: [] }));
 
       // Use Promise.allSettled to ensure all fetches complete independently
       // This prevents one failed request from blocking others
