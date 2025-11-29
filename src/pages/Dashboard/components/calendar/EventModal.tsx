@@ -22,12 +22,20 @@ export function EventModal({ event, initialDate, onClose, onSave, onDelete, user
   const [project, setProject] = useState(event?.project || '');
   const [task, setTask] = useState(event?.task || '');
   const [date, setDate] = useState(event?.startTime || initialDate || new Date());
-  const [fromTime, setFromTime] = useState(
-    event?.startTime ? formatTime(new Date(event.startTime)) : '13:30'
-  );
-  const [toTime, setToTime] = useState(
-    event?.endTime ? formatTime(new Date(event.endTime)) : '14:00'
-  );
+  const [fromTime, setFromTime] = useState(() => {
+    if (event?.startTime) return formatTime(new Date(event.startTime));
+    if (initialDate) return formatTime(initialDate);
+    return '13:30';
+  });
+  const [toTime, setToTime] = useState(() => {
+    if (event?.endTime) return formatTime(new Date(event.endTime));
+    if (initialDate) {
+      // Default to 30 minutes after initialDate
+      const endDate = new Date(initialDate.getTime() + 30 * 60 * 1000);
+      return formatTime(endDate);
+    }
+    return '14:00';
+  });
   const [isTimesheet, setIsTimesheet] = useState(event?.isTimesheet ?? true);
   const [isBillable, setIsBillable] = useState(event?.isBillable ?? false);
 

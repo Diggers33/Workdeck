@@ -205,9 +205,23 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    console.log('[Agenda] Drop - draggedTask:', draggedTask?.title, 'at hour:', dragOverTime);
 
-    if (draggedTask && dragOverTime !== null) {
+    // Try to get task from dataTransfer first (HTML5 drag-and-drop), then fallback to prop
+    let taskToAdd = draggedTask;
+    const transferData = e.dataTransfer.getData('text/plain');
+    if (transferData) {
+      try {
+        const parsedTask = JSON.parse(transferData);
+        console.log('[Agenda] Drop - parsed from dataTransfer:', parsedTask.title);
+        taskToAdd = parsedTask;
+      } catch (err) {
+        console.log('[Agenda] Drop - could not parse dataTransfer, using prop');
+      }
+    }
+
+    console.log('[Agenda] Drop - task:', taskToAdd?.title, 'at hour:', dragOverTime);
+
+    if (taskToAdd && dragOverTime !== null) {
       // Calculate start time based on drop position
       const today = new Date();
       const startHour = Math.floor(dragOverTime);
@@ -221,8 +235,8 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
         id: tempId,
         start: dragOverTime,
         duration: 0.5, // 30 minutes default
-        title: draggedTask.title,
-        color: draggedTask.projectColor || '#60A5FA'
+        title: taskToAdd.title,
+        color: taskToAdd.projectColor || '#60A5FA'
       };
 
       // Optimistic update
@@ -231,8 +245,8 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
       // Call API to create event
       try {
         const createdEvent = await createEventFromTask(
-          draggedTask.id,
-          draggedTask.title,
+          taskToAdd.id,
+          taskToAdd.title,
           startAt,
           30 // 30 minutes duration
         );

@@ -486,25 +486,20 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
         
         {/* Main task row */}
         <div
-          onPointerDown={(e) => {
+          draggable={!task.completed}
+          onDragStart={(e) => {
             if (!task.completed) {
-              e.preventDefault();
-              e.stopPropagation();
+              console.log('[TodoList] Drag start:', task.title);
+              e.dataTransfer.setData('text/plain', JSON.stringify(task));
+              e.dataTransfer.effectAllowed = 'move';
               e.currentTarget.style.opacity = '0.5';
               onDragStart(task);
             }
           }}
-          onPointerUp={(e) => {
-            if (!task.completed) {
-              e.currentTarget.style.opacity = '1';
-              onDragEnd();
-            }
-          }}
-          onPointerCancel={(e) => {
-            if (!task.completed) {
-              e.currentTarget.style.opacity = '1';
-              onDragEnd();
-            }
+          onDragEnd={(e) => {
+            console.log('[TodoList] Drag end');
+            e.currentTarget.style.opacity = '1';
+            onDragEnd();
           }}
           style={{
             touchAction: !task.completed ? 'none' : 'auto',
@@ -512,9 +507,9 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
             userSelect: 'none'
           }}
           className={`flex items-center gap-2 px-2.5 py-2 transition-all ${
-            task.completed 
-              ? '' 
-              : 'hover:bg-[#F9FAFB] cursor-pointer'
+            task.completed
+              ? ''
+              : 'hover:bg-[#F9FAFB] cursor-grab'
           }`}
           onClick={(e) => {
             // Only open task detail if clicking on the task row itself, not on interactive elements
