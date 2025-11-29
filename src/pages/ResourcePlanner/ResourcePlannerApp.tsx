@@ -117,7 +117,7 @@ export default function App() {
   const handleTaskSave = async (updatedTask: Task) => {
     try {
       // Update task via API
-      const { updateTask } = await import('../../../services/tasksApi');
+      const { updateTask } = await import('../../services/tasksApi');
       await updateTask(updatedTask.id, {
         name: updatedTask.name,
         plannedHours: updatedTask.plannedHours.toString(),

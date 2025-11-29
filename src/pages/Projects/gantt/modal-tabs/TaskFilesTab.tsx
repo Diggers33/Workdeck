@@ -157,10 +157,6 @@ const OneDriveLogo = () => (
   </svg>
 );
 
-export function TaskFilesTab({ task }: TaskFilesTabProps) {
-  const [showUploadMenu, setShowUploadMenu] = useState(false);
-  const [files, setFiles] = useState(mockFiles);
-
   const uploadOptions = [
     { 
       id: 'computer', 
