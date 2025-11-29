@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight, Inbox } from 'lucide-react';
+import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight, Inbox, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChecklistItem as ApiChecklistItem,
@@ -7,6 +7,7 @@ import {
   addChecklistItem as apiAddChecklistItem,
   toggleChecklistItem as apiToggleChecklistItem,
   deleteChecklistItem as apiDeleteChecklistItem,
+  clearCompletedChecklist as apiClearCompletedChecklist,
 } from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
@@ -15,6 +16,7 @@ interface TodoListWidgetProps {
   onDragStart: (task: any) => void;
   onDragEnd: () => void;
   onTaskClick?: (task: any) => void;
+  onRefresh?: () => void; // Callback to refresh data from parent (bi-directional sync)
 }
 
 interface ChecklistItem {
@@ -129,7 +131,7 @@ function formatDate(dateStr: string): string {
   }
 }
 
-export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
+export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragStart, onDragEnd, onTaskClick, onRefresh }: TodoListWidgetProps) {
   const navigate = useNavigate();
 
   // Debug logging
@@ -259,6 +261,47 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
         }
         return task;
       }));
+    }
+  };
+
+  // Delete a personal checklist item
+  const handleDeleteItem = async (taskId: string) => {
+    // Find the task to delete
+    const taskToDelete = personalTasks.find(t => t.id === taskId);
+    if (!taskToDelete) return;
+
+    // Optimistic update - remove from UI immediately
+    setPersonalTasks(prev => prev.filter(t => t.id !== taskId));
+
+    // Call API
+    try {
+      await apiDeleteChecklistItem(taskId);
+    } catch (error) {
+      console.error('Failed to delete checklist item:', error);
+      // Revert on error - add back to the list
+      setPersonalTasks(prev => [...prev, taskToDelete]);
+    }
+  };
+
+  // Clear all completed personal checklist items
+  const handleClearCompleted = async () => {
+    const completedTasks = personalTasks.filter(t => t.completed);
+    if (completedTasks.length === 0) return;
+
+    // Optimistic update - remove completed items from UI
+    setPersonalTasks(prev => prev.filter(t => !t.completed));
+
+    // Call API
+    try {
+      await apiClearCompletedChecklist();
+      // Optionally trigger parent refresh for full sync
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Failed to clear completed items:', error);
+      // Revert on error - add back completed items
+      setPersonalTasks(prev => [...prev, ...completedTasks]);
     }
   };
 
@@ -565,7 +608,21 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
               <ArrowUpRight className="w-3.5 h-3.5 text-[#60A5FA]" />
             </button>
           )}
-          
+
+          {/* Delete button (only for personal items) */}
+          {!showProject && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteItem(task.id);
+              }}
+              className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 hover:bg-[#FEE2E2] rounded transition-all"
+              title="Delete item"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-[#EF4444]" />
+            </button>
+          )}
+
           {/* Add checklist button (only for personal items without checklist) */}
           {!showProject && !hasChecklist && !task.completed && (
             <button
@@ -872,7 +929,18 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
         >
           All tasks →
         </button>
-        <span className="text-[11px] text-[#6B7280]">{totalActive} active</span>
+        <div className="flex items-center gap-3">
+          {/* Clear completed button - only show if there are completed personal tasks */}
+          {personalTasks.filter(t => t.completed).length > 0 && (
+            <button
+              onClick={handleClearCompleted}
+              className="text-[11px] text-[#EF4444] hover:text-[#DC2626] hover:underline transition-all"
+            >
+              Clear completed ({personalTasks.filter(t => t.completed).length})
+            </button>
+          )}
+          <span className="text-[11px] text-[#6B7280]">{totalActive} active</span>
+        </div>
       </div>
     </div>
   );

@@ -315,6 +315,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
               onDragStart={setDraggedTask}
               onDragEnd={() => setDraggedTask(null)}
               onTaskClick={setSelectedTask}
+              onRefresh={refresh}
             />
           </div>
         )}
