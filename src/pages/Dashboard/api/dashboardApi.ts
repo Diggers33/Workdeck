@@ -628,13 +628,18 @@ export async function getWhosWhere(): Promise<WhosWhereData> {
 
 /**
  * Get calendar events for today
- * Endpoint: /queries/events/user/{userId}?start=YYYY-MM-DD&tz=timezone
+ * Endpoint: /queries/events/user/{userId}?start=YYYY-MM-DD&end=YYYY-MM-DD&tz=timezone
  * Requires actual user ID (not 'me'), so we fetch it first if not provided
  */
 export async function getTodayEvents(userId?: string): Promise<CalendarEvent[]> {
   // Format date as YYYY-MM-DD (matching Angular app format)
   const today = new Date();
-  const dateStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+  const startStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+  // End date is tomorrow (to get all events for today)
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const endStr = `${tomorrow.getFullYear()}-${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}-${tomorrow.getDate().toString().padStart(2, '0')}`;
 
   // Get timezone
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -646,7 +651,8 @@ export async function getTodayEvents(userId?: string): Promise<CalendarEvent[]> 
     userIdToUse = user.id;
   }
 
-  return apiFetch<CalendarEvent[]>(`/queries/events/user/${userIdToUse}?start=${dateStr}&tz=${encodeURIComponent(tz)}`);
+  console.log(`[getTodayEvents] Fetching events for ${startStr} to ${endStr}, tz=${tz}, userId=${userIdToUse}`);
+  return apiFetch<CalendarEvent[]>(`/queries/events/user/${userIdToUse}?start=${startStr}&end=${endStr}&tz=${encodeURIComponent(tz)}`);
 }
 
 /**
