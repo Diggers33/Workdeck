@@ -651,8 +651,12 @@ export async function getTodayEvents(userId?: string): Promise<CalendarEvent[]> 
     userIdToUse = user.id;
   }
 
-  console.log(`[getTodayEvents] Fetching events for ${startStr} to ${endStr}, tz=${tz}, userId=${userIdToUse}`);
-  return apiFetch<CalendarEvent[]>(`/queries/events/user/${userIdToUse}?start=${startStr}&end=${endStr}&tz=${encodeURIComponent(tz)}`);
+  const url = `/queries/events/user/${userIdToUse}?start=${startStr}&end=${endStr}&tz=${encodeURIComponent(tz)}`;
+  console.log(`[getTodayEvents] Fetching: ${url}`);
+
+  const events = await apiFetch<CalendarEvent[]>(url);
+  console.log(`[getTodayEvents] Received ${events?.length || 0} events:`, events);
+  return events;
 }
 
 /**
@@ -838,6 +842,21 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
       eventId: response?.id,
       tip: 'If event created but not showing in Angular, try: 1) Refresh Angular page (Ctrl+F5), 2) Check if response.id matches expected format'
     });
+
+    // Verify event was actually saved by fetching it back
+    if (response?.id) {
+      setTimeout(async () => {
+        try {
+          const verifyUrl = `/queries/events/${response.id}`;
+          console.log(`[Event API] VERIFY - Fetching created event: ${verifyUrl}`);
+          const verifyResponse = await apiFetch<any>(verifyUrl);
+          console.log(`[Event API] VERIFY - Event exists:`, verifyResponse?.id === response.id);
+          console.log(`[Event API] VERIFY - Response:`, JSON.stringify(verifyResponse, null, 2));
+        } catch (err) {
+          console.error(`[Event API] VERIFY - Event NOT FOUND! Error:`, err);
+        }
+      }, 1000);
+    }
 
     return response;
   } catch (error: any) {
