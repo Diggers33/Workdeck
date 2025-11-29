@@ -406,11 +406,20 @@ export async function getWhosWhere(): Promise<WhosWhereData> {
 
 /**
  * Get calendar events for today
+ * Endpoint: /queries/events/user/{userId}?start=YYYY-MM-DD&end=YYYY-MM-DD&tz=timezone
  */
-export async function getTodayEvents(): Promise<CalendarEvent[]> {
+export async function getTodayEvents(userId?: string): Promise<CalendarEvent[]> {
+  // Format date as YYYY-MM-DD (matching Angular app format)
   const today = new Date();
-  const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-  return apiFetch<CalendarEvent[]>(`/queries/events?startDate=${dateStr}&endDate=${dateStr}`);
+  const dateStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+  // Get timezone
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // If we have a userId, use it; otherwise use 'me' as fallback
+  const userPath = userId || 'me';
+
+  return apiFetch<CalendarEvent[]>(`/queries/events/user/${userPath}?start=${dateStr}&tz=${encodeURIComponent(tz)}`);
 }
 
 /**

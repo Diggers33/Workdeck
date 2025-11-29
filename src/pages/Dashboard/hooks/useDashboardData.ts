@@ -294,7 +294,11 @@ export function useDashboardData(): UseDashboardDataReturn {
             log('Who\'s Where data received:', whosWhere);
             setData(prev => ({ ...prev, whosWhere }));
           })
-          .catch(err => logError('Error fetching who\'s where:', err))
+          .catch(err => {
+            logError('Error fetching who\'s where:', err);
+            // Set empty data so widget shows empty state instead of loading
+            setData(prev => ({ ...prev, whosWhere: { leaveEvents: [], leaveRequests: [] } }));
+          })
       );
 
       // Always fetch Today's Events (for agenda widget)
@@ -305,7 +309,11 @@ export function useDashboardData(): UseDashboardDataReturn {
             log('Today\'s Events received:', todayEvents);
             setData(prev => ({ ...prev, todayEvents }));
           })
-          .catch(err => logError('Error fetching today\'s events:', err))
+          .catch(err => {
+            logError('Error fetching today\'s events:', err);
+            // Set empty array so widget shows empty state instead of loading
+            setData(prev => ({ ...prev, todayEvents: [] }));
+          })
       );
 
       // Always fetch Assigned Tasks (for todo widget assigned section)
@@ -316,7 +324,11 @@ export function useDashboardData(): UseDashboardDataReturn {
             log('Assigned Tasks received:', assignedTasks);
             setData(prev => ({ ...prev, assignedTasks }));
           })
-          .catch(err => logError('Error fetching assigned tasks:', err))
+          .catch(err => {
+            logError('Error fetching assigned tasks:', err);
+            // Set empty array so widget shows empty state instead of loading
+            setData(prev => ({ ...prev, assignedTasks: [] }));
+          })
       );
 
       // Always fetch Portfolio Projects (for portfolio widget)
@@ -327,16 +339,31 @@ export function useDashboardData(): UseDashboardDataReturn {
             log('Portfolio Projects received:', portfolioProjects);
             setData(prev => ({ ...prev, portfolioProjects }));
           })
-          .catch(err => logError('Error fetching portfolio projects:', err))
+          .catch(err => {
+            logError('Error fetching portfolio projects:', err);
+            // Set empty array so widget shows empty state instead of loading
+            setData(prev => ({ ...prev, portfolioProjects: [] }));
+          })
       );
 
-      await Promise.all(fetchPromises);
-      log('All dashboard data loaded successfully');
+      // Use Promise.allSettled to ensure all fetches complete independently
+      // This prevents one failed request from blocking others
+      const results = await Promise.allSettled(fetchPromises);
+
+      // Log any failures (for debugging)
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length > 0) {
+        log(`${failures.length} widget(s) failed to load, but dashboard continues`);
+      }
+
+      log('All dashboard data loaded (some may have failed)');
 
     } catch (err) {
-      logError('Dashboard load error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+      // This should rarely happen since individual fetches have their own error handling
+      logError('Unexpected dashboard load error:', err);
+      // Don't set global error - let widgets show their own states
     } finally {
+      // Always stop loading, even if there were errors
       setLoading(false);
       log('Dashboard loading complete');
     }
