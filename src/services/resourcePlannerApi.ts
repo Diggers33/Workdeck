@@ -102,34 +102,36 @@ export async function fetchResourcePlannerData() {
       })),
     }));
 
-    // Transform tasks
-    const transformedTasks: Task[] = tasks.map((task) => {
-      const startDate = parseDate(task.startDate);
-      const endDate = parseDate(task.endDate);
-      const plannedHours = parseFloat(task.plannedHours || '0');
-      const spentHours = parseFloat(task.spentHours || '0');
+    // Transform tasks - filter out tasks without activity
+    const transformedTasks: Task[] = tasks
+      .filter((task) => task.activity && task.activity.project) // Only include tasks with valid activity and project
+      .map((task) => {
+        const startDate = parseDate(task.startDate);
+        const endDate = parseDate(task.endDate);
+        const plannedHours = parseFloat(task.plannedHours || '0');
+        const spentHours = parseFloat(task.spentHours || '0');
 
-      // Get primary participant (owner or first participant)
-      const owner = task.participants?.find((p) => p.isOwner);
-      const participant = owner || task.participants?.[0];
+        // Get primary participant (owner or first participant)
+        const owner = task.participants?.find((p) => p.isOwner);
+        const participant = owner || task.participants?.[0];
 
-      return {
-        id: task.id,
-        name: task.name,
-        projectId: task.activity.project.id,
-        activityId: task.activity.id,
-        activity: task.activity.name,
-        assignedUserId: participant?.user.id,
-        assigneeId: participant?.user.id,
-        plannedHours,
-        loggedHours: spentHours,
-        startDate,
-        endDate,
-        isBillable: task.billable,
-        allocationType: 'hard', // Default, could be determined from task properties
-        status: task.column?.name || 'To Do',
-      };
-    });
+        return {
+          id: task.id,
+          name: task.name,
+          projectId: task.activity!.project.id,
+          activityId: task.activity!.id,
+          activity: task.activity!.name,
+          assignedUserId: participant?.user.id,
+          assigneeId: participant?.user.id,
+          plannedHours,
+          loggedHours: spentHours,
+          startDate,
+          endDate,
+          isBillable: task.billable,
+          allocationType: 'hard', // Default, could be determined from task properties
+          status: task.column?.name || 'To Do',
+        };
+      });
 
     // Populate activities with tasks
     transformedProjects.forEach((project) => {

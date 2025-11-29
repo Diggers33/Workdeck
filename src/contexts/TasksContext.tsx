@@ -345,7 +345,21 @@ export function TasksProvider({ children }: { children: ReactNode }) {
         // Get current user and their tasks
         const user = await getCurrentUser();
         const apiTasks = await getTasks();
-        const stages = await getTaskStages(user.id);
+        
+        // Try to get task stages, but fall back to default if it fails (404)
+        let stages: any[] = [];
+        try {
+          stages = await getTaskStages(user.id);
+        } catch (error) {
+          console.warn('Could not load task stages, using defaults:', error);
+          // Use default columns if API fails
+          stages = [
+            { id: 'backlog', name: 'Backlog', color: '#F59E0B', position: 0 },
+            { id: 'in-progress', name: 'In Progress', color: '#34D399', position: 1 },
+            { id: 'review', name: 'In Review', color: '#F59E0B', position: 2 },
+            { id: 'done', name: 'Done', color: '#10B981', position: 3 },
+          ];
+        }
 
         // Transform API tasks to Task format
         const transformedTasks: Record<string, Task> = {};

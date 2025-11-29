@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Plus, ChevronDown, MoreVertical, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, ChevronDown, MoreVertical, ArrowRight, Loader2 } from 'lucide-react';
 
 export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttClick?: () => void; onCreateProject?: () => void }) {
   const [activeFilter, setActiveFilter] = useState('All Projects');
@@ -8,8 +8,87 @@ export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttC
   const [hoveredAlert, setHoveredAlert] = useState<number | null>(null);
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
   const [selectedScope, setSelectedScope] = useState('Mine');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const projects = [
+  // Load projects from API
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        setLoading(true);
+        const { getProjects } = await import('../../services/projectsApi');
+        const apiProjects = await getProjects();
+        
+        // Transform API projects to component format
+        const transformed = apiProjects.map((project, index) => {
+          // Calculate progress (simplified - would need actual task completion data)
+          const progress = 0; // Default, could calculate from tasks
+          
+          // Determine alert status based on project health
+          const hasAlerts = project.numFlags > 0;
+          const alertColor = project.numFlags > 5 ? '#F87171' : '#F59E0B';
+          
+          return {
+            id: project.id,
+            alert: {
+              dotColor: hasAlerts ? alertColor : '#10B981',
+              pulse: hasAlerts,
+              icon: hasAlerts ? '⏰' : undefined
+            },
+            name: project.name,
+            trend: '↗', // Would need trend data from API
+            trendColor: '#34D399',
+            client: project.client?.name || 'Unknown',
+            owner: project.manager?.fullName || 'Unknown',
+            badge: project.type || 'Project',
+            timeline: project.startDate && project.endDate 
+              ? `${project.startDate.split('/')[1]}/${project.startDate.split('/')[2]}'${project.startDate.split('/')[2].slice(-2)} - ${project.endDate.split('/')[1]}/${project.endDate.split('/')[2]}'${project.endDate.split('/')[2].slice(-2)}`
+              : 'N/A',
+            duration: project.startDate && project.endDate ? calculateDuration(project.startDate, project.endDate) : 'N/A',
+            progress,
+            progressColor: progress < 30 ? '#F87171' : progress < 70 ? '#F59E0B' : '#10B981',
+            statusText: `${progress}%`,
+            statusColor: progress < 30 ? '#F87171' : progress < 70 ? '#F59E0B' : '#10B981',
+            showActionBadge: hasAlerts,
+            actionBadgeBg: hasAlerts ? '#FEE2E2' : undefined,
+            actionBadgeColor: hasAlerts ? alertColor : undefined,
+            nextActivity: 'N/A',
+            activityTime: 'N/A',
+            activityIcon: undefined,
+            activityColor: undefined,
+            activityWeight: undefined,
+            flagCount: project.numFlags || 0,
+            flagBg: hasAlerts ? '#FEE2E2' : undefined,
+            flagColor: hasAlerts ? alertColor : undefined,
+            alertBreakdown: [],
+          };
+        });
+        
+        setProjects(transformed);
+      } catch (error) {
+        console.error('Error loading projects:', error);
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProjects();
+  }, []);
+
+  // Helper function to calculate duration
+  function calculateDuration(startDate: string, endDate: string): string {
+    const [startDay, startMonth, startYear] = startDate.split('/').map(Number);
+    const [endDay, endMonth, endYear] = endDate.split('/').map(Number);
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    const months = (endYear - startYear) * 12 + (endMonth - startMonth);
+    if (months < 1) return '<1mo';
+    if (months === 1) return '1mo';
+    return `${months}mo`;
+  }
+
+  const mockProjects = [
     {
       id: 1,
       alert: {
@@ -535,7 +614,16 @@ export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttC
         </div>
 
         {/* PROJECT ROWS */}
-        {projects.map((project, idx) => (
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+            <Loader2 className="animate-spin" size={24} />
+          </div>
+        ) : projects.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+            No projects found
+          </div>
+        ) : (
+          projects.map((project, idx) => (
           <div
             key={project.id}
             onMouseEnter={() => setHoveredRow(idx)}
@@ -848,10 +936,11 @@ export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttC
                   })}
                 </div>
               </>
-            )}
-          </div>
-        ))}
-      </div>
+              )}
+            </div>
+          ))
+        )}
+        </div>
 
       <style>{`
         @keyframes pulse {
