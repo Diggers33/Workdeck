@@ -171,27 +171,48 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     return result;
   };
 
-  const getTimeFromMousePosition = (e: React.MouseEvent): number | null => {
+  const getTimeFromMousePosition = (e: React.MouseEvent | React.DragEvent): number | null => {
     if (!timelineRef.current) return null;
-    
+
     const rect = timelineRef.current.getBoundingClientRect();
-    const y = e.clientY - rect.top + timelineRef.current.scrollTop;
-    
-    // Calculate time based on position (in 15-minute increments)
-    const totalMinutes = (y / pixelsPerHour) * 60;
-    const roundedMinutes = Math.round(totalMinutes / 15) * 15;
-    const hours = Math.floor(roundedMinutes / 60);
-    const minutes = roundedMinutes % 60;
-    
-    return hours + minutes / 60;
+    const scrollTop = timelineRef.current.scrollTop;
+
+    // Calculate Y position within the scrollable content
+    // clientY is viewport-relative, rect.top is container's viewport position
+    // scrollTop is how far the container is scrolled
+    const relativeY = e.clientY - rect.top + scrollTop;
+
+    // Debug logging
+    console.log('[Agenda] getTimeFromMousePosition:', {
+      clientY: e.clientY,
+      rectTop: rect.top,
+      scrollTop,
+      relativeY,
+      pixelsPerHour,
+      startHour
+    });
+
+    // Calculate hour from Y position
+    // relativeY / pixelsPerHour gives hours from top of timeline
+    // Add startHour to get actual hour of day
+    const rawHour = startHour + (relativeY / pixelsPerHour);
+
+    // Round to nearest 15-minute increment
+    const roundedHour = Math.round(rawHour * 4) / 4;
+
+    // Clamp to valid range
+    const clampedHour = Math.max(startHour, Math.min(endHour + 1, roundedHour));
+
+    console.log('[Agenda] Calculated hour:', { rawHour, roundedHour, clampedHour });
+
+    return clampedHour;
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
-    
-    const time = getTimeFromMousePosition(e as any);
-    console.log('[Agenda] Drag over at hour:', time);
+
+    const time = getTimeFromMousePosition(e);
     if (time !== null && time >= 0 && time <= 24) {
       setDragOverTime(time);
     }
