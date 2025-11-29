@@ -546,11 +546,22 @@ export async function updateWidget(widget: Widget): Promise<void> {
 
 /**
  * Update checklist item
+ * API expects: { id, description, done, priority } (matches Angular ChecklistEntity)
  */
 export async function updateChecklistItem(item: ChecklistItem): Promise<void> {
+  // Convert internal format to API format
+  const apiPayload = {
+    id: item.id,
+    description: item.text,  // API uses 'description' not 'text'
+    done: item.completed,    // API uses 'done' not 'completed'
+    priority: 1,
+  };
+
+  console.log('[Checklist API] Update payload:', apiPayload);
+
   await apiFetch<void>('/commands/sync/user/update-checklist', {
     method: 'POST',
-    body: JSON.stringify(item),
+    body: JSON.stringify(apiPayload),
   });
 }
 
@@ -623,30 +634,51 @@ export async function getPortfolioProjects(): Promise<PortfolioProject[]> {
 
 /**
  * Add a new checklist item
+ * API expects: { id, description, done, priority } (matches Angular ChecklistEntity)
  */
 export async function addChecklistItem(text: string): Promise<ChecklistItem> {
-  const newItem = {
-    id: crypto.randomUUID(),
+  const id = crypto.randomUUID();
+
+  // API payload format - must match Angular ChecklistEntity fields
+  const apiPayload = {
+    id,
+    description: text,  // API uses 'description' not 'text'
+    done: false,        // API uses 'done' not 'completed'
+    priority: 1,        // Required field
+  };
+
+  console.log('[Checklist API] Add payload:', apiPayload);
+
+  await apiFetch<void>('/commands/sync/user/update-checklist', {
+    method: 'POST',
+    body: JSON.stringify(apiPayload),
+  });
+
+  // Return internal format for UI
+  return {
+    id,
     text,
     completed: false,
     createdAt: new Date().toISOString(),
   };
-
-  await apiFetch<void>('/commands/sync/user/update-checklist', {
-    method: 'POST',
-    body: JSON.stringify(newItem),
-  });
-
-  return newItem;
 }
 
 /**
  * Toggle checklist item completion status
+ * API expects: { id, done } (matches Angular ChecklistEntity)
  */
 export async function toggleChecklistItem(itemId: string, completed: boolean): Promise<void> {
+  // API payload format - must match Angular ChecklistEntity fields
+  const apiPayload = {
+    id: itemId,
+    done: completed,  // API uses 'done' not 'completed'
+  };
+
+  console.log('[Checklist API] Toggle payload:', apiPayload);
+
   await apiFetch<void>('/commands/sync/user/update-checklist', {
     method: 'POST',
-    body: JSON.stringify({ id: itemId, completed }),
+    body: JSON.stringify(apiPayload),
   });
 }
 
