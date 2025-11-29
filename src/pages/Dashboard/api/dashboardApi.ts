@@ -780,6 +780,9 @@ function logAngularSyncDebug(action: string, data: any) {
 }
 
 export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
+  // Get current user ID to add as guest (required for event to show in calendar)
+  const currentUser = await getCurrentUser();
+
   // Build payload with Workdeck-specific format
   const payload: Record<string, any> = {
     title: eventData.title,
@@ -788,6 +791,7 @@ export async function createEvent(eventData: CreateEventData): Promise<CalendarE
     color: eventData.color || DEFAULT_EVENT_COLOR,
     timezone: eventData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     state: 1, // Event state: 1 = confirmed (required by API)
+    guests: [{ id: currentUser.id }], // Add current user as guest so event shows in their calendar
   };
 
   // Add optional fields only if provided
