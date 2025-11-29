@@ -667,27 +667,16 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
           onDrop={handleDrop}
           onMouseMove={handleMouseMove}
         >
-          {/* Loading state */}
+          {/* Loading overlay - shows spinner over timeline while loading */}
           {eventsLoading && (
-            <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+            <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-20">
               <div className="w-6 h-6 border-2 border-[#FBBF24] border-t-transparent rounded-full animate-spin mb-2"></div>
               <p className="text-[12px] text-[#9CA3AF]">Loading calendar...</p>
             </div>
           )}
 
-          {/* Empty state */}
-          {eventsEmpty && (
-            <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#FEF3C7] flex items-center justify-center mb-3">
-                <Coffee className="w-6 h-6 text-[#FBBF24]" />
-              </div>
-              <p className="text-[13px] font-medium text-[#374151] mb-1">No events today</p>
-              <p className="text-[11px] text-[#9CA3AF]">Enjoy your free schedule!</p>
-            </div>
-          )}
-
-          {/* Timeline content - only show when not loading */}
-          {!eventsLoading && !eventsEmpty && <div 
+          {/* Timeline content - ALWAYS visible so users can click/drag to create events */}
+          <div 
             style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}
             onClick={handleTimelineClick}
           >
@@ -884,7 +873,17 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                 </div>
               );
             })}
-          </div>}
+
+            {/* Subtle empty state indicator - shown within timeline when no events */}
+            {eventsEmpty && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center opacity-50">
+                  <Coffee className="w-8 h-8 text-[#D1D5DB] mx-auto mb-1" />
+                  <p className="text-[11px] text-[#9CA3AF]">Click or drag to add events</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Drop hint */}
