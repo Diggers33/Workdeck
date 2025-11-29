@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight, Inbox } from 'lucide-react';
-import { ChecklistItem as ApiChecklistItem, AssignedTask as ApiAssignedTask } from '../../api/dashboardApi';
+import { useNavigate } from 'react-router-dom';
+import {
+  ChecklistItem as ApiChecklistItem,
+  AssignedTask as ApiAssignedTask,
+  addChecklistItem,
+  toggleChecklistItem,
+  deleteChecklistItem,
+} from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
   items?: ApiChecklistItem[];
@@ -88,15 +95,21 @@ function formatDuration(minutes: number): string {
 
 // Helper function to convert API checklist items to Task format
 function convertApiItemsToTasks(items: ApiChecklistItem[]): Task[] {
-  return items.map(item => ({
-    id: item.id,
-    title: item.text,
-    category: 'Personal',
-    due: formatDate(item.createdAt),
-    duration: '30m',
-    completed: item.completed,
-    priority: 'medium' as const,
-  }));
+  return items.map(item => {
+    // Debug: log each item to see its structure
+    console.log('[TodoWidget] Converting checklist item:', JSON.stringify(item, null, 2));
+
+    return {
+      id: item.id,
+      // Use text, but ensure it's not empty/undefined
+      title: item.text || 'Untitled',
+      category: 'Personal',
+      due: formatDate(item.createdAt),
+      duration: '30m',
+      completed: item.completed,
+      priority: 'medium' as const,
+    };
+  });
 }
 
 // Helper to format date
@@ -117,6 +130,8 @@ function formatDate(dateStr: string): string {
 }
 
 export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
+  const navigate = useNavigate();
+
   // Debug logging
   console.log('[TodoWidget] items (personal) prop:', items);
   console.log('[TodoWidget] assignedTasks prop:', apiAssignedTasks);
@@ -813,7 +828,10 @@ export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragS
 
       {/* Footer */}
       <div className="px-4 py-2 border-t border-[#E5E7EB] flex items-center justify-between" style={{ minHeight: '36px', paddingTop: '8px' }}>
-        <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB] hover:underline transition-all">
+        <button
+          onClick={() => navigate('/work/tasks')}
+          className="text-[11px] text-[#3B82F6] hover:text-[#2563EB] hover:underline transition-all"
+        >
           All tasks →
         </button>
         <span className="text-[11px] text-[#6B7280]">{totalActive} active</span>

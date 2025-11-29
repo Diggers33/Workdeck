@@ -1,9 +1,11 @@
-import React from 'react';
-import { Bell, Inbox } from 'lucide-react';
-import { NewsItem } from '../../api/dashboardApi';
+import React, { useState } from 'react';
+import { Bell, Inbox, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { NewsItem, dismissNotification, dismissAllNotifications } from '../../api/dashboardApi';
 
 interface FYIWidgetProps {
   items?: NewsItem[];
+  onRefresh?: () => void;
 }
 
 // Generate avatar from message (extract initials from first name)
@@ -40,7 +42,11 @@ function formatTime(timestamp: string): string {
   }
 }
 
-export function FYIWidget({ items }: FYIWidgetProps) {
+export function FYIWidget({ items, onRefresh }: FYIWidgetProps) {
+  const navigate = useNavigate();
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [isClearing, setIsClearing] = useState(false);
+
   // Debug logging
   console.log('[FYIWidget] items prop:', items);
 
@@ -49,12 +55,74 @@ export function FYIWidget({ items }: FYIWidgetProps) {
   // - [] = API returned empty (valid - no notifications)
   // - array with items = show the items
   const isLoading = items === undefined;
-  const isEmpty = Array.isArray(items) && items.length === 0;
-  const hasItems = Array.isArray(items) && items.length > 0;
+
+  // Filter out dismissed items for display
+  const visibleItems = items?.filter(item => !dismissedIds.has(item.id)) || [];
+  const isEmpty = Array.isArray(items) && visibleItems.length === 0;
+  const hasItems = visibleItems.length > 0;
 
   console.log('[FYIWidget] isLoading:', isLoading, 'isEmpty:', isEmpty, 'hasItems:', hasItems);
 
-  const unreadCount = hasItems ? items.filter(item => !item.read).length : 0;
+  const unreadCount = hasItems ? visibleItems.filter(item => !item.read).length : 0;
+
+  // Handle dismiss single notification
+  const handleDismiss = async (e: React.MouseEvent, itemId: string, notificationId?: string) => {
+    e.stopPropagation(); // Prevent triggering item click
+    // Optimistically hide the item
+    setDismissedIds(prev => new Set(prev).add(itemId));
+
+    try {
+      await dismissNotification(notificationId || itemId);
+    } catch (error) {
+      console.error('Failed to dismiss notification:', error);
+      // Revert on error
+      setDismissedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }
+  };
+
+  // Handle clear all notifications
+  const handleClearAll = async () => {
+    setIsClearing(true);
+    try {
+      await dismissAllNotifications();
+      // Dismiss all items visually
+      const allIds = new Set(items?.map(item => item.id) || []);
+      setDismissedIds(allIds);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  // Handle click on notification item - navigate to source
+  const handleItemClick = (item: NewsItem) => {
+    // Navigate based on notification type
+    switch (item.type) {
+      case 'task':
+      case 'moved-task':
+        navigate(`/work/tasks/${item.id}`);
+        break;
+      case 'event':
+      case 'deleted-event':
+        navigate('/calendar');
+        break;
+      case 'leave':
+        navigate('/leave');
+        break;
+      case 'comment':
+        navigate(`/work/tasks/${item.id}`);
+        break;
+      default:
+        // Generic click - could show a popup or navigate to notifications
+        break;
+    }
+  };
 
   return (
     <div
@@ -74,8 +142,12 @@ export function FYIWidget({ items }: FYIWidgetProps) {
           )}
         </div>
         {hasItems && (
-          <button className="text-[11px] text-[#9CA3AF] hover:text-[#F87171] transition-colors">
-            Clear all
+          <button
+            onClick={handleClearAll}
+            disabled={isClearing}
+            className="text-[11px] text-[#9CA3AF] hover:text-[#F87171] transition-colors disabled:opacity-50"
+          >
+            {isClearing ? 'Clearing...' : 'Clear all'}
           </button>
         )}
       </div>
@@ -104,14 +176,15 @@ export function FYIWidget({ items }: FYIWidgetProps) {
         {/* Items list */}
         {hasItems && (
           <div className="space-y-0.5">
-            {items.map((item, idx) => {
+            {visibleItems.map((item, idx) => {
               const { initials, color } = getAvatarFromMessage(item.message);
               const timeDisplay = formatTime(item.createdAt);
 
               return (
                 <div
                   key={item.id || idx}
-                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all hover:bg-[#F9FAFB] ${
+                  onClick={() => handleItemClick(item)}
+                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-all hover:bg-[#F9FAFB] group ${
                     item.read ? 'opacity-50' : ''
                   }`}
                 >
@@ -127,6 +200,14 @@ export function FYIWidget({ items }: FYIWidgetProps) {
                     </p>
                     <p className="text-[10px] text-[#9CA3AF] leading-tight">{timeDisplay}</p>
                   </div>
+                  {/* Dismiss button - appears on hover */}
+                  <button
+                    onClick={(e) => handleDismiss(e, item.id, item.notificationId)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-[#FEE2E2] opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Dismiss"
+                  >
+                    <X className="w-3 h-3 text-[#9CA3AF] hover:text-[#F87171]" />
+                  </button>
                 </div>
               );
             })}
@@ -136,12 +217,15 @@ export function FYIWidget({ items }: FYIWidgetProps) {
 
       {/* Footer */}
       <div className="px-3 py-1.5 border-t border-[#E5E7EB] flex items-center justify-between" style={{ minHeight: '30px' }}>
-        <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
+        <button
+          onClick={() => navigate('/notifications')}
+          className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]"
+        >
           View all →
         </button>
         {hasItems && (
           <span className="text-[10px] text-white bg-[#A78BFA] px-1.5 py-0.5 rounded-full font-medium">
-            {unreadCount > 0 ? unreadCount : items.length}
+            {unreadCount > 0 ? unreadCount : visibleItems.length}
           </span>
         )}
       </div>

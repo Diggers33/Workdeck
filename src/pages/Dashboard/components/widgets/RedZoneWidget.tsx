@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { RedZoneData } from '../../api/dashboardApi';
 
 interface RedZoneWidgetProps {
@@ -19,6 +20,8 @@ function getRiskScore(daysOverdue: number): number {
 }
 
 export function RedZoneWidget({ data }: RedZoneWidgetProps) {
+  const navigate = useNavigate();
+
   // Debug logging
   console.log('[RedZoneWidget] data prop:', data);
 
@@ -78,7 +81,10 @@ export function RedZoneWidget({ data }: RedZoneWidgetProps) {
             </>
           )}
         </div>
-        <button className="text-[11px] text-[#9CA3AF] hover:text-[#111827]">
+        <button
+          onClick={() => navigate('/settings/widgets')}
+          className="text-[11px] text-[#9CA3AF] hover:text-[#111827]"
+        >
           Settings
         </button>
       </div>
@@ -110,6 +116,7 @@ export function RedZoneWidget({ data }: RedZoneWidgetProps) {
             {risks.map((risk: any) => (
               <div
                 key={risk.id}
+                onClick={() => navigate(`/work/projects/${risk.id}`)}
                 className="flex items-center gap-2 p-1.5 rounded-lg bg-[#FAFAFA] border border-[#F3F4F6] cursor-pointer hover:shadow-sm transition-all"
               >
                 {/* Risk indicator dot */}
@@ -146,7 +153,10 @@ export function RedZoneWidget({ data }: RedZoneWidgetProps) {
 
       {/* Footer */}
       <div className="px-3 py-1.5 border-t border-[#E5E7EB]" style={{ minHeight: '30px' }}>
-        <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
+        <button
+          onClick={() => navigate('/work/projects')}
+          className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]"
+        >
           All projects →
         </button>
       </div>

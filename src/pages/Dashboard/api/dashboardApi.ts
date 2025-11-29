@@ -616,3 +616,135 @@ export async function getAssignedTasks(): Promise<AssignedTask[]> {
 export async function getPortfolioProjects(): Promise<PortfolioProject[]> {
   return apiFetch<PortfolioProject[]>('/queries/projects');
 }
+
+// ============================================================================
+// MUTATION FUNCTIONS (Create, Update, Delete)
+// ============================================================================
+
+/**
+ * Add a new checklist item
+ */
+export async function addChecklistItem(text: string): Promise<ChecklistItem> {
+  const newItem = {
+    id: crypto.randomUUID(),
+    text,
+    completed: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  await apiFetch<void>('/commands/sync/user/update-checklist', {
+    method: 'POST',
+    body: JSON.stringify(newItem),
+  });
+
+  return newItem;
+}
+
+/**
+ * Toggle checklist item completion status
+ */
+export async function toggleChecklistItem(itemId: string, completed: boolean): Promise<void> {
+  await apiFetch<void>('/commands/sync/user/update-checklist', {
+    method: 'POST',
+    body: JSON.stringify({ id: itemId, completed }),
+  });
+}
+
+/**
+ * Create a new calendar event
+ */
+export interface CreateEventData {
+  title: string;
+  description?: string;
+  startAt: string;
+  endAt: string;
+  color?: string;
+  private?: boolean;
+  billable?: boolean;
+  timesheet?: boolean;
+  projectId?: string;
+  taskId?: string;
+}
+
+export async function createEvent(eventData: CreateEventData): Promise<CalendarEvent> {
+  const response = await apiFetch<CalendarEvent>('/commands/sync/create-event', {
+    method: 'POST',
+    body: JSON.stringify(eventData),
+  });
+  return response;
+}
+
+/**
+ * Update an existing calendar event
+ */
+export async function updateEvent(eventId: string, eventData: Partial<CreateEventData>): Promise<void> {
+  await apiFetch<void>('/commands/sync/update-event', {
+    method: 'POST',
+    body: JSON.stringify({ id: eventId, ...eventData }),
+  });
+}
+
+/**
+ * Delete a calendar event
+ */
+export async function deleteEvent(eventId: string): Promise<void> {
+  await apiFetch<void>('/commands/sync/delete-event', {
+    method: 'POST',
+    body: JSON.stringify({ id: eventId }),
+  });
+}
+
+/**
+ * Create event from task (schedule a task on calendar)
+ */
+export async function createEventFromTask(
+  taskId: string,
+  taskTitle: string,
+  startAt: string,
+  durationMinutes: number = 60
+): Promise<CalendarEvent> {
+  const endAt = new Date(new Date(startAt).getTime() + durationMinutes * 60 * 1000).toISOString();
+
+  return createEvent({
+    title: taskTitle,
+    startAt,
+    endAt,
+    taskId,
+    timesheet: true,
+  });
+}
+
+// ============================================================================
+// APPROVAL FUNCTIONS
+// ============================================================================
+
+export type ApprovalType = 'leave' | 'expense' | 'purchase' | 'timesheet' | 'event';
+
+/**
+ * Approve a pending item
+ */
+export async function approveItem(type: ApprovalType, itemId: string): Promise<void> {
+  const endpoint = `/commands/sync/approve-${type}`;
+  await apiFetch<void>(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({ id: itemId }),
+  });
+}
+
+/**
+ * Reject a pending item with reason
+ */
+export async function rejectItem(type: ApprovalType, itemId: string, reason: string): Promise<void> {
+  const endpoint = `/commands/sync/reject-${type}`;
+  await apiFetch<void>(endpoint, {
+    method: 'POST',
+    body: JSON.stringify({ id: itemId, reason }),
+  });
+}
+
+/**
+ * Get approval details for a specific item
+ */
+export async function getApprovalDetails(type: ApprovalType, itemId: string): Promise<any> {
+  return apiFetch<any>(`/queries/${type}/${itemId}`);
+}

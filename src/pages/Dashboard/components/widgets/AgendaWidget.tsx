@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Coffee } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { EventModal } from '../calendar/EventModal';
 import { CalendarEvent as ApiCalendarEvent } from '../../api/dashboardApi';
 
@@ -71,6 +72,8 @@ function convertApiEventsToEvents(apiEvents: ApiCalendarEvent[]): Event[] {
 }
 
 export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetProps) {
+  const navigate = useNavigate();
+
   // Debug logging
   console.log('[AgendaWidget] apiEvents prop:', apiEvents);
 
@@ -633,7 +636,10 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
         {/* Footer */}
         <div className="px-3 py-1.5 border-t border-[#E5E7EB]" style={{ minHeight: '30px' }}>
-          <button className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]">
+          <button
+            onClick={() => navigate('/calendar')}
+            className="text-[11px] text-[#3B82F6] hover:text-[#2563EB]"
+          >
             Full calendar →
           </button>
         </div>
