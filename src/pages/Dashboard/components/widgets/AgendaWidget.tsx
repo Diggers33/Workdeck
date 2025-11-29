@@ -191,6 +191,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     setIsDragOver(true);
     
     const time = getTimeFromMousePosition(e as any);
+    console.log('[Agenda] Drag over at hour:', time);
     if (time !== null && time >= 0 && time <= 24) {
       setDragOverTime(time);
     }
@@ -204,6 +205,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    console.log('[Agenda] Drop - draggedTask:', draggedTask?.title, 'at hour:', dragOverTime);
 
     if (draggedTask && dragOverTime !== null) {
       // Calculate start time based on drop position
@@ -383,17 +385,28 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
   // Handle click on empty timeline area to create new event
   const handleTimelineClick = (e: React.MouseEvent) => {
+    console.log('[Agenda] Timeline click detected');
+    
     // Don't trigger if clicking on an event or during interactions
-    if (draggingEvent || resizingEvent || wasInteracting) return;
+    if (draggingEvent || resizingEvent || wasInteracting) {
+      console.log('[Agenda] Ignored - interaction in progress');
+      return;
+    }
     
     // Check if we clicked on an event (has data-event attribute or is inside one)
     const target = e.target as HTMLElement;
-    if (target.closest('[data-event-id]')) return;
+    if (target.closest('[data-event-id]')) {
+      console.log('[Agenda] Ignored - clicked on event');
+      return;
+    }
     
     const time = getTimeFromMousePosition(e);
+    console.log('[Agenda] Click Y:', e.clientY, 'Calculated hour:', time);
+    
     if (time !== null && time >= 0 && time <= 24) {
       // Round to nearest 15 minutes
       const roundedTime = Math.round(time * 4) / 4;
+      console.log('[Agenda] Opening create modal at:', roundedTime);
       setCreateEventTime(roundedTime);
     }
   };

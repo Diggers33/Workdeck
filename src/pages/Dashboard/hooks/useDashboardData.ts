@@ -5,11 +5,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-// Debug logging helper
+// Debug logging helper with timing
 const DEBUG = true; // Set to false to disable logging
+const startTime = Date.now();
 const log = (message: string, data?: any) => {
   if (DEBUG) {
-    console.log(`[Dashboard API] ${message}`, data !== undefined ? data : '');
+    const elapsed = Date.now() - startTime;
+    console.log(`[Dashboard API +${elapsed}ms] ${message}`, data !== undefined ? data : '');
   }
 };
 const logError = (message: string, error: any) => {
@@ -154,36 +156,41 @@ export function useDashboardData(): UseDashboardDataReturn {
     setError(null);
 
     try {
-      // First, get user's widget configuration
-      log('Fetching user widgets...');
-      let widgets: Widget[] = [];
-      try {
-        widgets = await getUserWidgets();
-        log('User widgets received:', widgets);
-      } catch (err) {
-        logError('Could not fetch widgets, using defaults:', err);
-        // Use default widget configuration if API fails
-        widgets = getDefaultWidgets();
-        log('Using default widgets:', widgets);
-      }
-
-      setData(prev => ({ ...prev, widgets }));
-
-      // Get enabled widget types
-      const enabledTypes = widgets
+      // Use default widgets immediately so we don't block on widget config
+      // This allows data to start loading immediately
+      const defaultWidgets = getDefaultWidgets();
+      setData(prev => ({ ...prev, widgets: defaultWidgets }));
+      
+      // Get enabled widget types from defaults (all enabled)
+      const enabledTypes = defaultWidgets
         .filter(w => w.enabled !== false)
         .map(w => w.type);
-      log('Enabled widget types:', enabledTypes);
+      log('Using default enabled widget types (non-blocking):', enabledTypes);
 
       // Fetch data for each enabled widget in parallel
       const fetchPromises: Promise<void>[] = [];
+      
+      // Fetch user widgets in parallel (will update if different from defaults)
+      log('Fetching user widgets (non-blocking)...');
+      const widgetsStart = Date.now();
+      fetchPromises.push(
+        getUserWidgets()
+          .then(widgets => {
+            log(`User widgets received (${Date.now() - widgetsStart}ms):`, widgets?.length || 0);
+            setData(prev => ({ ...prev, widgets }));
+          })
+          .catch(err => {
+            logError('Could not fetch widgets, keeping defaults:', err);
+          })
+      );
 
       if (enabledTypes.includes(WIDGET_TYPES.FYI)) {
         log('Fetching FYI/Whats New...');
+        const fyiStart = Date.now();
         fetchPromises.push(
           getWhatsNew()
             .then(whatsNew => {
-              log('FYI data received:', whatsNew);
+              log(`FYI data received (${Date.now() - fyiStart}ms):`, whatsNew?.length || 0);
               setData(prev => ({ ...prev, whatsNew }));
             })
             .catch(err => {
@@ -285,10 +292,11 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Always fetch Red Zone (dashboard always shows it)
       log('Fetching Red Zone...');
+      const redZoneStart = Date.now();
       fetchPromises.push(
         getRedZone()
           .then(redZone => {
-            log('Red Zone data received:', redZone);
+            log(`Red Zone data received (${Date.now() - redZoneStart}ms):`, redZone?.items?.length || 0);
             setData(prev => ({ ...prev, redZone }));
           })
           .catch(err => {
@@ -359,10 +367,11 @@ export function useDashboardData(): UseDashboardDataReturn {
 
       // Always fetch Portfolio Projects (for portfolio widget)
       log('Fetching Portfolio Projects...');
+      const portfolioProjStart = Date.now();
       fetchPromises.push(
         getPortfolioProjects()
           .then(portfolioProjects => {
-            log('Portfolio Projects received:', portfolioProjects);
+            log(`Portfolio Projects received (${Date.now() - portfolioProjStart}ms):`, portfolioProjects?.length || 0);
             setData(prev => ({ ...prev, portfolioProjects }));
           })
           .catch(err => {
