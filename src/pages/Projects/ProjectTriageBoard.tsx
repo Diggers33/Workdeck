@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, ChevronDown, MoreVertical, ArrowRight, Loader2 } from 'lucide-react';
 
-export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttClick?: () => void; onCreateProject?: () => void }) {
+export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttClick?: (projectId: string, projectName: string) => void; onCreateProject?: () => void }) {
   const [activeFilter, setActiveFilter] = useState('All Projects');
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [openMenu, setOpenMenu] = useState<number | null>(null);
@@ -625,7 +625,7 @@ export function ProjectTriageBoard({ onGanttClick, onCreateProject }: { onGanttC
               {/* Arrow or Gantt Button */}
               {hoveredRow === idx ? (
                 <button
-                  onClick={onGanttClick}
+                  onClick={() => onGanttClick?.(project.id, project.name)}
                   style={{
                     width: '90px',
                     height: '32px',

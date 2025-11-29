@@ -11,7 +11,7 @@ import { ProjectInfoPanel } from './gantt/ProjectInfoPanel';
 import { WEEKS } from './gantt/data';
 import { GanttActivity, GanttWeek } from './gantt/types';
 import { Plus, Loader2 } from 'lucide-react';
-export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void }) {
+export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
   const [timeResolution, setTimeResolution] = useState('Week');
@@ -23,7 +23,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
   const [projectPanelTab, setProjectPanelTab] = useState<'comments' | 'activity' | 'notes' | 'files'>('comments');
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage: 50, 75, 100, 125, 150
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
-  const [currentProjectName, setCurrentProjectName] = useState<string>('BIOGEMSE');
+  const [currentProjectName, setCurrentProjectName] = useState<string>(projectName || '');
   const [tasks, setTasks] = useState<GanttActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectStartDate, setProjectStartDate] = useState<Date>(new Date());
@@ -73,8 +73,13 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
 
         console.log('Projects loaded:', projects.length);
 
-        // Get first project or find by name
-        const project = projects.find(p => p.name === 'BIOGEMSE') || projects[0];
+        // Get project by ID or name, or use first project
+        let project = projects[0];
+        if (projectId) {
+          project = projects.find(p => p.id === projectId) || project;
+        } else if (projectName) {
+          project = projects.find(p => p.name === projectName) || project;
+        }
         if (!project) {
           console.warn('No project found');
           setTasks([]);
@@ -207,10 +212,11 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           if (m.deliveryDate) allDates.push(parseDate(m.deliveryDate));
         });
 
+        // If no dates found, use current date as fallback
         if (allDates.length === 0) {
-          setTasks([]);
-          setLoading(false);
-          return;
+          const today = new Date();
+          allDates.push(today);
+          allDates.push(new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)); // 90 days from now
         }
 
         const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
@@ -226,16 +232,17 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         const projectActivities = activities.length > 0 ? activities : (project.activities || []);
         if (projectActivities.length > 0) {
           projectActivities.forEach(activity => {
+            const startDate = activity.startDate ? parseDate(activity.startDate) : minDate;
+            const endDate = activity.endDate ? parseDate(activity.endDate) : new Date(minDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
             activitiesMap.set(activity.id, {
               id: activity.id,
               type: 'activity' as const,
               name: activity.name,
               borderColor: project.colorAllTasks || '#60A5FA',
               expanded: false,
-              startWeek: activity.startDate ? getWeekNumber(parseDate(activity.startDate), minDate) : 0,
-              durationWeeks: activity.startDate && activity.endDate
-                ? Math.ceil((parseDate(activity.endDate).getTime() - parseDate(activity.startDate).getTime()) / (1000 * 60 * 60 * 24 * 7))
-                : 1,
+              startWeek: getWeekNumber(startDate, minDate),
+              durationWeeks: Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 7))),
               barColor: project.colorAllTasks || '#60A5FA',
               children: [],
               milestones: [],
@@ -343,13 +350,16 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           .map(activity => ({
             ...activity,
             taskCount: activity.children.length,
-            duration: `${activity.durationWeeks} week${activity.durationWeeks !== 1 ? 's' : ''}`,
+            duration: activity.durationWeeks > 0 
+              ? `${activity.durationWeeks} week${activity.durationWeeks !== 1 ? 's' : ''}`
+              : '0 weeks',
             expanded: expandedActivities.has(activity.id),
           }))
           .sort((a, b) => (a.startWeek || 0) - (b.startWeek || 0));
 
         console.log('Transformed tasks:', transformedTasks.length, 'activities');
         console.log('Total tasks in activities:', transformedTasks.reduce((sum, a) => sum + a.children.length, 0));
+        console.log('Activities with dates:', transformedTasks.filter(a => a.startWeek !== undefined).length);
 
         setTasks(transformedTasks);
         

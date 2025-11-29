@@ -8,7 +8,8 @@ import { ProjectBoard } from './board/ProjectBoard';
 export default function ProjectsApp() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<'triage' | 'gantt' | 'board'>('triage');
-  const [currentProjectName, setCurrentProjectName] = useState<string>('BIOGEMSE');
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
+  const [currentProjectName, setCurrentProjectName] = useState<string>('');
 
   const handleCreateProject = () => {
     navigate('/projects/new');
@@ -29,7 +30,11 @@ export default function ProjectsApp() {
         {activeView === 'triage' && (
           <ProjectTriageBoard
             onEditProject={handleEditProject}
-            onGanttClick={() => setActiveView('gantt')}
+            onGanttClick={(projectId, projectName) => {
+              setCurrentProjectId(projectId);
+              setCurrentProjectName(projectName);
+              setActiveView('gantt');
+            }}
             onCreateProject={handleCreateProject}
           />
         )}
@@ -38,6 +43,8 @@ export default function ProjectsApp() {
             onEditProject={handleEditProject}
             onBackToTriage={handleBackToTriage}
             onBoardClick={() => setActiveView('board')}
+            projectId={currentProjectId}
+            projectName={currentProjectName}
           />
         )}
         {activeView === 'board' && (
