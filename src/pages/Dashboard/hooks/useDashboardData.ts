@@ -186,7 +186,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('FYI data received:', whatsNew);
               setData(prev => ({ ...prev, whatsNew }));
             })
-            .catch(err => logError('Error fetching whats new:', err))
+            .catch(err => {
+              logError('Error fetching whats new:', err);
+              setData(prev => ({ ...prev, whatsNew: [] }));
+            })
         );
       }
 
@@ -198,7 +201,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Pending data received:', whatsPending);
               setData(prev => ({ ...prev, whatsPending }));
             })
-            .catch(err => logError('Error fetching pending:', err))
+            .catch(err => {
+              logError('Error fetching pending:', err);
+              setData(prev => ({ ...prev, whatsPending: [] }));
+            })
         );
       }
 
@@ -210,7 +216,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Portfolio data received:', portfolio);
               setData(prev => ({ ...prev, portfolio }));
             })
-            .catch(err => logError('Error fetching portfolio:', err))
+            .catch(err => {
+              logError('Error fetching portfolio:', err);
+              setData(prev => ({ ...prev, portfolio: null }));
+            })
         );
       }
 
@@ -222,7 +231,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Task count data received:', taskCount);
               setData(prev => ({ ...prev, taskCount }));
             })
-            .catch(err => logError('Error fetching task count:', err))
+            .catch(err => {
+              logError('Error fetching task count:', err);
+              setData(prev => ({ ...prev, taskCount: null }));
+            })
         );
       }
 
@@ -234,7 +246,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Expenses data received:', expenses);
               setData(prev => ({ ...prev, expenses }));
             })
-            .catch(err => logError('Error fetching expenses:', err))
+            .catch(err => {
+              logError('Error fetching expenses:', err);
+              setData(prev => ({ ...prev, expenses: null }));
+            })
         );
       }
 
@@ -246,7 +261,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Purchases data received:', purchases);
               setData(prev => ({ ...prev, purchases }));
             })
-            .catch(err => logError('Error fetching purchases:', err))
+            .catch(err => {
+              logError('Error fetching purchases:', err);
+              setData(prev => ({ ...prev, purchases: null }));
+            })
         );
       }
 
@@ -258,7 +276,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Milestones data received:', milestones);
               setData(prev => ({ ...prev, milestones }));
             })
-            .catch(err => logError('Error fetching milestones:', err))
+            .catch(err => {
+              logError('Error fetching milestones:', err);
+              setData(prev => ({ ...prev, milestones: null }));
+            })
         );
       }
 
@@ -270,7 +291,11 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Red Zone data received:', redZone);
               setData(prev => ({ ...prev, redZone }));
             })
-            .catch(err => logError('Error fetching red zone:', err))
+            .catch(err => {
+              logError('Error fetching red zone:', err);
+              // Set empty red zone data so widget shows "All clear" instead of loading
+              setData(prev => ({ ...prev, redZone: { items: [], count: 0 } }));
+            })
         );
       }
 
@@ -282,7 +307,10 @@ export function useDashboardData(): UseDashboardDataReturn {
               log('Checklist data received:', checklist);
               setData(prev => ({ ...prev, checklist }));
             })
-            .catch(err => logError('Error fetching checklist:', err))
+            .catch(err => {
+              logError('Error fetching checklist:', err);
+              setData(prev => ({ ...prev, checklist: [] }));
+            })
         );
       }
 

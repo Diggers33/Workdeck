@@ -145,12 +145,13 @@ export interface ChecklistItem {
   createdAt: string;
 }
 
-// Who's Where data
+// Who's Where data - matches API response from Angular UserInfoEntity
 export interface WhosWhereItem {
   id: string;
   user: {
     id: string;
-    fullName: string;
+    firstName?: string;
+    lastName?: string;
     avatar?: string;
   };
   startAt: string;
@@ -161,6 +162,8 @@ export interface WhosWhereItem {
     name: string;
     color?: string;
   };
+  halfDay?: string; // 'AM', 'PM', 'D' (full day)
+  state?: string;
 }
 
 export interface WhosWhereData {
@@ -232,34 +235,54 @@ export interface User {
   companyId?: string;
 }
 
+// Default timeout for API requests (15 seconds)
+const API_TIMEOUT = 15000;
+
 /**
- * Generic API fetch wrapper with auth
+ * Generic API fetch wrapper with auth and timeout
  */
-async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...getAuthHeaders(),
-      ...options?.headers,
-    },
-  });
+async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?: number }): Promise<T> {
+  const timeout = options?.timeout ?? API_TIMEOUT;
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      // Token expired or invalid - could trigger logout here
-      throw new Error('Unauthorized');
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...getAuthHeaders(),
+        ...options?.headers,
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid - could trigger logout here
+        throw new Error('Unauthorized');
+      }
+      throw new Error(`API Error: ${response.status}`);
     }
-    throw new Error(`API Error: ${response.status}`);
+
+    const data = await response.json();
+
+    // Handle wrapped response format { status: "OK", result: data }
+    if (data.status === 'OK' && data.result !== undefined) {
+      return data.result as T;
+    }
+
+    return data as T;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeout}ms`);
+    }
+    throw error;
   }
-
-  const data = await response.json();
-
-  // Handle wrapped response format { status: "OK", result: data }
-  if (data.status === 'OK' && data.result !== undefined) {
-    return data.result as T;
-  }
-
-  return data as T;
 }
 
 /**

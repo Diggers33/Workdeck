@@ -1,14 +1,24 @@
 import React from 'react';
 import { MapPin, Building2, Laptop, Home, Users } from 'lucide-react';
-import { WhosWhereData } from '../../api/dashboardApi';
+import { WhosWhereData, WhosWhereItem } from '../../api/dashboardApi';
 
 interface WhosWhereWidgetProps {
   data?: WhosWhereData | null;
 }
 
+// Helper to get full name from user object (API returns firstName + lastName)
+function getUserFullName(user?: WhosWhereItem['user']): string {
+  if (!user) return 'Unknown User';
+  const firstName = user.firstName || '';
+  const lastName = user.lastName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || 'Unknown User';
+}
+
 // Helper to get initials from name
 function getInitials(name: string): string {
-  const parts = name.split(' ');
+  if (!name || name === 'Unknown User') return '?';
+  const parts = name.split(' ').filter(p => p.length > 0);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
@@ -47,13 +57,21 @@ function getStatusLabel(type?: string, leaveTypeName?: string): string {
   }
 }
 
-// Helper to format date range
+// Helper to format date range - handles various date formats from API
 function formatDateRange(startAt: string, endAt: string): string {
   try {
+    if (!startAt || !endAt) return '';
+
+    // Parse dates - API may return ISO format or other formats
     const start = new Date(startAt);
     const end = new Date(endAt);
-    const now = new Date();
 
+    // Check if dates are valid
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return '';
+    }
+
+    const now = new Date();
     const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
     // If same day
@@ -134,6 +152,7 @@ export function WhosWhereWidget({ data }: WhosWhereWidgetProps) {
               const statusColor = item.leaveType?.color || getStatusColor(item.type);
               const statusLabel = getStatusLabel(item.type, item.leaveType?.name);
               const dateRange = formatDateRange(item.startAt, item.endAt);
+              const fullName = getUserFullName(item.user);
 
               return (
                 <div
@@ -144,11 +163,11 @@ export function WhosWhereWidget({ data }: WhosWhereWidgetProps) {
                     className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0"
                     style={{ backgroundColor: statusColor }}
                   >
-                    {item.user?.avatar || getInitials(item.user?.fullName || 'Unknown')}
+                    {item.user?.avatar || getInitials(fullName)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] font-medium text-[#1F2937] truncate leading-tight">
-                      {item.user?.fullName || 'Unknown User'}
+                      {fullName}
                     </p>
                     <p className="text-[10px] text-[#9CA3AF] truncate leading-tight">{dateRange}</p>
                   </div>
