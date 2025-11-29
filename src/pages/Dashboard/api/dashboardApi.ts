@@ -674,6 +674,89 @@ export async function getPortfolioProjects(): Promise<PortfolioProject[]> {
 }
 
 // ============================================================================
+// EVENT MODAL DATA FUNCTIONS (Users, Projects, Tasks for dropdowns)
+// ============================================================================
+
+/**
+ * User summary for dropdowns/selects
+ */
+export interface UserSummary {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  avatar?: string;
+  user?: string; // Some API responses use 'user' as the ID field
+}
+
+/**
+ * Project summary for dropdowns/selects
+ */
+export interface ProjectSummary {
+  id: string;
+  project?: string; // Some API responses use 'project' as the ID field
+  name: string;
+  color?: string;
+  activities?: TaskSummary[];
+}
+
+/**
+ * Task summary for dropdowns/selects
+ */
+export interface TaskSummary {
+  id: string;
+  task?: string; // Some API responses use 'task' as the ID field
+  summary?: string;
+  name?: string;
+  color?: string;
+  projectId?: string;
+}
+
+/**
+ * Get all users (team members) for guest selection
+ */
+export async function getUsers(): Promise<UserSummary[]> {
+  try {
+    const response = await apiFetch<UserSummary[]>('/queries/users-summary');
+    console.log('[API] getUsers response:', response);
+    return response || [];
+  } catch (error) {
+    console.error('[API] getUsers error:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all projects for project selection
+ */
+export async function getProjectsSummary(): Promise<ProjectSummary[]> {
+  try {
+    const response = await apiFetch<ProjectSummary[]>('/queries/projects-summary');
+    console.log('[API] getProjectsSummary response:', response);
+    return response || [];
+  } catch (error) {
+    console.error('[API] getProjectsSummary error:', error);
+    return [];
+  }
+}
+
+/**
+ * Get tasks for a specific project
+ */
+export async function getProjectTasks(projectId: string): Promise<TaskSummary[]> {
+  try {
+    const response = await apiFetch<TaskSummary[]>(`/queries/projects/${projectId}/tasks`);
+    console.log('[API] getProjectTasks response:', response);
+    return response || [];
+  } catch (error) {
+    console.error('[API] getProjectTasks error:', error);
+    return [];
+  }
+}
+
+// ============================================================================
 // MUTATION FUNCTIONS (Create, Update, Delete)
 // ============================================================================
 

@@ -657,8 +657,9 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
                 comments: newEvent.comments,
                 attachments: newEvent.attachments,
 
-                // Note: project and task are names from modal, API needs IDs
-                // These will be undefined if user didn't select from a real list
+                // Project and Task IDs (from modal's fetched data)
+                projectId: newEvent.projectId,
+                taskId: newEvent.taskId,
               });
               console.log('[Agenda] API response - created event:', createdEvent);
               // Update with real event ID

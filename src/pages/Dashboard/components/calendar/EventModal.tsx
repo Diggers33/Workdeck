@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarEvent } from './WorkdeckCalendar';
 import { X, Calendar, ChevronDown, Check, GripVertical, Clock, User, Trash2, MapPin, Video, Bell, Repeat, Globe, Lock, Users, Paperclip, FileText, MessageSquare, ListChecks, Reply, Edit2, MoreHorizontal, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { EventComments } from './EventComments';
+import { getUsers, getProjectsSummary, getProjectTasks, UserSummary, ProjectSummary, TaskSummary } from '../../api/dashboardApi';
 
 interface EventModalProps {
   event?: CalendarEvent | null;
@@ -65,15 +66,79 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
   const [mentionQuery, setMentionQuery] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
   const [pendingAttachments, setPendingAttachments] = useState<Array<{id: string; name: string; size: number; type: string; url: string}>>([]);
-  
-  // Mock team members for mentions
-  const teamMembers = [
-    { id: '1', name: 'Colm Digby', initials: 'CD', color: '#0066FF' },
-    { id: '2', name: 'Sarah Chen', initials: 'SC', color: '#10B981' },
-    { id: '3', name: 'Marcus Johnson', initials: 'MJ', color: '#F59E0B' },
-    { id: '4', name: 'Emma Wilson', initials: 'EW', color: '#8B5CF6' },
-    { id: '5', name: 'Alex Turner', initials: 'AT', color: '#EF4444' },
-  ];
+
+  // Data from API
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; initials: string; color: string }>>([]);
+  const [projectsList, setProjectsList] = useState<Array<{ id: string; name: string; color?: string }>>([]);
+  const [tasksList, setTasksList] = useState<Array<{ id: string; name: string; color?: string }>>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Fetch data on mount
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoadingData(true);
+      try {
+        // Fetch users for team members
+        const users = await getUsers();
+        console.log('[EventModal] Fetched users:', users);
+        const formattedUsers = users.map((user: UserSummary) => {
+          const firstName = user.firstName || user.first_name || '';
+          const lastName = user.lastName || user.last_name || '';
+          const name = `${firstName} ${lastName}`.trim() || user.email || 'Unknown';
+          const initials = firstName && lastName
+            ? `${firstName[0]}${lastName[0]}`.toUpperCase()
+            : name.slice(0, 2).toUpperCase();
+          return {
+            id: user.id || user.user || '',
+            name,
+            initials,
+            color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0') // Random color
+          };
+        });
+        setTeamMembers(formattedUsers);
+
+        // Fetch projects
+        const projects = await getProjectsSummary();
+        console.log('[EventModal] Fetched projects:', projects);
+        const formattedProjects = projects.map((proj: ProjectSummary) => ({
+          id: proj.id || proj.project || '',
+          name: proj.name,
+          color: proj.color
+        }));
+        setProjectsList(formattedProjects);
+      } catch (error) {
+        console.error('[EventModal] Error fetching data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Fetch tasks when project changes
+  useEffect(() => {
+    async function fetchTasks() {
+      if (!selectedProjectId) {
+        setTasksList([]);
+        return;
+      }
+      try {
+        const tasks = await getProjectTasks(selectedProjectId);
+        console.log('[EventModal] Fetched tasks for project:', selectedProjectId, tasks);
+        const formattedTasks = tasks.map((t: TaskSummary) => ({
+          id: t.id || t.task || '',
+          name: t.summary || t.name || 'Unnamed Task',
+          color: t.color
+        }));
+        setTasksList(formattedTasks);
+      } catch (error) {
+        console.error('[EventModal] Error fetching tasks:', error);
+        setTasksList([]);
+      }
+    }
+    fetchTasks();
+  }, [selectedProjectId]);
   const [agendaItems, setAgendaItems] = useState<Array<{
     id: string; 
     title: string; 
@@ -428,26 +493,15 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
     });
   };
 
-  const projects = [
-    'NANOBLOC',
-    'CRH',
-    'PROTEUS',
-    'ETERNAL',
-    'Horizon Europe 2024',
-    'Customer Support',
-    'Open Science',
-    'TASK FORCE Innovation',
-    'Slate House'
-  ];
+  // Use fetched projects data (fallback to empty if loading)
+  const projects = projectsList.length > 0
+    ? projectsList.map(p => p.name)
+    : ['Loading projects...'];
 
-  const tasks = [
-    'Open Science Whitepaper',
-    'Team Meeting',
-    'Client Call',
-    'Code Review',
-    'Design Review',
-    'Sprint Planning'
-  ];
+  // Use fetched tasks data (fallback to empty if loading or no project selected)
+  const tasks = tasksList.length > 0
+    ? tasksList.map(t => t.name)
+    : selectedProjectId ? ['Loading tasks...'] : ['Select a project first'];
 
   function formatTime(date: Date): string {
     const hours = date.getHours().toString().padStart(2, '0');
@@ -531,12 +585,18 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
 
     const finalTitle = title || (project && task ? `${project} - ${task}` : task || project || 'Untitled');
 
+    // Get the IDs for project and task
+    const projectData = projectsList.find(p => p.name === project);
+    const taskData = tasksList.find(t => t.name === task);
+
     onSave({
       id: event?.id || `event-${Date.now()}`,
       title: finalTitle,
       project,
-      projectColor: '#3B82F6',
+      projectId: projectData?.id || selectedProjectId, // Include project ID for API
+      projectColor: projectData?.color || '#3B82F6',
       task,
+      taskId: taskData?.id, // Include task ID for API
       startTime,
       endTime,
       isTimesheet,
@@ -547,7 +607,7 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
       description,
       location,
       attendees,
-      guests,
+      guests: guests.length > 0 ? guests : teamMembers.filter(m => attendees.includes(m.name)).map(m => m.id), // Map attendee names to IDs
       reminders,
       timezone,
       recurrence,
@@ -773,6 +833,10 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                           key={p}
                           onClick={() => {
                             setProject(p);
+                            // Find and set the project ID for fetching tasks
+                            const projectData = projectsList.find(proj => proj.name === p);
+                            setSelectedProjectId(projectData?.id || null);
+                            setTask(''); // Reset task when project changes
                             setShowProjectDropdown(false);
                           }}
                           style={{
@@ -1541,6 +1605,10 @@ ${item.actions.length > 0 ? `<table class='actions-table'>
                               key={p}
                               onClick={() => {
                                 setProject(p);
+                                // Find and set the project ID for fetching tasks
+                                const projectData = projectsList.find(proj => proj.name === p);
+                                setSelectedProjectId(projectData?.id || null);
+                                setTask(''); // Reset task when project changes
                                 setShowProjectDropdown(false);
                               }}
                               style={{
