@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Coffee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EventModal } from '../calendar/EventModal';
-import { CalendarEvent as ApiCalendarEvent, createEventFromTask, updateEvent, deleteEvent } from '../../api/dashboardApi';
+import { CalendarEvent as ApiCalendarEvent, createEventFromTask, createEvent, updateEvent, deleteEvent } from '../../api/dashboardApi';
 
 
 interface AgendaWidgetProps {
@@ -91,6 +91,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
   const [draggingEvent, setDraggingEvent] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<number>(0);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [createEventTime, setCreateEventTime] = useState<number | null>(null); // For creating new event on click
   const [wasInteracting, setWasInteracting] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -380,6 +381,23 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
     }
   };
 
+  // Handle click on empty timeline area to create new event
+  const handleTimelineClick = (e: React.MouseEvent) => {
+    // Don't trigger if clicking on an event or during interactions
+    if (draggingEvent || resizingEvent || wasInteracting) return;
+    
+    // Check if we clicked on an event (has data-event attribute or is inside one)
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-event-id]')) return;
+    
+    const time = getTimeFromMousePosition(e);
+    if (time !== null && time >= 0 && time <= 24) {
+      // Round to nearest 15 minutes
+      const roundedTime = Math.round(time * 4) / 4;
+      setCreateEventTime(roundedTime);
+    }
+  };
+
   const formatTime = (time: number): string => {
     const hours = Math.floor(time);
     const minutes = Math.round((time % 1) * 60);
@@ -467,6 +485,58 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
           }}
         />
       )}
+
+      {/* Create Event Modal - shown when clicking on empty timeline */}
+      {createEventTime !== null && (
+        <EventModal
+          initialDate={(() => {
+            const today = new Date();
+            today.setHours(Math.floor(createEventTime), Math.round((createEventTime % 1) * 60), 0, 0);
+            return today;
+          })()}
+          onClose={() => setCreateEventTime(null)}
+          onSave={async (newEvent) => {
+            const startTime = new Date(newEvent.startTime);
+            const endTime = new Date(newEvent.endTime);
+            const start = startTime.getHours() + startTime.getMinutes() / 60;
+            const end = endTime.getHours() + endTime.getMinutes() / 60;
+            const duration = end - start;
+
+            // Create optimistic event
+            const tempId = `temp-${Date.now()}`;
+            const optimisticEvent: Event = {
+              id: tempId,
+              start,
+              duration,
+              title: newEvent.title || 'New Event',
+              color: newEvent.color || '#60A5FA'
+            };
+
+            setEvents(prev => [...prev, optimisticEvent]);
+            setCreateEventTime(null);
+
+            // Call API to create event
+            try {
+              const createdEvent = await createEvent({
+                title: newEvent.title || 'New Event',
+                startAt: startTime.toISOString(),
+                endAt: endTime.toISOString(),
+                color: newEvent.color,
+                private: false,
+                billable: false,
+              });
+              // Update with real event ID
+              setEvents(prev => prev.map(ev =>
+                ev.id === tempId ? { ...ev, id: createdEvent.id } : ev
+              ));
+            } catch (error) {
+              console.error('Failed to create event:', error);
+              // Remove optimistic event on error
+              setEvents(prev => prev.filter(ev => ev.id !== tempId));
+            }
+          }}
+        />
+      )}
       <div 
         className="bg-white rounded-lg relative overflow-hidden" 
         style={{ 
@@ -536,7 +606,10 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
           )}
 
           {/* Timeline content - only show when not loading */}
-          {!eventsLoading && !eventsEmpty && <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
+          {!eventsLoading && !eventsEmpty && <div 
+            style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}
+            onClick={handleTimelineClick}
+          >
             {/* Hour grid */}
             {hours.map((hour) => (
               <div 
@@ -606,6 +679,7 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
               return (
                 <div
                   key={event.id}
+                  data-event-id={event.id}
                   className="cursor-move hover:opacity-90 transition-opacity group select-none"
                   style={{
                     position: 'absolute',
