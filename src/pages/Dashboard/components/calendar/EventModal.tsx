@@ -185,7 +185,11 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
   const [showAlertDropdown, setShowAlertDropdown] = useState(false);
   const [meetingLink, setMeetingLink] = useState('');
   const [meetingRoom, setMeetingRoom] = useState('');
-  const [attachments, setAttachments] = useState<Array<{id: string; name: string; size: string; type: string; date: string; content?: string}>>([]);
+  const [attachments, setAttachments] = useState<Array<{id: string; name: string; size: string; type: string; date: string; content?: string}>>([]); 
+
+  // Event color picker state
+  const [eventColor, setEventColor] = useState(event?.color || '#3B82F6');
+  const [showColorPicker, setShowColorPicker] = useState(false);
   
   const timeAllocations = ['5m', '10m', '15m', '30m', '45m', '1h'];
   const presenters = ['Colm Digby', 'Sarah Chen', 'Mike O\'Brien', 'Emma Walsh', 'No presenter'];

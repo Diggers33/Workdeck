@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { HeatMap } from './components/HeatMap';
 import { ResourceAllocation } from './components/ResourceAllocation';
@@ -6,24 +6,68 @@ import { TaskDetailModal } from './components/TaskDetailModal';
 import { PlanTimeDialog } from './components/PlanTimeDialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { Toaster } from './components/ui/sonner';
-import { mockUsers, mockTasks, mockProjects, departments, mockLeaves } from './data/mockData';
-import { Task } from './types';
+import { fetchResourcePlannerData } from '../../../services/resourcePlannerApi';
+import { getDepartments } from '../../../services/usersApi';
+import { Task, User, Project, Leave } from './types';
 import { toast } from 'sonner';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { colors, typography } from './constants/designTokens';
+
+// Default departments if API doesn't return them
+const defaultDepartments = [
+  { id: 'eng', name: 'Engineering' },
+  { id: 'design', name: 'Design' },
+  { id: 'product', name: 'Product' },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'heatmap' | 'allocation'>('heatmap');
-  const [tasks, setTasks] = useState(mockTasks);
+  const [users, setUsers] = useState<User[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [departments, setDepartments] = useState(defaultDepartments);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [planTimeUserId, setPlanTimeUserId] = useState<string | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showPlanTimeDialog, setShowPlanTimeDialog] = useState(false);
 
+  // Fetch data on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch Resource Planner data and departments in parallel
+        const [data, depts] = await Promise.all([
+          fetchResourcePlannerData(),
+          getDepartments().catch(() => defaultDepartments), // Fallback to defaults
+        ]);
+
+        setUsers(data.users);
+        setTasks(data.tasks);
+        setProjects(data.projects);
+        setLeaves(data.leaves);
+        setDepartments(depts.length > 0 ? depts.map(d => ({ id: d.id, name: d.name })) : defaultDepartments);
+      } catch (err) {
+        console.error('Error loading Resource Planner data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+        toast.error('Failed to load Resource Planner data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
   // Calculate summary stats
   const summaryStats = useMemo(() => {
-    const teamCount = mockUsers.length;
-    const activeProjects = mockProjects.filter(p => p.isBillable || p.amount > 0).length;
+    const teamCount = users.length;
+    const activeProjects = projects.filter(p => p.isBillable || (p.amount && p.amount > 0)).length;
 
     // Calculate utilization per user based on current week's tasks
     const now = new Date();
@@ -32,7 +76,7 @@ export default function App() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    const userUtilization = mockUsers.map(user => {
+    const userUtilization = users.map(user => {
       const userTasks = tasks.filter(t =>
         t.assignedUserId === user.id &&
         new Date(t.startDate) <= weekEnd &&
@@ -63,16 +107,30 @@ export default function App() {
       avgUtilization,
       trendUp
     };
-  }, [tasks]);
+  }, [users, tasks, projects]);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setShowTaskModal(true);
   };
 
-  const handleTaskSave = (updatedTask: Task) => {
-    setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-    toast.success('Task updated successfully');
+  const handleTaskSave = async (updatedTask: Task) => {
+    try {
+      // Update task via API
+      const { updateTask } = await import('../../../services/tasksApi');
+      await updateTask(updatedTask.id, {
+        name: updatedTask.name,
+        plannedHours: updatedTask.plannedHours.toString(),
+        // Add other fields as needed
+      });
+      
+      // Update local state
+      setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+      toast.success('Task updated successfully');
+    } catch (err) {
+      console.error('Error updating task:', err);
+      toast.error('Failed to update task');
+    }
   };
 
   const handlePlanTime = (userId: string) => {
@@ -84,6 +142,45 @@ export default function App() {
     toast.success('Time allocation planned successfully');
     // In a real app, this would update the tasks
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="h-[calc(100vh-60px)] flex items-center justify-center" style={{ backgroundColor: colors.bgSubtle }}>
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: colors.textSecondary }} />
+            <p style={{ color: colors.textSecondary }}>Loading Resource Planner data...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="h-[calc(100vh-60px)] flex items-center justify-center" style={{ backgroundColor: colors.bgSubtle }}>
+          <div className="flex flex-col items-center gap-4">
+            <p style={{ color: colors.statusRed }}>Error: {error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: colors.bgWhite,
+                border: `1px solid ${colors.borderDefault}`,
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -180,11 +277,11 @@ export default function App() {
           <div className="flex-1 overflow-auto">
             <TabsContent value="heatmap" className="m-0 h-full">
               <HeatMap
-                users={mockUsers}
+                users={users}
                 tasks={tasks}
-                projects={mockProjects}
+                projects={projects}
                 departments={departments}
-                leaves={mockLeaves}
+                leaves={leaves}
                 onTaskClick={handleTaskClick}
                 onPlanTime={handlePlanTime}
               />
@@ -192,9 +289,9 @@ export default function App() {
 
             <TabsContent value="allocation" className="m-0 h-full">
               <ResourceAllocation
-                users={mockUsers}
+                users={users}
                 tasks={tasks}
-                projects={mockProjects}
+                projects={projects}
                 departments={departments}
               />
             </TabsContent>
