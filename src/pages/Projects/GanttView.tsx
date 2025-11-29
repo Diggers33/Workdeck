@@ -52,33 +52,75 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
     async function loadGanttData() {
       try {
         setLoading(true);
-        const { getProjects } = await import('../../services/projectsApi');
+        const { getProjects, getProjectActivities } = await import('../../services/projectsApi');
         const { getTasks } = await import('../../services/tasksApi');
         const { getMilestones } = await import('../../services/milestonesApi');
         const { getCurrentUser } = await import('../../services/usersApi');
 
+        console.log('Loading Gantt data...');
+        
         // Get current user and projects
         const [user, projects] = await Promise.all([
-          getCurrentUser(),
-          getProjects(),
+          getCurrentUser().catch(err => {
+            console.error('Error loading user:', err);
+            return null;
+          }),
+          getProjects().catch(err => {
+            console.error('Error loading projects:', err);
+            return [];
+          }),
         ]);
+
+        console.log('Projects loaded:', projects.length);
 
         // Get first project or find by name
         const project = projects.find(p => p.name === 'BIOGEMSE') || projects[0];
         if (!project) {
+          console.warn('No project found');
           setTasks([]);
           setLoading(false);
           return;
         }
 
+        console.log('Selected project:', project.name, project.id);
+
         setCurrentProjectId(project.id);
         setCurrentProjectName(project.name);
 
+        // Load activities if not included in project summary
+        let activities = project.activities || [];
+        if (!activities || activities.length === 0) {
+          console.log('Fetching activities separately...');
+          try {
+            activities = await getProjectActivities(project.id);
+            console.log('Activities loaded:', activities.length);
+          } catch (err) {
+            console.error('Error loading activities:', err);
+            activities = [];
+          }
+        }
+
         // Load tasks and milestones for this project
-        const [apiTasks, milestones] = await Promise.all([
-          getTasks().then(tasks => tasks.filter(t => t.activity?.project?.id === project.id)),
-          getMilestones({ projectId: project.id }).catch(() => []),
+        const [allTasks, milestones] = await Promise.all([
+          getTasks().catch(err => {
+            console.error('Error loading tasks:', err);
+            return [];
+          }),
+          getMilestones({ projectId: project.id }).catch(err => {
+            console.error('Error loading milestones:', err);
+            return [];
+          }),
         ]);
+
+        console.log('All tasks loaded:', allTasks.length);
+        
+        // Filter tasks for this project
+        const apiTasks = allTasks.filter(t => {
+          const taskProjectId = t.activity?.project?.id;
+          return taskProjectId === project.id;
+        });
+        
+        console.log('Filtered tasks for project:', apiTasks.length);
 
         // Calculate timeline bounds
         const allDates: Date[] = [];
@@ -107,9 +149,10 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         // Group tasks by activity
         const activitiesMap = new Map<string, any>();
         
-        // Initialize activities from project
-        if (project.activities) {
-          project.activities.forEach(activity => {
+        // Initialize activities from project (use fetched activities if available)
+        const projectActivities = activities.length > 0 ? activities : (project.activities || []);
+        if (projectActivities.length > 0) {
+          projectActivities.forEach(activity => {
             activitiesMap.set(activity.id, {
               id: activity.id,
               type: 'activity' as const,
@@ -182,16 +225,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
             timeExceeded: spentHours > plannedHours && plannedHours > 0,
           };
 
-          // Add task milestones
-          if (task.milestones && task.milestones.length > 0) {
-            ganttTask.milestones = task.milestones.map((m: any) => ({
-              id: m.id,
-              name: m.name,
-              week: m.deliveryDate ? getWeekNumber(parseDate(m.deliveryDate), minDate) : endWeek,
-              status: 'upcoming' as const,
-              dueDate: m.deliveryDate,
-            }));
-          }
+          // Task milestones will be added from milestones API below
 
           activity.children.push(ganttTask);
         });
@@ -241,6 +275,9 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
           }))
           .sort((a, b) => (a.startWeek || 0) - (b.startWeek || 0));
 
+        console.log('Transformed tasks:', transformedTasks.length, 'activities');
+        console.log('Total tasks in activities:', transformedTasks.reduce((sum, a) => sum + a.children.length, 0));
+
         setTasks(transformedTasks);
         
         // Expand first activity by default
@@ -249,6 +286,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick }: { onE
         }
       } catch (error) {
         console.error('Error loading Gantt data:', error);
+        console.error('Error details:', error instanceof Error ? error.message : String(error));
         setTasks([]);
       } finally {
         setLoading(false);
