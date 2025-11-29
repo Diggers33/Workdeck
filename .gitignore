@@ -29,3 +29,6 @@ build
 
 .vercel
 .env
+
+# Windows artifacts
+nul
