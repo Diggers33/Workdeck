@@ -621,14 +621,19 @@ export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetPro
 
             // Call API to create event
             try {
-              console.log('[Agenda] Calling createEvent API...');
+              console.log('[Agenda] Calling createEvent API with full data:', newEvent);
               const createdEvent = await createEvent({
                 title: newEvent.title || 'New Event',
+                description: newEvent.description,
                 startAt: startTime.toISOString(),
                 endAt: endTime.toISOString(),
-                color: newEvent.color,
-                private: false,
-                billable: false,
+                color: newEvent.color || newEvent.projectColor,
+                private: newEvent.isPrivate ?? false,
+                billable: newEvent.isBillable ?? false,
+                timesheet: newEvent.isTimesheet ?? true,
+                timezone: newEvent.timezone,
+                // Note: project and task are names from modal, API needs IDs
+                // These will be undefined if user didn't select from a real list
               });
               console.log('[Agenda] API response - created event:', createdEvent);
               // Update with real event ID
