@@ -283,7 +283,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
         {renderWidgetInPosition('Row 1, Col 1', 'project-portfolio',
           <div style={{ gridColumn: '1', gridRow: '1', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />
@@ -292,12 +292,14 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
 
         {/* ROW 1, COL 2: Who's Where or Project Portfolio */}
         {renderWidgetInPosition('Row 1, Col 2', 'whos-where',
-          <div style={{ gridColumn: '2', gridRow: '1', minHeight: 0 }}><WhosWhereWidget /></div>
+          <div style={{ gridColumn: '2', gridRow: '1', minHeight: 0 }}>
+            <WhosWhereWidget data={dashboardData.whosWhere} />
+          </div>
         )}
         {renderWidgetInPosition('Row 1, Col 2', 'project-portfolio',
           <div style={{ gridColumn: '2', gridRow: '1', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />
@@ -309,6 +311,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
           <div style={{ gridColumn: '3', gridRow: '1 / 3', minHeight: 0 }}>
             <TodoListWidget
               items={dashboardData.checklist}
+              assignedTasks={dashboardData.assignedTasks}
               onDragStart={setDraggedTask}
               onDragEnd={() => setDraggedTask(null)}
               onTaskClick={setSelectedTask}
@@ -318,7 +321,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
         {renderWidgetInPosition('Row 1-2, Col 3', 'project-portfolio',
           <div style={{ gridColumn: '3', gridRow: '1 / 3', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />
@@ -328,13 +331,13 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
         {/* ROW 1-2, COL 4: Agenda (RIGHT SIDE, spans all rows) */}
         {renderWidgetInPosition('Row 1-2, Col 4', 'agenda',
           <div style={{ gridColumn: '4', gridRow: '1 / 3', minHeight: 0 }}>
-            <AgendaWidget draggedTask={draggedTask} />
+            <AgendaWidget draggedTask={draggedTask} events={dashboardData.todayEvents} />
           </div>
         )}
         {renderWidgetInPosition('Row 1-2, Col 4', 'project-portfolio',
           <div style={{ gridColumn: '4', gridRow: '1 / 3', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />
@@ -350,7 +353,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
         {renderWidgetInPosition('Row 2, Col 1', 'project-portfolio',
           <div style={{ gridColumn: '1', gridRow: '2', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />
@@ -366,7 +369,7 @@ export function Dashboard({ userRole = 'project_manager', showWidgetConfig = fal
         {renderWidgetInPosition('Row 2, Col 2', 'project-portfolio',
           <div style={{ gridColumn: '2', gridRow: '2', minHeight: 0 }}>
             <ProjectPortfolioWidget
-              data={dashboardData.portfolio}
+              projects={dashboardData.portfolioProjects}
               onProjectClick={onNavigateToProject}
               onHeaderClick={onNavigateToPortfolio}
             />

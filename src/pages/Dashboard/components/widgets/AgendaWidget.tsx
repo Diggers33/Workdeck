@@ -1,9 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, CalendarDays, Coffee } from 'lucide-react';
 import { EventModal } from '../calendar/EventModal';
+import { CalendarEvent as ApiCalendarEvent } from '../../api/dashboardApi';
 
 interface AgendaWidgetProps {
   draggedTask?: any;
+  events?: ApiCalendarEvent[];
 }
 
 interface Event {
@@ -16,7 +18,31 @@ interface Event {
   totalOverlaps?: number; // Total overlapping events
 }
 
-export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
+// Helper to convert API events to internal format
+function convertApiEventsToEvents(apiEvents: ApiCalendarEvent[]): Event[] {
+  return apiEvents.map(event => {
+    const startDate = new Date(event.startAt);
+    const endDate = new Date(event.endAt);
+    const startHour = startDate.getHours() + startDate.getMinutes() / 60;
+    const endHour = endDate.getHours() + endDate.getMinutes() / 60;
+    const duration = Math.max(0.25, endHour - startHour); // Minimum 15 minutes
+
+    return {
+      id: event.id,
+      start: startHour,
+      duration: duration,
+      title: event.title,
+      color: event.color || '#60A5FA'
+    };
+  });
+}
+
+export function AgendaWidget({ draggedTask, events: apiEvents }: AgendaWidgetProps) {
+  // Determine data state
+  const eventsLoading = apiEvents === undefined;
+  const eventsEmpty = Array.isArray(apiEvents) && apiEvents.length === 0;
+  const hasApiEvents = Array.isArray(apiEvents) && apiEvents.length > 0;
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragOverTime, setDragOverTime] = useState<number | null>(null);
   const [resizingEvent, setResizingEvent] = useState<{ id: string; edge: 'top' | 'bottom' } | null>(null);
@@ -25,14 +51,18 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [wasInteracting, setWasInteracting] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
-  
-  const [events, setEvents] = useState<Event[]>([
-    { id: '1', start: 9, duration: 1, title: 'Team standup', color: '#8B5CF6' },
-    { id: '2', start: 10.5, duration: 0.5, title: 'Client call - BIOGEMSE', color: '#10B981' },
-    { id: '3', start: 14, duration: 1.5, title: 'Project review', color: '#F59E0B' },
-    { id: '4', start: 15, duration: 1, title: 'Finalize Q4 goals', color: '#60A5FA' },
-    { id: '5', start: 16, duration: 1, title: 'Design sync', color: '#3B82F6' }
-  ]);
+
+  // Initialize events from API or empty
+  const [events, setEvents] = useState<Event[]>(
+    hasApiEvents ? convertApiEventsToEvents(apiEvents) : []
+  );
+
+  // Update events when API data changes
+  useEffect(() => {
+    if (Array.isArray(apiEvents)) {
+      setEvents(apiEvents.length > 0 ? convertApiEventsToEvents(apiEvents) : []);
+    }
+  }, [apiEvents]);
 
   const currentHour = 14; // 2pm
   const startHour = 0;
@@ -308,6 +338,9 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
             <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-[#FBBF24]" />
               <h3 className="text-[14px] font-medium text-[#1F2937]">Today</h3>
+              {hasApiEvents && (
+                <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <button className="p-0.5 hover:bg-[#F9FAFB] rounded transition-colors">
@@ -318,20 +351,42 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-[#9CA3AF]">Saturday, November 22</p>
+          <p className="text-[10px] text-[#9CA3AF]">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
         </div>
 
         {/* Timeline */}
-        <div 
+        <div
           ref={timelineRef}
-          className="px-2 py-1.5 custom-scrollbar" 
+          className="px-2 py-1.5 custom-scrollbar"
           style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onMouseMove={handleMouseMove}
         >
-          <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
+          {/* Loading state */}
+          {eventsLoading && (
+            <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+              <div className="w-6 h-6 border-2 border-[#FBBF24] border-t-transparent rounded-full animate-spin mb-2"></div>
+              <p className="text-[12px] text-[#9CA3AF]">Loading calendar...</p>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {eventsEmpty && (
+            <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+              <div className="w-12 h-12 rounded-full bg-[#FEF3C7] flex items-center justify-center mb-3">
+                <Coffee className="w-6 h-6 text-[#FBBF24]" />
+              </div>
+              <p className="text-[13px] font-medium text-[#374151] mb-1">No events today</p>
+              <p className="text-[11px] text-[#9CA3AF]">Enjoy your free schedule!</p>
+            </div>
+          )}
+
+          {/* Timeline content - only show when not loading and not empty */}
+          {!eventsLoading && <div style={{ position: 'relative', height: `${(endHour - startHour + 1) * pixelsPerHour}px` }}>
             {/* Hour grid */}
             {hours.map((hour) => (
               <div 
@@ -516,7 +571,7 @@ export function AgendaWidget({ draggedTask }: AgendaWidgetProps) {
                 </div>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         {/* Drop hint */}

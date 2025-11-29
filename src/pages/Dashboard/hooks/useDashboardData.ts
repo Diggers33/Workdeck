@@ -30,6 +30,10 @@ import {
   getMilestones,
   getRedZone,
   getChecklist,
+  getWhosWhere,
+  getTodayEvents,
+  getAssignedTasks,
+  getPortfolioProjects,
   NewsItem,
   PendingItem,
   PortfolioData,
@@ -39,6 +43,10 @@ import {
   MilestoneData,
   RedZoneData,
   ChecklistItem,
+  WhosWhereData,
+  CalendarEvent,
+  AssignedTask,
+  PortfolioProject,
 } from '../api/dashboardApi';
 
 export interface DashboardData {
@@ -52,6 +60,10 @@ export interface DashboardData {
   milestones: MilestoneData | null;
   redZone: RedZoneData | null;
   checklist: ChecklistItem[];
+  whosWhere: WhosWhereData | null;
+  todayEvents: CalendarEvent[];
+  assignedTasks: AssignedTask[];
+  portfolioProjects: PortfolioProject[];
 }
 
 export interface UseDashboardDataReturn {
@@ -73,6 +85,10 @@ const initialData: DashboardData = {
   milestones: null,
   redZone: null,
   checklist: [],
+  whosWhere: null,
+  todayEvents: [],
+  assignedTasks: [],
+  portfolioProjects: [],
 };
 
 export function useDashboardData(): UseDashboardDataReturn {
@@ -269,6 +285,50 @@ export function useDashboardData(): UseDashboardDataReturn {
             .catch(err => logError('Error fetching checklist:', err))
         );
       }
+
+      // Always fetch Who's Where (for leave/remote status widget)
+      log('Fetching Who\'s Where...');
+      fetchPromises.push(
+        getWhosWhere()
+          .then(whosWhere => {
+            log('Who\'s Where data received:', whosWhere);
+            setData(prev => ({ ...prev, whosWhere }));
+          })
+          .catch(err => logError('Error fetching who\'s where:', err))
+      );
+
+      // Always fetch Today's Events (for agenda widget)
+      log('Fetching Today\'s Events...');
+      fetchPromises.push(
+        getTodayEvents()
+          .then(todayEvents => {
+            log('Today\'s Events received:', todayEvents);
+            setData(prev => ({ ...prev, todayEvents }));
+          })
+          .catch(err => logError('Error fetching today\'s events:', err))
+      );
+
+      // Always fetch Assigned Tasks (for todo widget assigned section)
+      log('Fetching Assigned Tasks...');
+      fetchPromises.push(
+        getAssignedTasks()
+          .then(assignedTasks => {
+            log('Assigned Tasks received:', assignedTasks);
+            setData(prev => ({ ...prev, assignedTasks }));
+          })
+          .catch(err => logError('Error fetching assigned tasks:', err))
+      );
+
+      // Always fetch Portfolio Projects (for portfolio widget)
+      log('Fetching Portfolio Projects...');
+      fetchPromises.push(
+        getPortfolioProjects()
+          .then(portfolioProjects => {
+            log('Portfolio Projects received:', portfolioProjects);
+            setData(prev => ({ ...prev, portfolioProjects }));
+          })
+          .catch(err => logError('Error fetching portfolio projects:', err))
+      );
 
       await Promise.all(fetchPromises);
       log('All dashboard data loaded successfully');

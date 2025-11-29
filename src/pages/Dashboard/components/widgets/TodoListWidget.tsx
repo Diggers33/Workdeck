@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { GripVertical, Clock, CheckSquare, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, ArrowUpRight, Inbox } from 'lucide-react';
-import { ChecklistItem as ApiChecklistItem } from '../../api/dashboardApi';
+import { ChecklistItem as ApiChecklistItem, AssignedTask as ApiAssignedTask } from '../../api/dashboardApi';
 
 interface TodoListWidgetProps {
   items?: ApiChecklistItem[];
+  assignedTasks?: ApiAssignedTask[];
   onDragStart: (task: any) => void;
   onDragEnd: () => void;
   onTaskClick?: (task: any) => void;
@@ -29,64 +30,58 @@ interface Task {
   priority?: 'high' | 'medium' | 'low';
 }
 
-// Default mock data for assigned tasks when no API data
-const defaultAssignedTasks: Task[] = [
-    { 
-      id: 'a1', 
-      title: 'Review project budget', 
-      project: 'BIOGEMSE', 
-      projectColor: '#60A5FA', 
-      category: 'Finance', 
-      due: 'Today', 
-      duration: '2h', 
-      completed: false,
-      priority: 'high',
-      endDate: '15:00',
-      checklist: [
-        { id: 'c1', label: 'Review Q3 expenses', completed: true },
-        { id: 'c2', label: 'Check contractor invoices', completed: true },
-        { id: 'c3', label: 'Update forecast model', completed: false },
-        { id: 'c4', label: 'Send to CFO for approval', completed: false }
-      ]
-    },
-    { 
-      id: 'a2', 
-      title: 'Update client presentation deck', 
-      project: 'MATRIX', 
-      projectColor: '#34D399', 
-      category: 'Client', 
-      due: 'This week', 
-      duration: '1h', 
-      completed: false,
-      priority: 'medium',
-      checklist: [
-        { id: 'c5', label: 'Add new case studies', completed: false },
-        { id: 'c6', label: 'Update metrics slides', completed: false }
-      ]
-    },
-    { 
-      id: 'a3', 
-      title: 'Finalize Q4 hiring plan', 
-      project: 'CORE', 
-      projectColor: '#9CA3AF', 
-      category: 'People', 
-      due: 'Tomorrow', 
-      duration: '1.5h', 
-      completed: false,
-      priority: 'high'
-    },
-    {
-      id: 'a4',
-      title: 'Code review PR #234',
-      project: 'APEX',
-      projectColor: '#60A5FA',
-      category: 'Dev',
-      due: 'Today',
-      duration: '45m',
-      completed: false,
-      priority: 'low'
-    },
-];
+// Note: Assigned tasks now come from API. No mock data fallback.
+// Empty array from API = valid state (no assigned tasks), shown as empty state in UI.
+
+// Helper function to convert API assigned tasks to internal Task format
+function convertApiAssignedTasksToTasks(tasks: ApiAssignedTask[]): Task[] {
+  return tasks.map(task => ({
+    id: task.id,
+    title: task.name,
+    project: task.projectName,
+    projectColor: task.projectColor || '#60A5FA',
+    category: 'Work',
+    due: formatDueDate(task.dueDate),
+    duration: task.estimatedTime ? formatDuration(task.estimatedTime) : '1h',
+    completed: task.status === 'completed' || task.status === 'done',
+    priority: (task.priority?.toLowerCase() as 'high' | 'medium' | 'low') || 'medium',
+    checklist: task.checklist?.map(c => ({
+      id: c.id,
+      label: c.label,
+      completed: c.completed
+    }))
+  }));
+}
+
+// Helper to format due date
+function formatDueDate(dueDate?: string): string {
+  if (!dueDate) return 'No due date';
+  try {
+    const date = new Date(dueDate);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === now.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
+    const diffDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0 && diffDays <= 7) return 'This week';
+    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
+
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return dueDate;
+  }
+}
+
+// Helper to format duration in minutes to readable string
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
 
 // Note: Personal tasks now come from API. No mock data fallback.
 // Empty array from API = valid state (no tasks), shown as empty state in UI.
@@ -121,7 +116,7 @@ function formatDate(dateStr: string): string {
   }
 }
 
-export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
+export function TodoListWidget({ items, assignedTasks: apiAssignedTasks, onDragStart, onDragEnd, onTaskClick }: TodoListWidgetProps) {
   // Determine data state for personal tasks:
   // - undefined = API not called yet or failed (show loading)
   // - [] = API returned empty (valid - no personal tasks)
@@ -129,6 +124,11 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
   const personalTasksLoading = items === undefined;
   const personalTasksEmpty = Array.isArray(items) && items.length === 0;
   const hasPersonalApiData = Array.isArray(items) && items.length > 0;
+
+  // Determine data state for assigned tasks:
+  const assignedTasksLoading = apiAssignedTasks === undefined;
+  const assignedTasksEmpty = Array.isArray(apiAssignedTasks) && apiAssignedTasks.length === 0;
+  const hasAssignedApiData = Array.isArray(apiAssignedTasks) && apiAssignedTasks.length > 0;
 
   const [expandedGroups, setExpandedGroups] = useState({
     assigned: true,
@@ -142,14 +142,22 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
   const [convertingTask, setConvertingTask] = useState<string | null>(null);
   const [showPriorityMenu, setShowPriorityMenu] = useState<string | null>(null);
 
-  // State for managing tasks
-  // Assigned tasks use mock data for now (TODO: integrate with API)
-  const [assignedTasks, setAssignedTasks] = useState<Task[]>(defaultAssignedTasks);
+  // State for managing tasks - both come from API now
+  const [assignedTasks, setAssignedTasks] = useState<Task[]>(
+    hasAssignedApiData ? convertApiAssignedTasksToTasks(apiAssignedTasks) : []
+  );
 
   // Personal tasks come from API - initialize based on API state
   const [personalTasks, setPersonalTasks] = useState<Task[]>(
     hasPersonalApiData ? convertApiItemsToTasks(items) : []
   );
+
+  // Update assigned tasks when API data changes
+  useEffect(() => {
+    if (Array.isArray(apiAssignedTasks)) {
+      setAssignedTasks(apiAssignedTasks.length > 0 ? convertApiAssignedTasksToTasks(apiAssignedTasks) : []);
+    }
+  }, [apiAssignedTasks]);
 
   // Update personal tasks when API items change
   useEffect(() => {
@@ -654,7 +662,7 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
               <ChevronRight className="w-3.5 h-3.5 text-[#6B7280]" />
             )}
             <span className="text-[14px] font-medium text-[#374151]">{title}</span>
-            {groupKey === 'personal' && hasPersonalApiData && (
+            {((groupKey === 'personal' && hasPersonalApiData) || (groupKey === 'assigned' && hasAssignedApiData)) && (
               <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
             )}
           </div>
@@ -744,7 +752,7 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
         <div className="flex items-center gap-1.5">
           <CheckSquare className="w-4 h-4 text-[#60A5FA]" />
           <h3 className="text-[14px] font-medium text-[#1F2937]">To-Do</h3>
-          {hasPersonalApiData && (
+          {(hasPersonalApiData || hasAssignedApiData) && (
             <span className="text-[10px] text-[#10B981] font-medium">(Live)</span>
           )}
         </div>
@@ -793,7 +801,7 @@ export function TodoListWidget({ items, onDragStart, onDragEnd, onTaskClick }: T
 
       {/* Two collapsible groups in scrollable area */}
       <div className="px-4 py-3 custom-scrollbar space-y-4" style={{ flex: 1, overflowY: 'auto' }}>
-        {renderGroup('Assigned', assignedTasks.length, 'assigned', assignedTasks, true, false, false)}
+        {renderGroup('Assigned', assignedTasks.length, 'assigned', assignedTasks, true, assignedTasksLoading, assignedTasksEmpty && assignedTasks.length === 0)}
         {renderGroup('Personal', personalTasks.length, 'personal', personalTasks, false, personalTasksLoading, personalTasksEmpty && personalTasks.length === 0)}
       </div>
 

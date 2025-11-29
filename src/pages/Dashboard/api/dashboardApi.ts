@@ -145,6 +145,82 @@ export interface ChecklistItem {
   createdAt: string;
 }
 
+// Who's Where data
+export interface WhosWhereItem {
+  id: string;
+  user: {
+    id: string;
+    fullName: string;
+    avatar?: string;
+  };
+  startAt: string;
+  endAt: string;
+  type?: string; // 'leave', 'event', 'wfh', 'remote'
+  leaveType?: {
+    id: string;
+    name: string;
+    color?: string;
+  };
+}
+
+export interface WhosWhereData {
+  leaveEvents: WhosWhereItem[];
+  leaveRequests: WhosWhereItem[];
+}
+
+// Calendar Event
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  startAt: string;
+  endAt: string;
+  color?: string;
+  private?: boolean;
+  billable?: boolean;
+  timesheet?: boolean;
+  project?: {
+    id: string;
+    name: string;
+  };
+  task?: {
+    id: string;
+    name: string;
+  };
+}
+
+// Assigned Task
+export interface AssignedTask {
+  id: string;
+  name: string;
+  projectName?: string;
+  projectId?: string;
+  projectColor?: string;
+  dueDate?: string;
+  status: string;
+  priority?: string;
+  estimatedTime?: number;
+  checklist?: Array<{
+    id: string;
+    label: string;
+    completed: boolean;
+  }>;
+}
+
+// Portfolio Project (for widget)
+export interface PortfolioProject {
+  id: string;
+  name: string;
+  status: 'on-track' | 'at-risk' | 'critical' | 'upcoming' | 'completed';
+  progress: number;
+  openTasks?: number;
+  overdueTasks?: number;
+  budget?: {
+    used: number;
+    total: number;
+  };
+}
+
 // User data
 export interface User {
   id: string;
@@ -319,4 +395,34 @@ export async function clearCompletedChecklist(): Promise<void> {
   await apiFetch<void>('/commands/sync/user/clear-completed-checklist', {
     method: 'POST',
   });
+}
+
+/**
+ * Get who's where data (team members on leave/remote)
+ */
+export async function getWhosWhere(): Promise<WhosWhereData> {
+  return apiFetch<WhosWhereData>('/queries/who-is-where');
+}
+
+/**
+ * Get calendar events for today
+ */
+export async function getTodayEvents(): Promise<CalendarEvent[]> {
+  const today = new Date();
+  const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+  return apiFetch<CalendarEvent[]>(`/queries/events?startDate=${dateStr}&endDate=${dateStr}`);
+}
+
+/**
+ * Get assigned tasks for current user
+ */
+export async function getAssignedTasks(): Promise<AssignedTask[]> {
+  return apiFetch<AssignedTask[]>('/queries/tasks');
+}
+
+/**
+ * Get portfolio projects
+ */
+export async function getPortfolioProjects(): Promise<PortfolioProject[]> {
+  return apiFetch<PortfolioProject[]>('/queries/projects');
 }

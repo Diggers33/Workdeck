@@ -1,46 +1,21 @@
 import React, { useState } from 'react';
-import { ChevronDown, ArrowRight, Briefcase } from 'lucide-react';
-
-interface Project {
-  id: string;
-  name: string;
-  status: 'on-track' | 'at-risk' | 'critical' | 'upcoming';
-  progress: number;
-  metadata: string;
-}
+import { ChevronDown, ArrowRight, Briefcase, FolderOpen } from 'lucide-react';
+import { PortfolioProject } from '../api/dashboardApi';
 
 interface ProjectPortfolioWidgetProps {
+  projects?: PortfolioProject[];
   onProjectClick?: (projectId: string) => void;
   onHeaderClick?: () => void;
 }
 
-export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: ProjectPortfolioWidgetProps) {
+export function ProjectPortfolioWidget({ projects, onProjectClick, onHeaderClick }: ProjectPortfolioWidgetProps) {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('My projects');
 
-  const projects: Project[] = [
-    {
-      id: '1',
-      name: 'Phoenix Rebrand',
-      status: 'on-track',
-      progress: 68,
-      metadata: '8 open • 2 overdue'
-    },
-    {
-      id: '2',
-      name: 'Apex Digital Redesign',
-      status: 'at-risk',
-      progress: 45,
-      metadata: 'Next milestone in 4 days'
-    },
-    {
-      id: '3',
-      name: 'Stellar Analytics Platform',
-      status: 'critical',
-      progress: 23,
-      metadata: 'Budget used: 87%'
-    }
-  ];
+  // Determine data state
+  const isLoading = projects === undefined;
+  const isEmpty = Array.isArray(projects) && projects.length === 0;
+  const hasProjects = Array.isArray(projects) && projects.length > 0;
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -52,6 +27,8 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
         return { label: 'Critical', bg: '#FEE2E2', text: '#991B1B' };
       case 'upcoming':
         return { label: 'Upcoming', bg: '#F3F4F6', text: '#374151' };
+      case 'completed':
+        return { label: 'Completed', bg: '#D1FAE5', text: '#065F46' };
       default:
         return { label: 'Unknown', bg: '#F3F4F6', text: '#6B7280' };
     }
@@ -60,6 +37,7 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
   const getProgressColor = (status: string) => {
     switch (status) {
       case 'on-track':
+      case 'completed':
         return '#34D399';
       case 'at-risk':
         return '#FBBF24';
@@ -70,6 +48,22 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
       default:
         return '#60A5FA';
     }
+  };
+
+  // Generate metadata string for project
+  const getMetadata = (project: PortfolioProject): string => {
+    const parts: string[] = [];
+    if (project.openTasks !== undefined) {
+      parts.push(`${project.openTasks} open`);
+    }
+    if (project.overdueTasks !== undefined && project.overdueTasks > 0) {
+      parts.push(`${project.overdueTasks} overdue`);
+    }
+    if (project.budget) {
+      const percent = Math.round((project.budget.used / project.budget.total) * 100);
+      parts.push(`Budget: ${percent}%`);
+    }
+    return parts.join(' • ') || `${project.progress}% complete`;
   };
 
   return (
@@ -86,7 +80,7 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
         position: 'relative'
       }}
     >
-      {/* Top gradient bar - absolute positioned like other widgets */}
+      {/* Top gradient bar */}
       <div
         style={{
           position: 'absolute',
@@ -98,7 +92,7 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
         }}
       />
 
-      {/* Header - 40px total height */}
+      {/* Header */}
       <div
         style={{
           height: '40px',
@@ -111,9 +105,9 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
           position: 'relative'
         }}
       >
-        <div 
+        <div
           onClick={onHeaderClick}
-          style={{ 
+          style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
@@ -122,16 +116,12 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
           }}
         >
           <Briefcase style={{ width: '16px', height: '16px', color: '#60A5FA' }} />
-          <h3
-            style={{ 
-              fontSize: '14px', 
-              fontWeight: 500, 
-              color: '#1F2937', 
-              margin: 0
-            }}
-          >
+          <h3 style={{ fontSize: '14px', fontWeight: 500, color: '#1F2937', margin: 0 }}>
             Project Portfolio
           </h3>
+          {hasProjects && (
+            <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 500 }}>(Live)</span>
+          )}
         </div>
         <button
           style={{
@@ -158,21 +148,14 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
           {selectedFilter}
           <ChevronDown style={{ width: '12px', height: '12px' }} />
         </button>
-        
+
         {/* Filter Dropdown Menu */}
         {showFilterMenu && (
           <>
-            {/* Backdrop to close menu */}
             <div
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 5
-              }}
+              style={{ position: 'fixed', inset: 0, zIndex: 5 }}
               onClick={() => setShowFilterMenu(false)}
             />
-            
-            {/* Menu */}
             <div
               style={{
                 position: 'absolute',
@@ -217,21 +200,36 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
         )}
       </div>
 
-      {/* Project list - scrollable */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden'
-        }}
-      >
-        {projects.map((project, index) => {
+      {/* Content area */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        {/* Loading state */}
+        {isLoading && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '32px', textAlign: 'center' }}>
+            <div style={{ width: '24px', height: '24px', border: '2px solid #60A5FA', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '8px' }}></div>
+            <p style={{ fontSize: '12px', color: '#9CA3AF', margin: 0 }}>Loading projects...</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {isEmpty && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '32px', textAlign: 'center' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
+              <FolderOpen style={{ width: '24px', height: '24px', color: '#9CA3AF' }} />
+            </div>
+            <p style={{ fontSize: '13px', fontWeight: 500, color: '#374151', margin: '0 0 4px 0' }}>No projects yet</p>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: 0 }}>Projects will appear here</p>
+          </div>
+        )}
+
+        {/* Project list */}
+        {hasProjects && projects.map((project, index) => {
           const statusConfig = getStatusConfig(project.status);
           const progressColor = getProgressColor(project.status);
+          const metadata = getMetadata(project);
 
           return (
             <React.Fragment key={project.id}>
-              {/* Project Row - 74px tall */}
               <div
                 style={{
                   height: '74px',
@@ -244,21 +242,10 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = '#F9FAFB'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                onClick={() => {
-                  if (onProjectClick) onProjectClick(project.id);
-                }}
+                onClick={() => onProjectClick?.(project.id)}
               >
-                {/* Left column - Auto Layout vertical */}
-                <div 
-                  style={{ 
-                    flex: 1, 
-                    minWidth: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px'
-                  }}
-                >
-                  {/* Line 1: Name + Status pill */}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {/* Name + Status pill */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span
                       style={{
@@ -292,7 +279,7 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
                     </span>
                   </div>
 
-                  {/* Line 2: Progress bar - 4px height */}
+                  {/* Progress bar */}
                   <div
                     style={{
                       height: '4px',
@@ -316,7 +303,7 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
                     />
                   </div>
 
-                  {/* Line 3: Metadata - one line only */}
+                  {/* Metadata */}
                   <div
                     style={{
                       fontSize: '12px',
@@ -326,32 +313,19 @@ export function ProjectPortfolioWidget({ onProjectClick, onHeaderClick }: Projec
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {project.metadata}
+                    {metadata}
                   </div>
                 </div>
 
-                {/* Right column - Arrow icon */}
-                <div 
-                  style={{ 
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingRight: '4px'
-                  }}
-                >
+                {/* Arrow */}
+                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', paddingRight: '4px' }}>
                   <ArrowRight style={{ width: '14px', height: '14px', color: '#D1D5DB' }} />
                 </div>
               </div>
 
-              {/* Divider - 1px full width, not after last item */}
+              {/* Divider */}
               {index < projects.length - 1 && (
-                <div
-                  style={{
-                    height: '1px',
-                    background: '#E5E7EB',
-                    margin: 0
-                  }}
-                />
+                <div style={{ height: '1px', background: '#E5E7EB', margin: 0 }} />
               )}
             </React.Fragment>
           );
