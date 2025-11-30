@@ -14,6 +14,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { getProjects, getProjectActivities, getGanttData } from '../../services/projectsApi';
 import { getTasks } from '../../services/tasksApi';
 import { getMilestones } from '../../services/milestonesApi';
+import { getTimesheets } from '../../services/timesheetsApi';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
@@ -201,6 +202,60 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           return [];
         });
 
+        // Load timesheets to calculate spent hours for tasks
+        let timesheets: any[] = [];
+        try {
+          // Get project date range for timesheet query
+          const projectStart = project.startDate ? parseDate(project.startDate) : new Date();
+          const projectEnd = project.endDate ? parseDate(project.endDate) : new Date();
+          
+          // Extend range to include all task dates
+          const allTaskDates = apiTasks.flatMap(t => [
+            t.startDate ? parseDate(t.startDate) : null,
+            t.endDate ? parseDate(t.endDate) : null
+          ]).filter(d => d !== null) as Date[];
+          
+          const minTaskDate = allTaskDates.length > 0 
+            ? new Date(Math.min(...allTaskDates.map(d => d.getTime())))
+            : projectStart;
+          const maxTaskDate = allTaskDates.length > 0
+            ? new Date(Math.max(...allTaskDates.map(d => d.getTime())))
+            : projectEnd;
+          
+          const timesheetStart = minTaskDate < projectStart ? minTaskDate : projectStart;
+          const timesheetEnd = maxTaskDate > projectEnd ? maxTaskDate : projectEnd;
+          
+          // Format dates as DD/MM/YYYY for timesheet API
+          const formatDateForAPI = (date: Date): string => {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+          };
+          
+          timesheets = await getTimesheets(
+            formatDateForAPI(timesheetStart),
+            formatDateForAPI(timesheetEnd),
+            undefined, // userId - undefined means all users
+            project.id
+          );
+          console.log(`Loaded ${timesheets.length} timesheet entries for project`);
+        } catch (err) {
+          console.error('Error loading timesheets:', err);
+        }
+
+        // Aggregate spent hours by task ID
+        const spentHoursByTask = new Map<string, number>();
+        timesheets.forEach(timesheet => {
+          const taskId = timesheet.task?.id;
+          if (taskId) {
+            const hours = parseFloat(timesheet.hours || '0');
+            const current = spentHoursByTask.get(taskId) || 0;
+            spentHoursByTask.set(taskId, current + hours);
+          }
+        });
+        console.log(`Calculated spent hours for ${spentHoursByTask.size} tasks`);
+
         console.log('Final apiTasks count:', apiTasks.length);
         
         // Calculate timeline bounds
@@ -325,8 +380,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
           const activity = activitiesMap.get(activityId);
           
-          // Extract hours - handle different possible field names and formats
-          // Check both direct properties and nested properties
+          // Extract planned hours - handle different possible field names and formats
           const plannedHoursStr = task.plannedHours 
             || task.allocatedHours 
             || task.estimatedHours 
@@ -335,7 +389,9 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             || task.time?.planned
             || task.time?.allocated
             || '0';
-          const spentHoursStr = task.spentHours 
+          
+          // Extract spent hours - first try direct fields, then use timesheet aggregation
+          let spentHoursStr = task.spentHours 
             || task.actualHours 
             || task.loggedHours 
             || task.timeSpent
@@ -344,8 +400,14 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             || task.hours?.logged
             || task.time?.spent
             || task.time?.actual
-            || task.time?.logged
-            || '0';
+            || task.time?.logged;
+          
+          // If no spent hours in task, use aggregated timesheet data
+          if (!spentHoursStr && spentHoursByTask.has(task.id)) {
+            spentHoursStr = String(spentHoursByTask.get(task.id));
+          } else if (!spentHoursStr) {
+            spentHoursStr = '0';
+          }
           
           // Parse hours - handle string or number formats
           const plannedHours = typeof plannedHoursStr === 'string' 
