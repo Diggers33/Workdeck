@@ -5,7 +5,8 @@
  */
 
 import { getAuthHeaders, logout } from './authService';
-import { API_BASE_URL } from '../config/apiConfig';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://test-api.workdeck.com';
 const API_TIMEOUT = 15000;
 
 /**
