@@ -160,22 +160,30 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             // Check if task's activity belongs to this project
             const taskProjectId = t.activity?.project?.id;
             if (!taskProjectId) {
-              console.log(`Task "${t.name}" has no project ID in activity`);
+              console.log(`Task "${t.name}" has no project ID in activity. Activity structure:`, {
+                activityId: t.activity.id,
+                activityName: t.activity.name,
+                hasProject: !!t.activity.project,
+                projectStructure: t.activity.project
+              });
               return false;
             }
             
             // Match by project ID (tasks belong to activities, activities belong to projects)
+            const projectIdStr = String(project.id);
+            const taskProjectIdStr = String(taskProjectId);
             const matchesProject = (
               taskProjectId === project.id || 
-              String(taskProjectId).trim() === String(project.id).trim()
+              taskProjectIdStr.trim() === projectIdStr.trim() ||
+              taskProjectIdStr.toLowerCase() === projectIdStr.toLowerCase()
             );
             
             if (matchesProject) {
               const taskActivityId = t.activity.id;
               const matchesActivity = activityIds.has(taskActivityId);
-              console.log(`✓ Matched task "${t.name}" to project "${project.name}" (activity: "${t.activity.name}", activity ID: ${taskActivityId}${matchesActivity ? ' - known activity' : ' - new activity'})`);
+              console.log(`✓ Matched task "${t.name}" to project "${project.name}" (project ID: ${project.id}, task project ID: ${taskProjectId}, activity: "${t.activity.name}", activity ID: ${taskActivityId}${matchesActivity ? ' - known activity' : ' - new activity'})`);
             } else {
-              console.log(`✗ Task "${t.name}" belongs to project ${taskProjectId}, not ${project.id}`);
+              console.log(`✗ Task "${t.name}" belongs to project "${taskProjectId}" (${typeof taskProjectId}), not "${project.id}" (${typeof project.id}). Project name: "${t.activity.project?.name || 'unknown'}"`);
             }
             
             return matchesProject;
@@ -356,12 +364,27 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         console.log('Transformed tasks:', transformedTasks.length, 'activities');
         console.log('Total tasks in activities:', transformedTasks.reduce((sum, a) => sum + a.children.length, 0));
         console.log('Activities with dates:', transformedTasks.filter(a => a.startWeek !== undefined).length);
+        
+        // Debug: Log each activity and its task count
+        transformedTasks.forEach(activity => {
+          console.log(`Activity "${activity.name}" (ID: ${activity.id}): ${activity.children.length} tasks`);
+          if (activity.children.length > 0) {
+            console.log(`  Tasks:`, activity.children.map((t: any) => t.name));
+          }
+        });
 
         setTasks(transformedTasks);
         
-        // Expand first activity by default
+        // Expand all activities that have tasks by default, or at least the first one
         if (transformedTasks.length > 0 && expandedActivities.size === 0) {
-          setExpandedActivities(new Set([transformedTasks[0].id]));
+          const activitiesWithTasks = transformedTasks.filter(a => a.children.length > 0);
+          if (activitiesWithTasks.length > 0) {
+            // Expand all activities that have tasks
+            setExpandedActivities(new Set(activitiesWithTasks.map(a => a.id)));
+          } else {
+            // If no tasks, expand first activity anyway
+            setExpandedActivities(new Set([transformedTasks[0].id]));
+          }
         }
       } catch (error) {
         console.error('Error loading Gantt data:', error);
