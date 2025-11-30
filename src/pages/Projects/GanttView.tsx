@@ -133,6 +133,16 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               console.log(`Found ${activity.tasks.length} tasks in activity "${activity.name}"`);
               // Add activity reference to each task for easier access
               activity.tasks.forEach((task: any) => {
+                // Log task data structure for debugging
+                if (activity.tasks.indexOf(task) === 0) {
+                  console.log('Sample task from Gantt API:', {
+                    id: task.id,
+                    name: task.name,
+                    plannedHours: task.plannedHours,
+                    spentHours: task.spentHours,
+                    allFields: Object.keys(task)
+                  });
+                }
                 apiTasks.push({
                   ...task,
                   activity: {
@@ -309,8 +319,28 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           }
 
           const activity = activitiesMap.get(activityId);
-          const plannedHours = parseFloat(task.plannedHours || '0');
-          const spentHours = parseFloat(task.spentHours || '0');
+          
+          // Extract hours - handle different possible field names and formats
+          const plannedHoursStr = task.plannedHours || task.allocatedHours || task.estimatedHours || '0';
+          const spentHoursStr = task.spentHours || task.actualHours || task.loggedHours || task.timeSpent || '0';
+          
+          // Parse hours - handle string or number formats
+          const plannedHours = typeof plannedHoursStr === 'string' 
+            ? parseFloat(plannedHoursStr.replace(',', '.')) || 0
+            : (typeof plannedHoursStr === 'number' ? plannedHoursStr : 0);
+          const spentHours = typeof spentHoursStr === 'string'
+            ? parseFloat(spentHoursStr.replace(',', '.')) || 0
+            : (typeof spentHoursStr === 'number' ? spentHoursStr : 0);
+          
+          // Log if hours are missing for debugging
+          if (spentHours === 0 && plannedHours === 0) {
+            console.log(`Task "${task.name}" has no hours data:`, {
+              plannedHours: task.plannedHours,
+              spentHours: task.spentHours,
+              taskFields: Object.keys(task)
+            });
+          }
+          
           const progress = plannedHours > 0 ? Math.round((spentHours / plannedHours) * 100) : 0;
           const hoursColor = progress > 100 ? '#F87171' : progress > 0 ? '#34D399' : '#9CA3AF';
           
@@ -326,11 +356,14 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           const endWeek = task.endDate ? getWeekNumber(parseDate(task.endDate), minDate) : startWeek + 1;
           const durationWeeks = Math.max(1, endWeek - startWeek);
 
+          // Format hours string - always show both values
+          const hoursString = `${Math.round(spentHours)}h / ${Math.round(plannedHours)}h`;
+          
           const ganttTask: any = {
             id: task.id,
             name: task.name,
             avatars,
-            hours: `${Math.round(spentHours)}h / ${Math.round(plannedHours)}h`,
+            hours: hoursString,
             hoursColor,
             startWeek,
             durationWeeks,
