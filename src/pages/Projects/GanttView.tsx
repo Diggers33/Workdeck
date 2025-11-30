@@ -161,7 +161,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             const matchesActivity = activityIds.has(taskActivityId);
             
             // Check if task belongs to project by project ID
-            const taskProjectId = t.activity.project?.id;
+            // Try multiple possible locations for project ID
+            const taskProjectId = t.activity?.project?.id || (t as any).project?.id || (t as any).projectId;
             const matchesProject = taskProjectId && (
               taskProjectId === project.id || 
               String(taskProjectId).trim() === String(project.id).trim() ||
