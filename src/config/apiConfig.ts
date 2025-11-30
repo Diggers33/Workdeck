@@ -32,7 +32,12 @@ function resolveApiBaseUrl(): string {
     }
   }
 
-  return envUrl || DEFAULT_API_URL;
+  const fallbackUrl =
+    envUrl && envUrl !== 'https://api.workdeck.com'
+      ? envUrl
+      : DEFAULT_API_URL;
+
+  return fallbackUrl;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
