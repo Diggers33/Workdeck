@@ -133,14 +133,19 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               console.log(`Found ${activity.tasks.length} tasks in activity "${activity.name}"`);
               // Add activity reference to each task for easier access
               activity.tasks.forEach((task: any) => {
-                // Log task data structure for debugging
+                // Log task data structure for debugging - show full object
                 if (activity.tasks.indexOf(task) === 0) {
-                  console.log('Sample task from Gantt API:', {
-                    id: task.id,
-                    name: task.name,
+                  console.log('Sample task from Gantt API (full object):', task);
+                  console.log('Sample task fields:', Object.keys(task));
+                  console.log('Sample task hours fields:', {
                     plannedHours: task.plannedHours,
                     spentHours: task.spentHours,
-                    allFields: Object.keys(task)
+                    allocatedHours: task.allocatedHours,
+                    estimatedHours: task.estimatedHours,
+                    actualHours: task.actualHours,
+                    loggedHours: task.loggedHours,
+                    timeSpent: task.timeSpent,
+                    hours: task.hours
                   });
                 }
                 apiTasks.push({
@@ -321,8 +326,26 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           const activity = activitiesMap.get(activityId);
           
           // Extract hours - handle different possible field names and formats
-          const plannedHoursStr = task.plannedHours || task.allocatedHours || task.estimatedHours || '0';
-          const spentHoursStr = task.spentHours || task.actualHours || task.loggedHours || task.timeSpent || '0';
+          // Check both direct properties and nested properties
+          const plannedHoursStr = task.plannedHours 
+            || task.allocatedHours 
+            || task.estimatedHours 
+            || task.hours?.planned
+            || task.hours?.allocated
+            || task.time?.planned
+            || task.time?.allocated
+            || '0';
+          const spentHoursStr = task.spentHours 
+            || task.actualHours 
+            || task.loggedHours 
+            || task.timeSpent
+            || task.hours?.spent
+            || task.hours?.actual
+            || task.hours?.logged
+            || task.time?.spent
+            || task.time?.actual
+            || task.time?.logged
+            || '0';
           
           // Parse hours - handle string or number formats
           const plannedHours = typeof plannedHoursStr === 'string' 
@@ -332,12 +355,18 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             ? parseFloat(spentHoursStr.replace(',', '.')) || 0
             : (typeof spentHoursStr === 'number' ? spentHoursStr : 0);
           
-          // Log if hours are missing for debugging
+          // Log if hours are missing for debugging - show all possible hour fields
           if (spentHours === 0 && plannedHours === 0) {
-            console.log(`Task "${task.name}" has no hours data:`, {
+            console.log(`Task "${task.name}" has no hours data. Available fields:`, {
               plannedHours: task.plannedHours,
               spentHours: task.spentHours,
-              taskFields: Object.keys(task)
+              allocatedHours: task.allocatedHours,
+              estimatedHours: task.estimatedHours,
+              actualHours: task.actualHours,
+              loggedHours: task.loggedHours,
+              timeSpent: task.timeSpent,
+              hours: task.hours,
+              allTaskFields: Object.keys(task).filter(k => k.toLowerCase().includes('hour') || k.toLowerCase().includes('time') || k.toLowerCase().includes('spent'))
             });
           }
           
