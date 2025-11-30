@@ -132,6 +132,7 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
       try {
         // Get ALL tasks from /queries/tasks endpoint
         const allTasks = await getTasks();
+console.log('[EventModal] Raw API response - first task:', allTasks?.[0]);
         console.log('[EventModal] All tasks from API:', allTasks?.length || 0);
 
         // Filter tasks that belong to the selected project
