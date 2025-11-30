@@ -197,8 +197,11 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         // Initialize activities from project (use fetched activities if available)
         const projectActivities = activities.length > 0 ? activities : (project.activities || []);
         if (projectActivities.length > 0) {
+          // Sort activities by position to maintain correct order
+          const sortedActivities = [...projectActivities].sort((a, b) => (a.position || 0) - (b.position || 0));
+          
           // First pass: Create all activities in the map
-          projectActivities.forEach(activity => {
+          sortedActivities.forEach(activity => {
             const startDate = activity.startDate ? parseDate(activity.startDate) : minDate;
             const endDate = activity.endDate ? parseDate(activity.endDate) : new Date(minDate.getTime() + 7 * 24 * 60 * 60 * 1000);
             
@@ -214,20 +217,41 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               children: [],
               milestones: [],
               parentId: activity.parentId, // Store parentId for hierarchical building
+              position: activity.position || 0, // Store position for sorting
             });
           });
           
           // Second pass: Build hierarchical structure by linking child activities to parents
-          projectActivities.forEach(activity => {
+          // Process in reverse order to handle deeply nested structures correctly
+          for (let i = sortedActivities.length - 1; i >= 0; i--) {
+            const activity = sortedActivities[i];
             if (activity.parentId) {
               const childActivity = activitiesMap.get(activity.id);
               const parentActivity = activitiesMap.get(activity.parentId);
               if (childActivity && parentActivity) {
-                // Remove from top-level and add to parent's children
+                // Add to parent's children (will be sorted later)
                 parentActivity.children.push(childActivity);
               }
             }
-          });
+          }
+          
+          // Helper function to sort children recursively by position
+          const sortChildrenRecursive = (item: any) => {
+            if (item.children && item.children.length > 0) {
+              item.children.sort((a: any, b: any) => {
+                // Sort by position if available, otherwise by name
+                if (a.position !== undefined && b.position !== undefined) {
+                  return a.position - b.position;
+                }
+                return (a.name || '').localeCompare(b.name || '');
+              });
+              // Recursively sort nested children
+              item.children.forEach((child: any) => sortChildrenRecursive(child));
+            }
+          };
+          
+          // Sort all activities' children by position
+          activitiesMap.forEach(activity => sortChildrenRecursive(activity));
         }
 
         // Add tasks to activities
@@ -291,6 +315,31 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
           activity.children.push(ganttTask);
         });
+        
+        // Re-sort children after adding tasks to maintain order
+        const sortChildrenAfterTasks = (item: any) => {
+          if (item.children && item.children.length > 0) {
+            item.children.sort((a: any, b: any) => {
+              // Sort tasks and activities together by position if available, otherwise by name
+              if (a.position !== undefined && b.position !== undefined) {
+                return a.position - b.position;
+              }
+              // If one is a task and one is an activity, activities come first
+              if (a.type === 'activity' && b.type === 'task') return -1;
+              if (a.type === 'task' && b.type === 'activity') return 1;
+              return (a.name || '').localeCompare(b.name || '');
+            });
+            // Recursively sort nested children
+            item.children.forEach((child: any) => {
+              if (child.type === 'activity') {
+                sortChildrenAfterTasks(child);
+              }
+            });
+          }
+        };
+        
+        // Re-sort all activities' children after adding tasks
+        activitiesMap.forEach(activity => sortChildrenAfterTasks(activity));
 
         // Helper function to recursively find a task in activities (including nested)
         const findTaskRecursive = (items: any[], taskId: string): any => {
@@ -376,7 +425,16 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               expanded: expandedActivities.has(activity.id) || activity.children.length > 0,
             };
           })
-          .sort((a, b) => (a.startWeek || 0) - (b.startWeek || 0));
+          .sort((a, b) => {
+            // Sort by position if available, otherwise by startWeek, then by name
+            if (a.position !== undefined && b.position !== undefined) {
+              return a.position - b.position;
+            }
+            if (a.startWeek !== undefined && b.startWeek !== undefined) {
+              return a.startWeek - b.startWeek;
+            }
+            return (a.name || '').localeCompare(b.name || '');
+          });
 
         console.log('Transformed tasks:', transformedTasks.length, 'activities');
         console.log('Total tasks in activities:', transformedTasks.reduce((sum, a) => sum + a.children.length, 0));
