@@ -292,3 +292,31 @@ export async function getProjectActivities(projectId: string): Promise<ActivityE
   return apiGet<ActivityEntity[]>(`/queries/projects/${projectId}/activities`);
 }
 
+/**
+ * Get Gantt data for a project (includes activities with tasks nested)
+ * GET /queries/gantt/{projectId}
+ */
+export async function getGanttData(
+  projectId: string,
+  options?: {
+    start?: string; // ISO 8601 date string
+    end?: string; // ISO 8601 date string
+    resolution?: 'day' | 'week' | 'month';
+  }
+): Promise<{
+  id: string;
+  activities: ActivityEntity[];
+  start: string;
+  end: string;
+  firstDate: string;
+  lastDate: string;
+}> {
+  const params = new URLSearchParams();
+  if (options?.start) params.append('start', options.start);
+  if (options?.end) params.append('end', options.end);
+  if (options?.resolution) params.append('resolution', options.resolution);
+  
+  const queryString = params.toString();
+  return apiGet(`/queries/gantt/${projectId}${queryString ? `?${queryString}` : ''}`);
+}
+

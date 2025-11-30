@@ -11,7 +11,7 @@ import { ProjectInfoPanel } from './gantt/ProjectInfoPanel';
 import { WEEKS } from './gantt/data';
 import { GanttActivity, GanttWeek } from './gantt/types';
 import { Plus, Loader2 } from 'lucide-react';
-import { getProjects, getProjectActivities } from '../../services/projectsApi';
+import { getProjects, getProjectActivities, getGanttData } from '../../services/projectsApi';
 import { getTasks } from '../../services/tasksApi';
 import { getMilestones } from '../../services/milestonesApi';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
@@ -80,115 +80,76 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         setCurrentProjectName(project.name);
         setCurrentProjectClient(project.client?.name || '');
 
-        // Load activities if not included in project summary
-        let activities = project.activities || [];
-        if (!activities || activities.length === 0) {
-          console.log('Fetching activities separately...');
+        // Use the Gantt API endpoint which returns activities with tasks nested
+        // This is the proper way to get Gantt data for a project
+        console.log('Fetching Gantt data for project...');
+        let activities: any[] = [];
+        let apiTasks: any[] = [];
+        
+        try {
+          const ganttData = await getGanttData(project.id, {
+            resolution: (timeResolution || 'week').toLowerCase() as 'day' | 'week' | 'month'
+          });
+          
+          console.log('Gantt data loaded:', {
+            activitiesCount: ganttData.activities?.length || 0,
+            startDate: ganttData.start,
+            endDate: ganttData.end
+          });
+          
+          activities = ganttData.activities || [];
+          
+          // Extract tasks from activities (Gantt API returns activities with tasks nested)
+          activities.forEach(activity => {
+            if (activity.tasks && activity.tasks.length > 0) {
+              console.log(`Found ${activity.tasks.length} tasks in activity "${activity.name}"`);
+              // Add activity reference to each task for easier access
+              activity.tasks.forEach((task: any) => {
+                apiTasks.push({
+                  ...task,
+                  activity: {
+                    id: activity.id,
+                    name: activity.name,
+                    project: {
+                      id: project.id,
+                      name: project.name
+                    }
+                  }
+                });
+              });
+            }
+          });
+          
+          console.log(`Total tasks extracted from Gantt data: ${apiTasks.length}`);
+        } catch (err) {
+          console.error('Error loading Gantt data, falling back to activities API:', err);
+          
+          // Fallback: Load activities separately
           try {
             activities = await getProjectActivities(project.id);
             console.log('Activities loaded:', activities.length);
-          } catch (err) {
-            console.error('Error loading activities:', err);
-            activities = [];
+          } catch (activityErr) {
+            console.error('Error loading activities:', activityErr);
+            activities = project.activities || [];
           }
-        }
-
-        // Extract tasks from activities (activities have tasks nested in them)
-        let apiTasks: any[] = [];
-        const tasksFromActivities: any[] = [];
-        
-        // First, check if activities have tasks nested in them
-        activities.forEach(activity => {
-          if (activity.tasks && activity.tasks.length > 0) {
-            console.log(`Found ${activity.tasks.length} tasks in activity "${activity.name}"`);
-            // Add activity reference to each task for easier access
-            activity.tasks.forEach(task => {
-              tasksFromActivities.push({
-                ...task,
-                activity: {
-                  id: activity.id,
-                  name: activity.name,
-                  project: {
-                    id: project.id,
-                    name: project.name
-                  }
-                }
-              });
+          
+          // If activities don't have tasks, try fetching all tasks (limited to 50)
+          if (activities.length > 0 && !activities.some(a => a.tasks && a.tasks.length > 0)) {
+            console.log('Activities have no tasks, trying tasks API (limited to 50 tasks)...');
+            const allTasks = await getTasks().catch(() => []);
+            console.log('All tasks loaded:', allTasks.length);
+            
+            // Filter tasks by project ID
+            apiTasks = allTasks.filter(t => {
+              const taskProjectId = t.activity?.project?.id;
+              return taskProjectId && (
+                taskProjectId === project.id || 
+                String(taskProjectId).trim() === String(project.id).trim()
+              );
             });
+            
+            console.log('Filtered tasks for project:', apiTasks.length);
           }
-        });
-        
-        if (tasksFromActivities.length > 0) {
-          console.log(`Using ${tasksFromActivities.length} tasks from activities`);
-          apiTasks = tasksFromActivities;
-        } else {
-          // Fallback: Load tasks from API and filter by activity IDs
-          console.log('No tasks in activities, fetching from tasks API and filtering by activity IDs...');
-          const activityIds = new Set(activities.map(a => a.id));
-          console.log('Activity IDs to match:', Array.from(activityIds));
-          
-          const allTasks = await getTasks().catch(err => {
-            console.error('Error loading tasks:', err);
-            return [];
-          });
-
-          console.log('All tasks loaded:', allTasks.length);
-          
-          // Debug: Log sample task activity IDs and project IDs
-          if (allTasks.length > 0) {
-            const sampleTaskActivityIds = allTasks.slice(0, 5).map(t => ({
-              taskName: t.name,
-              activityId: t.activity?.id,
-              activityName: t.activity?.name,
-              taskProjectId: t.activity?.project?.id,
-              taskProjectName: t.activity?.project?.name
-            }));
-            console.log('Sample task activity IDs:', sampleTaskActivityIds);
-            console.log('Looking for project ID:', project.id);
-          }
-          
-          // Filter tasks that belong to this project
-          // Tasks belong to Activities, Activities belong to Projects
-          // So we check: task.activity.project.id === project.id
-          apiTasks = allTasks.filter(t => {
-            if (!t.activity) {
-              console.log(`Task "${t.name}" has no activity`);
-              return false;
-            }
-            
-            // Check if task's activity belongs to this project
-            const taskProjectId = t.activity?.project?.id;
-            if (!taskProjectId) {
-              console.log(`Task "${t.name}" has no project ID in activity. Activity structure:`, {
-                activityId: t.activity.id,
-                activityName: t.activity.name,
-                hasProject: !!t.activity.project,
-                projectStructure: t.activity.project
-              });
-              return false;
-            }
-            
-            // Match by project ID (tasks belong to activities, activities belong to projects)
-            const projectIdStr = String(project.id);
-            const taskProjectIdStr = String(taskProjectId);
-            const matchesProject = (
-              taskProjectId === project.id || 
-              taskProjectIdStr.trim() === projectIdStr.trim() ||
-              taskProjectIdStr.toLowerCase() === projectIdStr.toLowerCase()
-            );
-            
-            if (matchesProject) {
-              const taskActivityId = t.activity.id;
-              const matchesActivity = activityIds.has(taskActivityId);
-              console.log(`✓ Matched task "${t.name}" to project "${project.name}" (project ID: ${project.id}, task project ID: ${taskProjectId}, activity: "${t.activity.name}", activity ID: ${taskActivityId}${matchesActivity ? ' - known activity' : ' - new activity'})`);
-            } else {
-              console.log(`✗ Task "${t.name}" belongs to project "${taskProjectId}" (${typeof taskProjectId}), not "${project.id}" (${typeof project.id}). Project name: "${t.activity.project?.name || 'unknown'}"`);
-            }
-            
-            return matchesProject;
-          });
-          
-          console.log('Filtered tasks for project:', apiTasks.length);
         }
 
         // Load milestones
