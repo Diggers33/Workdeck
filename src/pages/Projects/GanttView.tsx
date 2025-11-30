@@ -37,8 +37,33 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
     if (!dateString || dateString.trim() === '') {
       return new Date(); // Return current date as fallback
     }
-    const [day, month, year] = dateString.split('/').map(Number);
-    return new Date(year, month - 1, day);
+    try {
+      // Try DD/MM/YYYY format first
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+            const date = new Date(year, month - 1, day);
+            if (!isNaN(date.getTime())) {
+              return date;
+            }
+          }
+        }
+      }
+      // Try ISO format as fallback
+      const isoDate = new Date(dateString);
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+      }
+      console.warn('Failed to parse date:', dateString, 'using current date');
+      return new Date();
+    } catch (error) {
+      console.error('Error parsing date:', dateString, error);
+      return new Date();
+    }
   }
 
   // Helper function to calculate weeks between dates
@@ -188,8 +213,16 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
         const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
         
-        // Set project start date for week calculation
-        setProjectStartDate(minDate);
+        // Validate minDate is a valid date
+        if (isNaN(minDate.getTime())) {
+          console.error('Invalid minDate calculated, using current date as fallback');
+          const today = new Date();
+          setProjectStartDate(today);
+        } else {
+          // Set project start date for week calculation
+          console.log('Setting project start date:', minDate.toISOString());
+          setProjectStartDate(minDate);
+        }
 
         // Group tasks by activity and build hierarchical structure
         const activitiesMap = new Map<string, any>();
@@ -564,7 +597,12 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
   // Generate time periods based on offset and resolution
   const generateTimePeriods = (offset: number, resolution: string) => {
-    const baseDate = projectStartDate || new Date(); // Use project start date
+    // Ensure we have a valid date
+    let baseDate = projectStartDate;
+    if (!baseDate || isNaN(baseDate.getTime())) {
+      console.warn('projectStartDate is invalid, using current date');
+      baseDate = new Date();
+    }
     const today = new Date(); // Current date
     
     if (resolution === 'Day') {
@@ -615,7 +653,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         // Calculate week number
         const firstDayOfYear = new Date(year, 0, 1);
         const pastDaysOfYear = (weekDate.getTime() - firstDayOfYear.getTime()) / 86400000;
-        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        const weekNumber = isNaN(pastDaysOfYear) ? 1 : Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
         
         const weekStart = new Date(weekDate);
         const weekEnd = new Date(weekDate);
@@ -697,9 +735,16 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
   // Update weeks when resolution changes or project start date changes
   React.useEffect(() => {
-    if (projectStartDate) {
-      setWeekOffset(0); // Reset offset when changing resolution
-      setWeeks(generateTimePeriods(0, timeResolution));
+    if (projectStartDate && !isNaN(projectStartDate.getTime())) {
+      setWeekOffset(0); // Reset offset when changing resolution or project
+      const generatedWeeks = generateTimePeriods(0, timeResolution);
+      console.log('Regenerating weeks with projectStartDate:', projectStartDate.toISOString(), 'generated', generatedWeeks.length, 'weeks');
+      if (generatedWeeks.length > 0 && generatedWeeks[0].label) {
+        console.log('First week label:', generatedWeeks[0].label);
+      }
+      setWeeks(generatedWeeks);
+    } else {
+      console.warn('projectStartDate is invalid, using default weeks');
     }
   }, [timeResolution, projectStartDate]);
 
