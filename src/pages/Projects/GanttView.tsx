@@ -149,39 +149,36 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           }
           
           // Filter tasks that belong to this project
-          // First try matching by activity ID, then by project ID
+          // Tasks belong to Activities, Activities belong to Projects
+          // So we check: task.activity.project.id === project.id
           apiTasks = allTasks.filter(t => {
             if (!t.activity) {
               console.log(`Task "${t.name}" has no activity`);
               return false;
             }
             
-            // Check if task belongs to project's activities
-            const taskActivityId = t.activity.id;
-            const matchesActivity = activityIds.has(taskActivityId);
-            
-            // Check if task belongs to project by project ID
-            // Try multiple possible locations for project ID
-            const taskProjectId = t.activity?.project?.id || (t as any).project?.id || (t as any).projectId;
-            const matchesProject = taskProjectId && (
-              taskProjectId === project.id || 
-              String(taskProjectId).trim() === String(project.id).trim() ||
-              taskProjectId.toLowerCase() === project.id.toLowerCase()
-            );
-            
-            const matches = matchesActivity || matchesProject;
-            
-            if (matches) {
-              if (matchesActivity) {
-                console.log(`✓ Matched task "${t.name}" to activity "${t.activity.name}" (ID: ${taskActivityId})`);
-              } else if (matchesProject) {
-                console.log(`✓ Matched task "${t.name}" to project by project ID (task project: ${taskProjectId}, project: ${project.id})`);
-              }
-            } else {
-              console.log(`✗ Task "${t.name}" activity ID ${taskActivityId} (project: ${taskProjectId}) not in project activities (project: ${project.id})`);
+            // Check if task's activity belongs to this project
+            const taskProjectId = t.activity?.project?.id;
+            if (!taskProjectId) {
+              console.log(`Task "${t.name}" has no project ID in activity`);
+              return false;
             }
             
-            return matches;
+            // Match by project ID (tasks belong to activities, activities belong to projects)
+            const matchesProject = (
+              taskProjectId === project.id || 
+              String(taskProjectId).trim() === String(project.id).trim()
+            );
+            
+            if (matchesProject) {
+              const taskActivityId = t.activity.id;
+              const matchesActivity = activityIds.has(taskActivityId);
+              console.log(`✓ Matched task "${t.name}" to project "${project.name}" (activity: "${t.activity.name}", activity ID: ${taskActivityId}${matchesActivity ? ' - known activity' : ' - new activity'})`);
+            } else {
+              console.log(`✗ Task "${t.name}" belongs to project ${taskProjectId}, not ${project.id}`);
+            }
+            
+            return matchesProject;
           });
           
           console.log('Filtered tasks for project:', apiTasks.length);
