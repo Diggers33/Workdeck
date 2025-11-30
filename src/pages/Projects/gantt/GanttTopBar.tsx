@@ -7,9 +7,11 @@ interface GanttTopBarProps {
   onOpenFiles?: () => void;
   onEditProject?: () => void;
   onBoardClick?: () => void;
+  projectName?: string;
+  projectClient?: string;
 }
 
-export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject, onBoardClick }: GanttTopBarProps) {
+export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject, onBoardClick, projectName, projectClient }: GanttTopBarProps) {
   const [currentView, setCurrentView] = React.useState<'Gantt' | 'Board' | 'Financial'>('Gantt');
 
   const handleViewClick = (view: 'Gantt' | 'Board' | 'Financial') => {
@@ -65,11 +67,15 @@ export function GanttTopBar({ onBack, onOpenComments, onOpenFiles, onEditProject
             background: '#F97316',
             animation: 'pulse 2s infinite'
           }} />
-          <span style={{ fontSize: '18px', fontWeight: 600, color: '#0A0A0A' }}>BIOGEMSE</span>
-          <span style={{ fontSize: '18px', fontWeight: 400, color: '#D1D5DB' }}>|</span>
-          <span style={{ fontSize: '16px', fontWeight: 400, color: '#6B7280' }}>
-            EU Commission
-          </span>
+          <span style={{ fontSize: '18px', fontWeight: 600, color: '#0A0A0A' }}>{projectName || 'Project'}</span>
+          {projectClient && (
+            <>
+              <span style={{ fontSize: '18px', fontWeight: 400, color: '#D1D5DB' }}>|</span>
+              <span style={{ fontSize: '16px', fontWeight: 400, color: '#6B7280' }}>
+                {projectClient}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

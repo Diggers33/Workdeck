@@ -24,6 +24,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
   const [zoomLevel, setZoomLevel] = useState(100); // Zoom percentage: 50, 75, 100, 125, 150
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
   const [currentProjectName, setCurrentProjectName] = useState<string>(projectName || '');
+  const [currentProjectClient, setCurrentProjectClient] = useState<string>('');
   const [tasks, setTasks] = useState<GanttActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectStartDate, setProjectStartDate] = useState<Date>(new Date());
@@ -78,6 +79,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
         setCurrentProjectId(project.id);
         setCurrentProjectName(project.name);
+        setCurrentProjectClient(project.client?.name || '');
 
         // Load activities if not included in project summary
         let activities = project.activities || [];
@@ -133,46 +135,55 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
 
           console.log('All tasks loaded:', allTasks.length);
           
-          // Debug: Log sample task activity IDs
+          // Debug: Log sample task activity IDs and project IDs
           if (allTasks.length > 0) {
             const sampleTaskActivityIds = allTasks.slice(0, 5).map(t => ({
               taskName: t.name,
               activityId: t.activity?.id,
-              activityName: t.activity?.name
+              activityName: t.activity?.name,
+              taskProjectId: t.activity?.project?.id,
+              taskProjectName: t.activity?.project?.name
             }));
             console.log('Sample task activity IDs:', sampleTaskActivityIds);
+            console.log('Looking for project ID:', project.id);
           }
           
-          // Filter tasks that belong to any of the project's activities
+          // Filter tasks that belong to this project
+          // First try matching by activity ID, then by project ID
           apiTasks = allTasks.filter(t => {
             if (!t.activity) {
               console.log(`Task "${t.name}" has no activity`);
               return false;
             }
+            
+            // Check if task belongs to project's activities
             const taskActivityId = t.activity.id;
-            const matches = activityIds.has(taskActivityId);
+            const matchesActivity = activityIds.has(taskActivityId);
+            
+            // Check if task belongs to project by project ID
+            const taskProjectId = t.activity.project?.id;
+            const matchesProject = taskProjectId && (
+              taskProjectId === project.id || 
+              String(taskProjectId).trim() === String(project.id).trim() ||
+              taskProjectId.toLowerCase() === project.id.toLowerCase()
+            );
+            
+            const matches = matchesActivity || matchesProject;
             
             if (matches) {
-              console.log(`✓ Matched task "${t.name}" to activity "${t.activity.name}" (ID: ${taskActivityId})`);
+              if (matchesActivity) {
+                console.log(`✓ Matched task "${t.name}" to activity "${t.activity.name}" (ID: ${taskActivityId})`);
+              } else if (matchesProject) {
+                console.log(`✓ Matched task "${t.name}" to project by project ID (task project: ${taskProjectId}, project: ${project.id})`);
+              }
             } else {
-              console.log(`✗ Task "${t.name}" activity ID ${taskActivityId} not in project activities`);
+              console.log(`✗ Task "${t.name}" activity ID ${taskActivityId} (project: ${taskProjectId}) not in project activities (project: ${project.id})`);
             }
             
             return matches;
           });
           
-          console.log('Filtered tasks for project activities:', apiTasks.length);
-          
-          // If still no tasks, try filtering by project ID as fallback
-          if (apiTasks.length === 0) {
-            console.log('No tasks matched by activity ID, trying project ID filter...');
-            apiTasks = allTasks.filter(t => {
-              if (!t.activity) return false;
-              const taskProjectId = t.activity.project?.id;
-              return taskProjectId === project.id || String(taskProjectId) === String(project.id);
-            });
-            console.log('Filtered tasks for project ID:', apiTasks.length);
-          }
+          console.log('Filtered tasks for project:', apiTasks.length);
         }
 
         // Load milestones
@@ -690,6 +701,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           setProjectPanelOpen(true);
         }}
         onEditProject={onEditProject ? () => onEditProject(currentProjectId || '') : undefined}
+        projectName={currentProjectName}
+        projectClient={currentProjectClient}
       />
 
       {/* TOOLBAR - 52px */}

@@ -4,7 +4,7 @@ import { X, Calendar, ChevronDown, Check, GripVertical, Clock, User, Trash2, Map
 import { toast } from 'sonner';
 import { EventComments } from './EventComments';
 import { getUsers, getProjectsSummary, UserSummary, ProjectSummary, TaskSummary } from '../../api/dashboardApi';
-import { getProjectActivities } from '../../../../services/projectsApi';
+import { getTasks } from '../../../../services/tasksApi';
 
 interface EventModalProps {
   event?: CalendarEvent | null;
@@ -120,7 +120,7 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
     fetchData();
   }, []);
 
-  // Fetch tasks when project changes - uses /queries/projects/{id}/activities endpoint
+  // Fetch tasks when project changes - get all tasks and filter by project
   useEffect(() => {
     if (!selectedProjectId) {
       setTasksList([]);
@@ -130,32 +130,28 @@ export function EventModal({ event, initialDate, initialEndDate, onClose, onSave
     async function fetchProjectTasks() {
       console.log('[EventModal] Fetching tasks for project:', selectedProjectId);
       try {
-        // Get activities for the project - each activity contains tasks
-        const activities = await getProjectActivities(selectedProjectId);
-        console.log('[EventModal] Project activities response:', activities);
+        // Get ALL tasks from /queries/tasks endpoint
+        const allTasks = await getTasks();
+        console.log('[EventModal] All tasks from API:', allTasks?.length || 0);
 
-        // Extract all tasks from all activities and flatten into single list
-        const allTasks: Array<{ id: string; name: string; color?: string }> = [];
+        // Filter tasks that belong to the selected project
+        const projectTasks = (allTasks || []).filter((task: any) => {
+          const taskProjectId = task.activity?.project?.id || task.project?.id || task.projectId;
+          return taskProjectId === selectedProjectId;
+        });
 
-        if (activities && Array.isArray(activities)) {
-          activities.forEach((activity: any) => {
-            const activityTasks = activity.tasks || [];
-            console.log(`[EventModal] Activity "${activity.name}" has ${activityTasks.length} tasks`);
+        console.log('[EventModal] Tasks for project:', projectTasks.length, projectTasks);
 
-            activityTasks.forEach((task: any) => {
-              allTasks.push({
-                id: task.id || task.task || '',
-                name: task.name || task.summary || task.title || 'Unnamed Task',
-                color: task.color
-              });
-            });
-          });
-        }
+        // Format for dropdown
+        const formattedTasks = projectTasks.map((task: any) => ({
+          id: task.id,
+          name: task.name || task.summary || 'Unnamed Task',
+          color: task.color
+        }));
 
-        console.log('[EventModal] Total tasks found:', allTasks.length, allTasks);
-        setTasksList(allTasks);
+        setTasksList(formattedTasks);
       } catch (error) {
-        console.error('[EventModal] Error fetching project tasks:', error);
+        console.error('[EventModal] Error fetching tasks:', error);
         setTasksList([]);
       }
     }
