@@ -4,7 +4,7 @@
  */
 
 import { getAuthHeaders } from '../../../services/authService';
-const API_URL = import.meta.env.VITE_API_URL || 'https://test-api.workdeck.com';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.workdeck.com';
 
 // Response wrapper type
 interface ApiResponse<T> {
