@@ -11,6 +11,9 @@ import { ProjectInfoPanel } from './gantt/ProjectInfoPanel';
 import { WEEKS } from './gantt/data';
 import { GanttActivity, GanttWeek } from './gantt/types';
 import { Plus, Loader2 } from 'lucide-react';
+import { getProjects, getProjectActivities } from '../../services/projectsApi';
+import { getTasks } from '../../services/tasksApi';
+import { getMilestones } from '../../services/milestonesApi';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
@@ -47,10 +50,6 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
     async function loadGanttData() {
       try {
         setLoading(true);
-        const { getProjects, getProjectActivities } = await import('../../services/projectsApi');
-        const { getTasks } = await import('../../services/tasksApi');
-        const { getMilestones } = await import('../../services/milestonesApi');
-
         console.log('Loading Gantt data...');
         
         // Get projects
