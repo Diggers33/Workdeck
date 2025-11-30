@@ -14,7 +14,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { getProjects, getProjectActivities, getGanttData } from '../../services/projectsApi';
 import { getTasks } from '../../services/tasksApi';
 import { getMilestones } from '../../services/milestonesApi';
-import { getEvents } from '../../services/eventsApi';
+import { getTimeEntries } from '../../services/timesheetsApi';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
@@ -202,8 +202,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           return [];
         });
 
-        // Load calendar events to calculate spent hours for tasks (Workdeck records time via calendar)
-        let calendarEvents: any[] = [];
+        // Load time entries to calculate spent hours for tasks (calendar-driven)
+        let timeEntries: any[] = [];
         try {
           // Get project date range for timesheet query
           const projectStart = project.startDate ? parseDate(project.startDate) : new Date();
@@ -233,30 +233,28 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             return `${day}/${month}/${year}`;
           };
           
-          calendarEvents = await getEvents(
+          timeEntries = await getTimeEntries(
             formatDateForAPI(timesheetStart),
-            formatDateForAPI(timesheetEnd)
+            formatDateForAPI(timesheetEnd),
+            undefined,
+            project.id
           );
-          console.log(`Loaded ${calendarEvents.length} calendar events`);
+          console.log(`Loaded ${timeEntries.length} time entries for project`);
         } catch (err) {
-          console.error('Error loading calendar events:', err);
+          console.error('Error loading time entries:', err);
         }
 
         // Aggregate spent hours by task ID
         const spentHoursByTask = new Map<string, number>();
-        calendarEvents.forEach(event => {
-          if (!event.timesheet) return; // Only count events flagged as timesheet entries
-          const taskId = event.task?.id;
+        timeEntries.forEach(entry => {
+          const taskId = entry.task?.id;
           if (taskId) {
-            const start = event.startAt ? new Date(event.startAt) : null;
-            const end = event.endAt ? new Date(event.endAt) : null;
-            if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return;
-            const durationHours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
+            const hours = parseFloat(entry.hours || '0');
             const current = spentHoursByTask.get(taskId) || 0;
-            spentHoursByTask.set(taskId, current + durationHours);
+            spentHoursByTask.set(taskId, current + hours);
           }
         });
-        console.log(`Calculated spent hours from calendar for ${spentHoursByTask.size} tasks`);
+        console.log(`Calculated spent hours from time entries for ${spentHoursByTask.size} tasks`);
 
         console.log('Final apiTasks count:', apiTasks.length);
         
