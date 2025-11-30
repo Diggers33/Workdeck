@@ -44,7 +44,7 @@ export interface GanttActivity {
   startWeek?: number;
   durationWeeks?: number;
   barColor?: string;
-  children?: GanttTask[];
+  children?: (GanttTask | GanttActivity)[]; // Can contain both tasks and nested activities
   milestones?: GanttMilestone[]; // Milestones attached to this activity
 }
 

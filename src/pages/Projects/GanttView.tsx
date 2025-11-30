@@ -191,12 +191,13 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         // Set project start date for week calculation
         setProjectStartDate(minDate);
 
-        // Group tasks by activity
+        // Group tasks by activity and build hierarchical structure
         const activitiesMap = new Map<string, any>();
         
         // Initialize activities from project (use fetched activities if available)
         const projectActivities = activities.length > 0 ? activities : (project.activities || []);
         if (projectActivities.length > 0) {
+          // First pass: Create all activities in the map
           projectActivities.forEach(activity => {
             const startDate = activity.startDate ? parseDate(activity.startDate) : minDate;
             const endDate = activity.endDate ? parseDate(activity.endDate) : new Date(minDate.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -212,7 +213,20 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               barColor: project.colorAllTasks || '#60A5FA',
               children: [],
               milestones: [],
+              parentId: activity.parentId, // Store parentId for hierarchical building
             });
+          });
+          
+          // Second pass: Build hierarchical structure by linking child activities to parents
+          projectActivities.forEach(activity => {
+            if (activity.parentId) {
+              const childActivity = activitiesMap.get(activity.id);
+              const parentActivity = activitiesMap.get(activity.parentId);
+              if (childActivity && parentActivity) {
+                // Remove from top-level and add to parent's children
+                parentActivity.children.push(childActivity);
+              }
+            }
           });
         }
 
@@ -278,29 +292,56 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           activity.children.push(ganttTask);
         });
 
+        // Helper function to recursively find a task in activities (including nested)
+        const findTaskRecursive = (items: any[], taskId: string): any => {
+          for (const item of items) {
+            if (item.type === 'task' && item.id === taskId) {
+              return item;
+            }
+            if (item.children) {
+              const found = findTaskRecursive(item.children, taskId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        // Helper function to recursively find an activity (including nested)
+        const findActivityRecursive = (items: any[], activityId: string): any => {
+          for (const item of items) {
+            if (item.type === 'activity' && item.id === activityId) {
+              return item;
+            }
+            if (item.children) {
+              const found = findActivityRecursive(item.children, activityId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
         // Add project milestones to activities and tasks
         milestones.forEach(milestone => {
           if (milestone.task?.id) {
-            // Task milestone - find the task and add milestone
+            // Task milestone - find the task recursively (including in nested activities)
             const taskId = milestone.task.id;
-            for (const activity of activitiesMap.values()) {
-              const task = activity.children.find((t: any) => t.id === taskId);
-              if (task) {
-                if (!task.milestones) task.milestones = [];
-                const taskEndWeek = task.startWeek + task.durationWeeks;
-                task.milestones.push({
-                  id: milestone.id,
-                  name: milestone.name,
-                  week: milestone.deliveryDate ? getWeekNumber(parseDate(milestone.deliveryDate), minDate) : taskEndWeek,
-                  status: 'upcoming' as const,
-                  dueDate: milestone.deliveryDate,
-                });
-                break;
-              }
+            const allActivities = Array.from(activitiesMap.values());
+            const task = findTaskRecursive(allActivities, taskId);
+            if (task) {
+              if (!task.milestones) task.milestones = [];
+              const taskEndWeek = task.startWeek + task.durationWeeks;
+              task.milestones.push({
+                id: milestone.id,
+                name: milestone.name,
+                week: milestone.deliveryDate ? getWeekNumber(parseDate(milestone.deliveryDate), minDate) : taskEndWeek,
+                status: 'upcoming' as const,
+                dueDate: milestone.deliveryDate,
+              });
             }
           } else if (milestone.activity?.id) {
-            // Activity milestone
-            const activity = activitiesMap.get(milestone.activity.id);
+            // Activity milestone - find recursively (including nested)
+            const allActivities = Array.from(activitiesMap.values());
+            const activity = findActivityRecursive(allActivities, milestone.activity.id);
             if (activity) {
               if (!activity.milestones) activity.milestones = [];
               activity.milestones.push({
@@ -314,16 +355,27 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           }
         });
 
-        // Convert map to array and sort by position
+        // Helper function to count tasks recursively (including nested activities)
+        const countTasksRecursive = (item: any): number => {
+          if (item.type === 'task') return 1;
+          return item.children?.reduce((sum: number, child: any) => sum + countTasksRecursive(child), 0) || 0;
+        };
+        
+        // Convert map to array, filter out nested activities (keep only top-level), and sort
         const transformedTasks = Array.from(activitiesMap.values())
-          .map(activity => ({
-            ...activity,
-            taskCount: activity.children.length,
-            duration: activity.durationWeeks > 0 
-              ? `${activity.durationWeeks} week${activity.durationWeeks !== 1 ? 's' : ''}`
-              : '0 weeks',
-            expanded: expandedActivities.has(activity.id),
-          }))
+          .filter(activity => !activity.parentId) // Only top-level activities
+          .map(activity => {
+            // Calculate task count recursively
+            const taskCount = countTasksRecursive(activity);
+            return {
+              ...activity,
+              taskCount,
+              duration: activity.durationWeeks > 0 
+                ? `${activity.durationWeeks} week${activity.durationWeeks !== 1 ? 's' : ''}`
+                : '0 weeks',
+              expanded: expandedActivities.has(activity.id) || activity.children.length > 0,
+            };
+          })
           .sort((a, b) => (a.startWeek || 0) - (b.startWeek || 0));
 
         console.log('Transformed tasks:', transformedTasks.length, 'activities');
