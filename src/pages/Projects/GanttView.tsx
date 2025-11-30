@@ -33,7 +33,10 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
   const [projectStartDate, setProjectStartDate] = useState<Date>(new Date());
 
   // Helper function to parse DD/MM/YYYY date
-  function parseDate(dateString: string): Date {
+  function parseDate(dateString: string | null | undefined): Date {
+    if (!dateString || dateString.trim() === '') {
+      return new Date(); // Return current date as fallback
+    }
     const [day, month, year] = dateString.split('/').map(Number);
     return new Date(year, month - 1, day);
   }
@@ -241,10 +244,12 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           const hoursColor = progress > 100 ? '#F87171' : progress > 0 ? '#34D399' : '#9CA3AF';
           
           // Get participant avatars
-          const avatars = task.participants?.slice(0, 3).map((p: any) => {
-            const names = p.user.fullName.split(' ');
-            return (names[0][0] + (names[1]?.[0] || '')).toUpperCase();
-          }) || [];
+          const avatars = task.participants?.filter((p: any) => p.user?.fullName)
+            .slice(0, 3)
+            .map((p: any) => {
+              const names = p.user.fullName.split(' ');
+              return (names[0][0] + (names[1]?.[0] || '')).toUpperCase();
+            }) || [];
 
           const startWeek = task.startDate ? getWeekNumber(parseDate(task.startDate), minDate) : 0;
           const endWeek = task.endDate ? getWeekNumber(parseDate(task.endDate), minDate) : startWeek + 1;
