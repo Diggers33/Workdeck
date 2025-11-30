@@ -11,7 +11,9 @@
  * - POST /commands/sync/forgot-password - Forgot password
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.workdeck.com';
+import { API_BASE_URL } from '../config/apiConfig';
+
+const API_URL = API_BASE_URL;
 
 // Storage keys (matching existing Angular implementation)
 const TOKEN_KEY = 'api-token';

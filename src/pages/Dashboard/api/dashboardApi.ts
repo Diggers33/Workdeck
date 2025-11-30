@@ -4,8 +4,7 @@
  */
 
 import { getAuthHeaders } from '../../../services/authService';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://test-api.workdeck.com';
+import { API_BASE_URL } from '../../../config/apiConfig';
 
 // Response wrapper type
 interface ApiResponse<T> {
@@ -284,7 +283,7 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit & { timeout?:
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  const fullUrl = `${API_URL}${endpoint}`;
+  const fullUrl = `${API_BASE_URL}${endpoint}`;
   const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
 
   // Debug: Log request start
