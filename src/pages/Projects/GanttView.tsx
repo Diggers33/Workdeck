@@ -41,12 +41,6 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
     return Math.floor(diffDays / 7);
   }
 
-  // Helper function to format date for week label
-  function formatWeekLabel(date: Date): string {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getDate()}`;
-  }
-
   // Load current project and tasks
   useEffect(() => {
     async function loadGanttData() {
@@ -55,21 +49,14 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         const { getProjects, getProjectActivities } = await import('../../services/projectsApi');
         const { getTasks } = await import('../../services/tasksApi');
         const { getMilestones } = await import('../../services/milestonesApi');
-        const { getCurrentUser } = await import('../../services/usersApi');
 
         console.log('Loading Gantt data...');
         
-        // Get current user and projects
-        const [user, projects] = await Promise.all([
-          getCurrentUser().catch(err => {
-            console.error('Error loading user:', err);
-            return null;
-          }),
-          getProjects().catch(err => {
-            console.error('Error loading projects:', err);
-            return [];
-          }),
-        ]);
+        // Get projects
+        const projects = await getProjects().catch(err => {
+          console.error('Error loading projects:', err);
+          return [];
+        });
 
         console.log('Projects loaded:', projects.length);
 
@@ -220,7 +207,6 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         }
 
         const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
-        const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
         
         // Set project start date for week calculation
         setProjectStartDate(minDate);
@@ -278,7 +264,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           const hoursColor = progress > 100 ? '#F87171' : progress > 0 ? '#34D399' : '#9CA3AF';
           
           // Get participant avatars
-          const avatars = task.participants?.slice(0, 3).map(p => {
+          const avatars = task.participants?.slice(0, 3).map((p: any) => {
             const names = p.user.fullName.split(' ');
             return (names[0][0] + (names[1]?.[0] || '')).toUpperCase();
           }) || [];
@@ -314,8 +300,9 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         milestones.forEach(milestone => {
           if (milestone.task?.id) {
             // Task milestone - find the task and add milestone
+            const taskId = milestone.task.id;
             for (const activity of activitiesMap.values()) {
-              const task = activity.children.find((t: any) => t.id === milestone.task.id);
+              const task = activity.children.find((t: any) => t.id === taskId);
               if (task) {
                 if (!task.milestones) task.milestones = [];
                 const taskEndWeek = task.startWeek + task.durationWeeks;
@@ -702,7 +689,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           setProjectPanelTab('files');
           setProjectPanelOpen(true);
         }}
-        onEditProject={onEditProject}
+        onEditProject={onEditProject ? () => onEditProject(currentProjectId || '') : undefined}
       />
 
       {/* TOOLBAR - 52px */}
@@ -828,6 +815,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
               weeks={weeks}
               timeResolution={timeResolution}
               zoomLevel={zoomLevel}
+              onScroll={handleTimelineHeaderScroll}
             />
           </div>
         </div>
@@ -886,7 +874,7 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
         initialTab={projectPanelTab}
       />
 
-      <style jsx>{`
+      <style>{`
         @keyframes pulse {
           0%, 100% {
             opacity: 1;
