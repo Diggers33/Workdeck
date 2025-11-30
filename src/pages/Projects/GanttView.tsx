@@ -14,7 +14,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { getProjects, getProjectActivities, getGanttData } from '../../services/projectsApi';
 import { getTasks } from '../../services/tasksApi';
 import { getMilestones } from '../../services/milestonesApi';
-import { getTimesheets } from '../../services/timesheetsApi';
+import { getEvents } from '../../services/eventsApi';
 export function GanttView({ onEditProject, onBackToTriage, onBoardClick, projectId, projectName }: { onEditProject?: (id: string) => void; onBackToTriage: () => void; onBoardClick?: () => void; projectId?: string; projectName?: string }) {
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set(['myTasks']));
@@ -202,8 +202,8 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
           return [];
         });
 
-        // Load timesheets to calculate spent hours for tasks
-        let timesheets: any[] = [];
+        // Load calendar events to calculate spent hours for tasks (Workdeck records time via calendar)
+        let calendarEvents: any[] = [];
         try {
           // Get project date range for timesheet query
           const projectStart = project.startDate ? parseDate(project.startDate) : new Date();
@@ -233,28 +233,30 @@ export function GanttView({ onEditProject, onBackToTriage, onBoardClick, project
             return `${day}/${month}/${year}`;
           };
           
-          timesheets = await getTimesheets(
+          calendarEvents = await getEvents(
             formatDateForAPI(timesheetStart),
-            formatDateForAPI(timesheetEnd),
-            undefined, // userId - undefined means all users
-            project.id
+            formatDateForAPI(timesheetEnd)
           );
-          console.log(`Loaded ${timesheets.length} timesheet entries for project`);
+          console.log(`Loaded ${calendarEvents.length} calendar events`);
         } catch (err) {
-          console.error('Error loading timesheets:', err);
+          console.error('Error loading calendar events:', err);
         }
 
         // Aggregate spent hours by task ID
         const spentHoursByTask = new Map<string, number>();
-        timesheets.forEach(timesheet => {
-          const taskId = timesheet.task?.id;
+        calendarEvents.forEach(event => {
+          if (!event.timesheet) return; // Only count events flagged as timesheet entries
+          const taskId = event.task?.id;
           if (taskId) {
-            const hours = parseFloat(timesheet.hours || '0');
+            const start = event.startAt ? new Date(event.startAt) : null;
+            const end = event.endAt ? new Date(event.endAt) : null;
+            if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return;
+            const durationHours = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60));
             const current = spentHoursByTask.get(taskId) || 0;
-            spentHoursByTask.set(taskId, current + hours);
+            spentHoursByTask.set(taskId, current + durationHours);
           }
         });
-        console.log(`Calculated spent hours for ${spentHoursByTask.size} tasks`);
+        console.log(`Calculated spent hours from calendar for ${spentHoursByTask.size} tasks`);
 
         console.log('Final apiTasks count:', apiTasks.length);
         
